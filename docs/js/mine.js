@@ -1113,18 +1113,13 @@
         const j = await r.json().catch(() => ({}));
         if (r.ok) {
           const { liked, likes } = pick(j) || pick(j.item) || pick(j.data) || {};
-          // 1) 내 로컬 기록이 이미 있으면 그대로 존중(=store를 덮지 않음)
+          // ✅ 항상 서버 스냅샷을 스토어에 병합(개수=c는 서버 권위, 의도=l은 내 계정 우선)
+          try { window.setLikeFromServer?.(id, liked, likes); } catch {}
+
+          // ✅ UI: 카운트는 서버값 우선, 의도는 로컬>서버
           const rec = (typeof window.getLikeIntent === "function") ? window.getLikeIntent(id) : null;
-
-          // 2) 로컬 기록이 *없을 때만* 서버 스냅샷으로 seed
-          if (!rec) {
-            if (typeof likes === "number") { try { window.setLikeCountOnly?.(id, likes); } catch {} }
-            if (typeof liked === "boolean") { try { window.setLikeIntent?.(id, liked, likes); } catch {} }
-          }
-
-          // 3) UI는 로컬>서버 우선순위로 반영
-          const useLiked = rec?.liked ?? liked;
-          const useLikes = (typeof rec?.likes === "number") ? rec.likes : likes;
+          const useLiked = (rec?.liked !== undefined) ? rec.liked : liked;
+          const useLikes = (typeof likes === "number") ? likes : rec?.likes;
           applyUI(id, useLiked, useLikes);
           return;
         }
@@ -1174,15 +1169,14 @@
       frag.appendChild(card);
       try { renderCountFromStore(id, card); } catch {}
             // [ADD] 캐시 우선: 페이지가 새로 뜨거나 돌아왔을 때도 사용자의 like 상태/카운트 유지
+      // ✅ 초기 렌더에서는 '의도(liked)'만 로컬에서 복원, '카운트'는 스토어/서버 권위 유지
       try {
-        const viewerNS = (window.getNS ? getNS() : "default");
         const rec = (typeof window.getLikeIntent === "function") ? window.getLikeIntent(id) : null;
-      if (rec) {
-        const likes = (typeof rec.likes === "number" ? rec.likes : it.likes);
-        try { updateLikeUIEverywhere(id, rec.liked, likes); } catch {}
-        try { setFeedMemoryLike(id, rec.liked, likes); } catch {}
-        try { window.setLikeIntent?.(id, rec.liked, likes); } catch {}
-      }
+        if (rec && typeof rec.liked === "boolean") {
+          try { updateLikeUIEverywhere(id, rec.liked, /*likes*/ undefined); } catch {}
+          try { setFeedMemoryLike(id, rec.liked, /*likes*/ undefined); } catch {}
+          try { window.setLikeIntent?.(id, rec.liked, /*likes*/ undefined); } catch {}
+        }
       } catch {}
 
     FEED.idxById.set(id, FEED.items.length);
