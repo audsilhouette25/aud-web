@@ -30,16 +30,43 @@
     }
   }
 
+  // === [추가] API 오리진 리라이트 ===========================================
+  // - window.PROD_BACKEND > window.API_BASE > 그대로
+  // - /api/... 상대경로만 대상, 절대 URL이나 다른 경로는 건드리지 않음
+  function rewriteApiOrigin(u) {                // ⬅ 추가
+    try {
+      const api = (window.PROD_BACKEND || window.API_BASE || "").trim();
+      if (!api) return u;
+
+      const inUrl = new URL(u, location.href);
+      const path  = inUrl.pathname.replace(/^\//, "");
+      const looksApi = path.startsWith("api/"); // "/api/..." 만 리라이트
+
+      if (!looksApi) return u;
+
+      const base = api.replace(/\/+$/, "");     // 끝 슬래시 제거
+      const out  = new URL(base, inUrl);        // 오리진만 교체
+      out.pathname = inUrl.pathname;
+      out.search   = inUrl.search;
+      out.hash     = inUrl.hash;
+      return out.toString();
+    } catch {
+      return u;
+    }
+  }
+  // ========================================================================
+
   // ── fetch 패치
   const _fetch = window.fetch.bind(window);
   window.fetch = function(input, init) {
     init = init || {};
 
-    // URL 정규화
+    // URL 정규화 + 오리진 리라이트
     if (typeof input === "string") {
-      input = normalizeIdInUrl(input);
+      input = rewriteApiOrigin(normalizeIdInUrl(input));      // ⬅ 추가: 리라이트
     } else if (input instanceof Request) {
-      input = new Request(normalizeIdInUrl(input.url), input);
+      const nu = rewriteApiOrigin(normalizeIdInUrl(input.url)); // ⬅ 추가: 리라이트
+      input = new Request(nu, input);
     }
 
     // 헤더 승격
