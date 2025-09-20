@@ -1026,8 +1026,12 @@
     if (!Array.isArray(ids) || !ids.length) return;
 
     const pick = (o) => {
-      const liked = o?.liked ?? o?.like ?? o?.liked_by_me ?? o?.item?.liked ?? o?.data?.liked ?? null;
-      const likes = o?.likes ?? o?.like_count ?? o?.hearts ?? o?.item?.likes ?? o?.data?.likes ?? null;
+      const liked = o?.liked ?? o?.like ?? o?.liked_by_me
+                ?? o?.item?.liked ?? o?.data?.liked ?? null;
+      const likes = o?.likes ?? o?.like_count ?? o?.likeCount ?? o?.hearts
+                ?? o?.item?.likes ?? o?.item?.like_count ?? o?.item?.likeCount
+                ?? o?.data?.likes ?? o?.data?.like_count ?? o?.data?.likeCount
+                ?? null;
       return {
         liked: (typeof liked === "boolean") ? liked : null,
         likes: (typeof likes === "number") ? Math.max(0, likes) : null
@@ -1318,37 +1322,115 @@
       headers: body ? { 'Content-Type':'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined
     });
-    const bases = ['items','gallery'];
-    for (const b of bases){
-      const u = `/api/${b}/${encodeURIComponent(id)}/like?ns=${encodeURIComponent(ns)}`;
-      let r = await api(u, await mk('PUT', { like: !!wantLike }));
-      if (!r?.ok && wantLike === false) r = await api(u, await mk('DELETE'));
-      if (r?.ok){
-        let j={}; try{ if (r.status!==204) j = await r.json(); }catch{}
-        const liked = j?.liked ?? j?.item?.liked ?? j?.data?.liked;
-        const likes = j?.likes ?? j?.item?.likes ?? j?.data?.likes;
-        return { liked: (typeof liked==='boolean'? liked : null), likes: (typeof likes==='number'? likes : null) };
+
+    // 공통 파서: likeCount(카멜), like_count(스네이크) 모두 흡수
+    const parse = async (r) => {
+      let j = {};
+      try { if (r && r.status !== 204) j = await r.clone().json(); } catch {}
+      const liked = j?.liked ?? j?.item?.liked ?? j?.data?.liked ?? null;
+      const likes =
+        j?.likes ??
+        j?.likeCount ?? j?.like_count ??
+        j?.item?.likes ?? j?.item?.likeCount ?? j?.item?.like_count ??
+        j?.data?.likes ?? j?.data?.likeCount ?? j?.data?.like_count ??
+        null;
+      return { ok: !!r?.ok, status: r?.status ?? 0, liked: (typeof liked === 'boolean' ? liked : null),
+              likes: (typeof likes === 'number' ? Math.max(0, likes) : null) };
+    };
+
+    // 1) 신형: PUT /items/:id/like
+    let r = await parse(await api(
+      `/api/items/${encodeURIComponent(id)}/like?ns=${encodeURIComponent(ns)}`,
+      await mk('PUT', { like: !!wantLike })
+    ));
+
+    // ✅ 응답 검증: ok라도 의도와 다르면 실패로 간주
+    const aligned = (r.ok && (r.liked === null || r.liked === !!wantLike));
+    if (!aligned) {
+      if (wantLike === false) {
+        // 2) unlike는 DELETE 우선
+        r = await parse(await api(
+          `/api/items/${encodeURIComponent(id)}/like?ns=${encodeURIComponent(ns)}`,
+          await mk('DELETE')
+        ));
+        if (!(r.ok && (r.liked === null || r.liked === false))) {
+          // 3) gallery 폴백
+          r = await parse(await api(
+            `/api/gallery/${encodeURIComponent(id)}/like?ns=${encodeURIComponent(ns)}`,
+            await mk('DELETE')
+          ));
+        }
+      } else {
+        // like=true인데 미정렬이면 gallery PUT 폴백
+        r = await parse(await api(
+          `/api/gallery/${encodeURIComponent(id)}/like?ns=${encodeURIComponent(ns)}`,
+          await mk('PUT', { like: true })
+        ));
+      }
+
+      // 4) 아주 레거시 폴백
+      if (!(r.ok && (r.liked === null || r.liked === !!wantLike))) {
+        if (wantLike === false) {
+          r = await parse(await api(
+            `/api/unlike?item=${encodeURIComponent(id)}&ns=${encodeURIComponent(ns)}`,
+            await mk('POST')
+          ));
+        } else {
+          r = await parse(await api(
+            `/api/like?item=${encodeURIComponent(id)}&ns=${encodeURIComponent(ns)}`,
+            await mk('POST')
+          ));
+        }
       }
     }
-    return {};
-  }
 
+    // 서버 권위 카운트 병합
+    if (typeof r.likes === 'number') {
+      try { window.setLikeFromServer?.(id, r.liked, r.likes); } catch {}
+      try { window.renderCountFromStore?.(id); } catch {}
+    }
+    return { liked: (typeof r.liked==='boolean'? r.liked : null),
+            likes: (typeof r.likes==='number'? r.likes : null) };
+  }
+  // === REPLACE: fetchSnapshot (robust parser: likes | likeCount | like_count | hearts) ===
   async function fetchSnapshot(id, ns){
-    const tryGet = async (u)=>{
-      try{
-        const r = await api(u, { credentials:'include', cache:'no-store' });
-        const j = await r.json().catch(()=>({}));
-        if (!r.ok) return null;
-        const liked = j?.liked ?? j?.item?.liked ?? j?.data?.liked;
-        const likes = j?.likes ?? j?.item?.likes ?? j?.data?.likes;
-        return {
-          liked: (typeof liked==='boolean'? liked : null),
-          likes: (typeof likes==='number'? Math.max(0, likes) : null)
-        };
-      }catch{ return null; }
+    // 공통 파서: 다양한 응답 스키마를 흡수해서 { liked, likes }로 정규화
+    const pick = (src) => {
+      const liked =
+        src?.liked ?? src?.like ?? src?.liked_by_me ??
+        src?.item?.liked ?? src?.data?.liked ?? null;
+
+      const likes =
+        src?.likes ?? src?.likeCount ?? src?.like_count ?? src?.hearts ??
+        src?.item?.likes ?? src?.item?.likeCount ?? src?.item?.like_count ??
+        src?.data?.likes ?? src?.data?.likeCount ?? src?.data?.like_count ??
+        null;
+
+      return {
+        liked: (typeof liked === 'boolean') ? liked : null,
+        likes: (typeof likes === 'number') ? Math.max(0, likes) : null
+      };
     };
-    return (await tryGet(`/api/items/${encodeURIComponent(id)}?ns=${encodeURIComponent(ns)}`))
-        || (await tryGet(`/api/gallery/${encodeURIComponent(id)}?ns=${encodeURIComponent(ns)}`))
+
+    const tryGet = async (u) => {
+      try {
+        const r = await api(u, { credentials:'include', cache:'no-store' });
+        // 일부 환경은 204(No Content) 반환 → 안전 처리
+        let j = {};
+        try { if (r && r.status !== 204) j = await r.json(); } catch {}
+        if (!r || !r.ok) return null;
+        // 본문 루트/중첩(item|data)에서 순차 픽업
+        return pick(j) || pick(j.item) || pick(j.data) || { liked:null, likes:null };
+      } catch {
+        return null;
+      }
+    };
+
+    const q = `ns=${encodeURIComponent(ns)}`;
+    const pid = encodeURIComponent(id);
+
+    return (await tryGet(`/api/items/${pid}?${q}`))
+        || (await tryGet(`/api/gallery/${pid}?${q}`))
         || null;
   }
 
