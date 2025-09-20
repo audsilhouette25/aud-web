@@ -340,9 +340,15 @@
   function writeProfileCache(detail) {
     const ns  = getNS();
     const uid = detail?.id ?? MY_UID ?? "anon";
-    const payload = JSON.stringify({ ns, ...(detail || {}) });
+
+    // ☆ email / displayName 보강
+    const email = detail?.email ?? ME_STATE?.email ?? "";
+    const displayName = detail?.displayName ?? detail?.name ?? ME_STATE?.displayName ?? "member";
+    const payload = JSON.stringify({ ns, email, displayName, ...(detail || {}) });
+
     const kUID = `${PROFILE_KEY_PREFIX}:${ns}:${uid}`;
     const kNS  = `${PROFILE_KEY_PREFIX}:${ns}`;
+
     try { sessionStorage.setItem(kUID, payload); } catch {}
     try { localStorage.setItem(kUID,  payload); } catch {}
     try { sessionStorage.setItem(kNS,  payload); } catch {}
@@ -450,6 +456,7 @@
       id,
       displayName: ME_STATE.displayName || me?.user?.displayName || me?.user?.name || "member",
       avatarUrl:   ME_STATE.avatarUrl || "",
+      email:       ME_STATE.email || me?.user?.email || me?.email || "", 
       ...patch,
       rev: Date.now(),
     };
@@ -490,6 +497,14 @@
     ME_STATE.displayName = nm;
     ME_STATE.email = email || "";
     ME_STATE.avatarUrl = avatarUrl || "";
+
+    // ☆ 전역 아이덴티티 맵에 기록 (ns = auth:userns)
+    try {
+      const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+      if (window.setNSIdentity && ns && ns !== "default") {
+        window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
+      }
+    } catch {}
 
     const nameEl  = $("#me-name");  if (nameEl)  nameEl.textContent  = nm;
     const emailEl = $("#me-email"); if (emailEl) emailEl.textContent = email || "";

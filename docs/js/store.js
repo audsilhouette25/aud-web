@@ -307,6 +307,57 @@ function openBC(name){
 }
 bc = openBC(BC_NAME);
 
+// === Identity Map (ns → { email, name/displayName, avatarUrl }) =================
+const IDENTITIES_KEY = "user:identities";
+
+function __readIdentities(){
+  try { return JSON.parse(localStorage.getItem(IDENTITIES_KEY) || "{}") || {}; }
+  catch { return {}; }
+}
+
+function __writeIdentities(map){
+  try {
+    localStorage.setItem(IDENTITIES_KEY, JSON.stringify(map || {}));
+    window.dispatchEvent(new CustomEvent("identity:changed", { detail: map }));
+  } catch {}
+}
+
+/**
+ * ns로 조회
+ * @param {string} ns
+ * @returns {{ email?:string, name?:string, displayName?:string, avatarUrl?:string, updatedAt?:number }|null}
+ */
+function getNSIdentity(ns){
+  if (!ns) return null;
+  const m = __readIdentities();
+  return m[String(ns).toLowerCase()] || null;
+}
+
+/**
+ * ns에 저장(병합)
+ * @param {string} ns
+ * @param {{ email?:string, name?:string, displayName?:string, avatarUrl?:string }} data
+ */
+function setNSIdentity(ns, data){
+  if (!ns || !data || typeof data!=="object") return;
+  const key = String(ns).toLowerCase();
+  const m = __readIdentities();
+  const prev = m[key] || {};
+  m[key] = {
+    ...prev,
+    ...data,
+    // name/displayName 어느 쪽이 와도 표시명은 displayName에 일원화
+    displayName: (data.displayName ?? data.name ?? prev.displayName ?? prev.name ?? "member"),
+    updatedAt: Date.now()
+  };
+  __writeIdentities(m);
+}
+
+// 전역 노출
+window.getNSIdentity = getNSIdentity;
+window.setNSIdentity = setNSIdentity;
+
+
 function getUserNS(){
   // 인증 안됐으면 항상 default
   try { if (!(hasAuthedFlag() || (window.auth?.isAuthed?.()))) return "default"; } catch {}
