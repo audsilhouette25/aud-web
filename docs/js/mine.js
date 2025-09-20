@@ -212,8 +212,8 @@
     const t = await ensureCSRF();
     const headers = new Headers(opt.headers || {});
     if (t) {
-      headers.set("X-CSRF-Token", t);      // 일부 프레임워크는 대소문자 다룸
-      headers.set("X-XSRF-TOKEN", t);      // Angular 스타일
+      headers.set("X-CSRF-Token", t);
+      headers.set("X-XSRF-TOKEN", t);
     }
     return { ...opt, headers };
   }
@@ -227,7 +227,6 @@
         : u.toString();
     } catch { return p; }
   };
-
 
   /* =========================================================
   * AVATAR UTIL (profile-ready; no 404; future-proof)
@@ -1147,14 +1146,16 @@
 
       const wrap = document.createElement("div");
       const _it = coerceUserFromItem(it);
+
+      // ★ 여기서 카드 마크업을 만든다
       wrap.innerHTML = cardHTML(_it);
       const card = wrap.firstElementChild;
 
-      // caption 텍스트 주입 (버그 수정: card 참조 순서)
+      // ★ [넣어둔 블럭 1/3] 캡션 텍스트 주입 (버그 수정: card 참조 순서)
       const cap = card.querySelector('[data-caption]');
       if (cap) cap.textContent = String(it.caption || it.text || "");
 
-      // 이미지 에러 핸들링 → placeholder 배경만 노출
+      // ★ [넣어둔 블럭 2/3] 이미지 에러 핸들링 → placeholder 배경만 노출
       const img = card.querySelector(".media img");
       if (img) {
         img.addEventListener("error", () => {
@@ -1164,12 +1165,16 @@
         }, { once: true });
       }
 
+      // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)
       try { upgradeHeartIconIn(card); } catch {}
 
+      // DOM 조각에 카드 추가
       frag.appendChild(card);
+
+      // ★ [넣어둔 블럭 3/3] store 카운트 반영(값 있을 때만)
       try { renderCountFromStore(id, card); } catch {}
-            // [ADD] 캐시 우선: 페이지가 새로 뜨거나 돌아왔을 때도 사용자의 like 상태/카운트 유지
-      // ✅ 초기 렌더에서는 '의도(liked)'만 로컬에서 복원, '카운트'는 스토어/서버 권위 유지
+
+      // ★ 로컬에 저장된 '의도(liked)'만 복원(카운트는 스토어/서버 권위 유지)
       try {
         const rec = (typeof window.getLikeIntent === "function") ? window.getLikeIntent(id) : null;
         if (rec && typeof rec.liked === "boolean") {
@@ -1179,15 +1184,21 @@
         }
       } catch {}
 
-    FEED.idxById.set(id, FEED.items.length);
-    FEED.items.push(_it);
+      // === FEED 인덱스/배열 갱신 (★ 이 위치가 맞다) ===
+      FEED.idxById.set(id, FEED.items.length);
+      FEED.items.push(_it);
 
       newIds.push(id);
     }
+
+    // 그리드에 한 번에 붙임
     grid.appendChild(frag);
+
+    // 새로 붙은 id들 소켓 구독 + 유휴시 서버 스냅샷 보정
     if (newIds.length) subscribeItems(newIds);
     idle(() => rehydrateLikesFor(newIds));
 
+    // 내 게시물 삭제버튼 표시 재조정
     try { reconcileDeleteButtons(); } catch {}
   }
 
