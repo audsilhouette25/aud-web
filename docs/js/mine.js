@@ -1535,52 +1535,56 @@
     return false;
   }
 
-  // [ADD] 공개 프로필 보강 헬퍼: user.id 로 이름/아바타를 끌어온다.
+
+  // 설정: 서버에 프로필 API를 만들면 페이지 어디서든 이렇게 켜주면 됨.
+  //   window.PROFILE_ENDPOINTS = ['/api/users/:id', '/api/profiles/:id'];
+  const PROFILE_ENDPOINTS = (window.PROFILE_ENDPOINTS || []).filter(Boolean);
+
+  // 한번 404 나면 전역으로 비활성화
+  let __PROFILE_API_SUPPORTED = PROFILE_ENDPOINTS.length > 0 ? null : false;
+
   async function fetchAuthorProfileById(uid) {
     if (!uid) return null;
 
-    const pickUser = (obj) => {
-      const u = obj?.user || obj?.data?.user || obj?.item?.user || obj || {};
-      const email =
-        u.email ??
-        u.emails?.[0]?.value ??
-        obj?.email ?? obj?.data?.email ?? obj?.item?.email ?? null;
+    // 아직 지원 여부 미정이고, 후보 엔드포인트가 없다면 바로 “없음”
+    if (PROFILE_ENDPOINTS.length === 0) {
+      __PROFILE_API_SUPPORTED = false;
+      return null;
+    }
 
-      const avatar =
-        u.avatarUrl || u.avatar || u.picture || u.imageUrl || u.image_url || u.photo || null;
+    // 이미 “없음”으로 판정났으면 재시도하지 않음
+    if (__PROFILE_API_SUPPORTED === false) return null;
 
-      const displayName = u.displayName || u.name || obj?.displayName || obj?.name || null;
-
-      const id = u.id ?? u.sub ?? obj?.id ?? null;
-
-      return {
-        id: id ? String(id) : null,
-        displayName: displayName || null,
-        email: email || null,
-        avatarUrl: avatar || null
-      };
-    };
-
-    // 가능한 공개/내부 엔드포인트들을 순차 시도 (있는 것만 성공)
-    const paths = [
-      `/api/users/${encodeURIComponent(uid)}`,
-      `/api/user/${encodeURIComponent(uid)}`,
-      `/api/profiles/${encodeURIComponent(uid)}`,
-      `/api/profile/${encodeURIComponent(uid)}`,
-      `/auth/user?id=${encodeURIComponent(uid)}`
-    ];
-
-    for (const p of paths) {
+    // 후보 경로들 순차 시도
+    for (const tpl of PROFILE_ENDPOINTS) {
+      const url = tpl.replace(':id', encodeURIComponent(uid));
       try {
-        const r = await (window.auth?.apiFetch ? window.auth.apiFetch(p, { credentials: "include", cache: "no-store" })
-                                              : fetch(p, { credentials: "include", cache: "no-store" }));
+        const r = await (window.auth?.apiFetch ? window.auth.apiFetch(url, { credentials:'include', cache:'no-store' })
+                                              : fetch(url, { credentials:'include', cache:'no-store' }));
+        if (r.status === 404) {
+          // 첫 후보부터 404면 더 안 두들김 → 전역 비활성화
+          __PROFILE_API_SUPPORTED = false;
+          return null;
+        }
         const j = await r.json().catch(()=> ({}));
         if (!r.ok) continue;
-        const u = pickUser(j);
-        // 최소한 이름이나 아바타 중 한 개라도 얻으면 성공으로 본다.
-        if (u.displayName || u.avatarUrl || u.email) return u;
+
+        const u = j?.user || j?.data?.user || j?.item?.user || j || {};
+        const picked = {
+          id:        String(u.id ?? u.sub ?? ''),
+          displayName: u.displayName || u.name || null,
+          email:       u.email || u.emails?.[0]?.value || null,
+          avatarUrl:   u.avatarUrl || u.avatar || u.picture || u.imageUrl || u.image_url || u.photo || null,
+        };
+        if (picked.displayName || picked.avatarUrl || picked.email) {
+          __PROFILE_API_SUPPORTED = true;
+          return picked;
+        }
       } catch {}
     }
+
+    // 모든 후보 실패
+    __PROFILE_API_SUPPORTED = false;
     return null;
   }
 
@@ -2694,14 +2698,15 @@
         (minePost && (profSnap?.id || getMeId())) ||
         '';
 
+      const emailName = (item?.user?.email || '').split('@')[0] || '';
       const name = (minePost && profSnap?.displayName)
         ? profSnap.displayName
-        : (item?.user?.displayName || item?.user?.name || 'member');
+        : (item?.user?.displayName || item?.user?.name || emailName || 'member');
 
       const avatarSrc = (minePost && profSnap?.avatarUrl)
         ? profSnap.avatarUrl
         : Avatar.fromUserObject(item?.user);
-      const avatar = Avatar.resolve(avatarSrc, name);
+      const avatar = Avatar.resolve(avatarSrc, name || emailName || 'member');
       return `
       <article class="feed-card pm-split" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}">
         <div class="pm-layout">
