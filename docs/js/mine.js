@@ -1305,7 +1305,10 @@
 
   function likeTargetOf(card){
     const id = card?.dataset?.id; if (!id) return null;
-    const ns = card?.dataset?.ns || getNS();
+    const ns =
+      card?.dataset?.ns
+      || (typeof ownerNSOf === 'function' && ownerNSOf(String(id)))
+      || getNS();
     return { id:String(id), ns:String(ns) };
   }
 
