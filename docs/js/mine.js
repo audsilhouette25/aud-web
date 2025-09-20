@@ -647,154 +647,154 @@
   /* =========================================================
    * 8) FEED CORE (state, fetch, cards, like, vote)
    * ========================================================= */
-/* === HEART UI (single source of truth) =====================================
- * - 모든 하트는 동일 path(HEART_D) 사용
- * - 그리드(읽기전용)는 항상 외곽선(white via currentColor)
- * - 모달(토글)은 눌림=빨강 채움, 해제=회색 외곽선
- * - 기존 .ico-heart 마스크 아이콘은 자동 교체
- * ==========================================================================*/
-(() => {
-  const HEART_RED = "#E53935";
-  // 하트 path 상수만 교체
-  const HEART_D =
-    "M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z"; // ← 끝 대문자 Z(닫힘)!
+  /* === HEART UI (single source of truth) =====================================
+  * - 모든 하트는 동일 path(HEART_D) 사용
+  * - 그리드(읽기전용)는 항상 외곽선(white via currentColor)
+  * - 모달(토글)은 눌림=빨강 채움, 해제=회색 외곽선
+  * - 기존 .ico-heart 마스크 아이콘은 자동 교체
+  * ==========================================================================*/
+  (() => {
+    const HEART_RED = "#E53935";
+    // 하트 path 상수만 교체
+    const HEART_D =
+      "M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z"; // ← 끝 대문자 Z(닫힘)!
 
-  function makeSVG() {
-    const svg  = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("aria-hidden", "true");
-    svg.setAttribute("focusable", "false");
-    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-    path.setAttribute("d", HEART_D);
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", "#777");
-    path.setAttribute("stroke-width", "1.3");
-    svg.appendChild(path);
-    return svg;
-  }
-
-  // 읽기 전용(그리드) 하트: 항상 외곽선(hover-ui가 color: #fff → stroke=currentColor)
-  function paintReadOnly(svgOrBtn){
-    const svg  = (svgOrBtn instanceof SVGSVGElement) ? svgOrBtn
-               : svgOrBtn?.querySelector?.("svg") || svgOrBtn;
-    const path = svg?.querySelector?.("path"); if (!path) return;
-    path.setAttribute("d", HEART_D);
-    path.setAttribute("fill", "currentColor");
-    path.setAttribute("stroke", "currentColor");
-    path.setAttribute("stroke-width", "1.5");
-    path.style.setProperty("fill","currentColor","important");
-    path.style.setProperty("stroke","currentColor","important");
-    path.style.setProperty("stroke-width","1.5","important");
-  }
-
-  // 토글(모달) 하트: pressed=true → 빨강 채움 / false → 회색 외곽선
-  function setHeartVisual(target, pressed){
-    const svg  = (target instanceof SVGSVGElement) ? target
-               : target?.querySelector?.("svg") || target;
-    const path = svg?.querySelector?.("path");
-    const btn  = (target instanceof SVGSVGElement) ? target.closest?.(".btn-like") : target;
-    if (btn) {
-      btn.classList.toggle("is-liked", !!pressed);
-      btn.setAttribute("aria-pressed", String(!!pressed));
-    }
-    if (!path) return;
-
-    // 그리드의 읽기전용 하트는 언제나 외곽선 고정
-    if (svg.closest?.('.stat[data-like-readonly]')) {
-      paintReadOnly(svg);
-      return;
-    }
-
-    path.setAttribute("d", HEART_D);
-    if (pressed) {
-      path.style.setProperty("fill", HEART_RED, "important");
-      path.style.setProperty("stroke", HEART_RED, "important");
-      path.style.setProperty("stroke-width", "0", "important");
-      path.setAttribute("fill", HEART_RED);
-      path.setAttribute("stroke", HEART_RED);
-      path.setAttribute("stroke-width", "0");
-    } else {
-      path.style.setProperty("fill", "none", "important");
-      path.style.setProperty("stroke", "#777", "important");
-      path.style.setProperty("stroke-width", "1.5", "important");
+    function makeSVG() {
+      const svg  = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("focusable", "false");
+      const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+      path.setAttribute("d", HEART_D);
       path.setAttribute("fill", "none");
       path.setAttribute("stroke", "#777");
+      path.setAttribute("stroke-width", "1.3");
+      svg.appendChild(path);
+      return svg;
+    }
+
+    // 읽기 전용(그리드) 하트: 항상 외곽선(hover-ui가 color: #fff → stroke=currentColor)
+    function paintReadOnly(svgOrBtn){
+      const svg  = (svgOrBtn instanceof SVGSVGElement) ? svgOrBtn
+                : svgOrBtn?.querySelector?.("svg") || svgOrBtn;
+      const path = svg?.querySelector?.("path"); if (!path) return;
+      path.setAttribute("d", HEART_D);
+      path.setAttribute("fill", "currentColor");
+      path.setAttribute("stroke", "currentColor");
       path.setAttribute("stroke-width", "1.5");
+      path.style.setProperty("fill","currentColor","important");
+      path.style.setProperty("stroke","currentColor","important");
+      path.style.setProperty("stroke-width","1.5","important");
     }
 
-  try {
-    if (!pressed && path && path.isConnected) {
-      const p2 = path.cloneNode(true);
-      path.replaceWith(p2);
-    }
-  } catch {}
-  }
-
-  // 문서(또는 컨테이너) 내 아이콘 업그레이드: .ico-heart → SVG 교체
-  function upgradeHeartIconIn(root = document) {
-    const rootNode = root || document;
-
-    // 모달(토글) 버튼
-    rootNode.querySelectorAll(".btn-like").forEach((btn) => {
-      let svg = btn.querySelector("svg");
-      if (!svg) {
-        const repl = btn.querySelector(".ico-heart");
-        svg = makeSVG();
-        if (repl) repl.replaceWith(svg); else btn.prepend(svg);
+    // 토글(모달) 하트: pressed=true → 빨강 채움 / false → 회색 외곽선
+    function setHeartVisual(target, pressed){
+      const svg  = (target instanceof SVGSVGElement) ? target
+                : target?.querySelector?.("svg") || target;
+      const path = svg?.querySelector?.("path");
+      const btn  = (target instanceof SVGSVGElement) ? target.closest?.(".btn-like") : target;
+      if (btn) {
+        btn.classList.toggle("is-liked", !!pressed);
+        btn.setAttribute("aria-pressed", String(!!pressed));
       }
-      const pressed =
-        btn.getAttribute("aria-pressed") === "true" ||
-        btn.classList.contains("is-liked");
-      setHeartVisual(btn, pressed);
-    });
+      if (!path) return;
 
-    // 그리드(읽기전용) 카운터
-    rootNode.querySelectorAll(".stat[data-like-readonly]").forEach((stat) => {
-      let svg = stat.querySelector("svg");
-      if (!svg) {
-        const repl = stat.querySelector(".ico-heart");
-        svg = makeSVG();
-        if (repl) repl.replaceWith(svg); else stat.prepend(svg);
+      // 그리드의 읽기전용 하트는 언제나 외곽선 고정
+      if (svg.closest?.('.stat[data-like-readonly]')) {
+        paintReadOnly(svg);
+        return;
       }
-      paintReadOnly(svg);
-    });
-  }
 
-  // 충돌 방지용 최소 CSS 주입(동일 출처 시트 있으면 거기에, 없으면 <style>)
-  function ensureHeartCSS(){
-    if (ensureHeartCSS.__done) return; ensureHeartCSS.__done = true;
-    function writable(s){ try{ if (s.href) { const u = new URL(s.href, location.href); if (u.origin !== location.origin) return false; } void s.cssRules; return true; } catch { return false; } }
-    let sheet = null;
+      path.setAttribute("d", HEART_D);
+      if (pressed) {
+        path.style.setProperty("fill", HEART_RED, "important");
+        path.style.setProperty("stroke", HEART_RED, "important");
+        path.style.setProperty("stroke-width", "0", "important");
+        path.setAttribute("fill", HEART_RED);
+        path.setAttribute("stroke", HEART_RED);
+        path.setAttribute("stroke-width", "0");
+      } else {
+        path.style.setProperty("fill", "none", "important");
+        path.style.setProperty("stroke", "#777", "important");
+        path.style.setProperty("stroke-width", "1.5", "important");
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#777");
+        path.setAttribute("stroke-width", "1.5");
+      }
+
     try {
-      const list = Array.from(document.styleSheets || []);
-      sheet = list.find(s => writable(s) && /\/mine\.css(\?|$)/.test(s.href || "")) ||
-              list.find(s => writable(s)) || null;
+      if (!pressed && path && path.isConnected) {
+        const p2 = path.cloneNode(true);
+        path.replaceWith(p2);
+      }
     } catch {}
-    if (!sheet) {
-      const tag = document.createElement("style");
-      tag.id = "mine-heart-rules";
-      document.head.appendChild(tag);
-      sheet = tag.sheet;
     }
-    const add = (r) => { try { sheet.insertRule(r, sheet.cssRules.length); } catch {} };
 
-    add(`.btn-like .ico-heart{ display:none !important; }`);
-    add(`.sticky-foot .btn-like{ min-width:max(44px,28px); min-height:max(44px,28px); padding:0; line-height:0; -webkit-tap-highlight-color:transparent; display:flex; align-items:center; justify-content:flex-start; text-align:left; }`);
-    add(`.sticky-foot .btn-like svg{ width:28px !important; height:28px !important; display:block; }`);
-    add(`.sticky-foot .btn-like svg path, .feed-card .hover-ui .stat svg path{
-      transition: fill .15s, stroke .15s;
-      stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
-    }`);
-    add(`.post-modal .sticky-foot, .post-modal .sticky-foot *, .sticky-foot .btn-like, .sticky-foot .btn-like svg, .sticky-foot .btn-like svg path{
-      filter:none !important; mix-blend-mode:normal !important; opacity:1 !important;
-    }`);
-  }
+    // 문서(또는 컨테이너) 내 아이콘 업그레이드: .ico-heart → SVG 교체
+    function upgradeHeartIconIn(root = document) {
+      const rootNode = root || document;
 
-  // 전역 노출(다른 코드에서 호출)
-  window.setHeartVisual = setHeartVisual;
-  window.upgradeHeartIconIn = upgradeHeartIconIn;
-  window.ensureHeartCSS = ensureHeartCSS;
-})();
+      // 모달(토글) 버튼
+      rootNode.querySelectorAll(".btn-like").forEach((btn) => {
+        let svg = btn.querySelector("svg");
+        if (!svg) {
+          const repl = btn.querySelector(".ico-heart");
+          svg = makeSVG();
+          if (repl) repl.replaceWith(svg); else btn.prepend(svg);
+        }
+        const pressed =
+          btn.getAttribute("aria-pressed") === "true" ||
+          btn.classList.contains("is-liked");
+        setHeartVisual(btn, pressed);
+      });
+
+      // 그리드(읽기전용) 카운터
+      rootNode.querySelectorAll(".stat[data-like-readonly]").forEach((stat) => {
+        let svg = stat.querySelector("svg");
+        if (!svg) {
+          const repl = stat.querySelector(".ico-heart");
+          svg = makeSVG();
+          if (repl) repl.replaceWith(svg); else stat.prepend(svg);
+        }
+        paintReadOnly(svg);
+      });
+    }
+
+    // 충돌 방지용 최소 CSS 주입(동일 출처 시트 있으면 거기에, 없으면 <style>)
+    function ensureHeartCSS(){
+      if (ensureHeartCSS.__done) return; ensureHeartCSS.__done = true;
+      function writable(s){ try{ if (s.href) { const u = new URL(s.href, location.href); if (u.origin !== location.origin) return false; } void s.cssRules; return true; } catch { return false; } }
+      let sheet = null;
+      try {
+        const list = Array.from(document.styleSheets || []);
+        sheet = list.find(s => writable(s) && /\/mine\.css(\?|$)/.test(s.href || "")) ||
+                list.find(s => writable(s)) || null;
+      } catch {}
+      if (!sheet) {
+        const tag = document.createElement("style");
+        tag.id = "mine-heart-rules";
+        document.head.appendChild(tag);
+        sheet = tag.sheet;
+      }
+      const add = (r) => { try { sheet.insertRule(r, sheet.cssRules.length); } catch {} };
+
+      add(`.btn-like .ico-heart{ display:none !important; }`);
+      add(`.sticky-foot .btn-like{ min-width:max(44px,28px); min-height:max(44px,28px); padding:0; line-height:0; -webkit-tap-highlight-color:transparent; display:flex; align-items:center; justify-content:flex-start; text-align:left; }`);
+      add(`.sticky-foot .btn-like svg{ width:28px !important; height:28px !important; display:block; }`);
+      add(`.sticky-foot .btn-like svg path, .feed-card .hover-ui .stat svg path{
+        transition: fill .15s, stroke .15s;
+        stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+      }`);
+      add(`.post-modal .sticky-foot, .post-modal .sticky-foot *, .sticky-foot .btn-like, .sticky-foot .btn-like svg, .sticky-foot .btn-like svg path{
+        filter:none !important; mix-blend-mode:normal !important; opacity:1 !important;
+      }`);
+    }
+
+    // 전역 노출(다른 코드에서 호출)
+    window.setHeartVisual = setHeartVisual;
+    window.upgradeHeartIconIn = upgradeHeartIconIn;
+    window.ensureHeartCSS = ensureHeartCSS;
+  })();
 
   // 숫자 압축 표기 (15K, 2.1M 등). 미지원 환경이면 원본 출력
   const fmtCount = (n) => {
@@ -871,6 +871,53 @@
     items: [],
     idxById: new Map()
   };
+
+  // === 이벤트 payload에 owner.ns / ns를 보강해 주는 헬퍼 =====================
+  function ownerNSOf(id) {
+    const sid = String(id || "");
+    if (!sid) return null;
+
+    // 1) FEED 인덱스 → 아이템에서 ns 추출
+    try {
+      const idx = FEED.idxById.get(sid);
+      if (typeof idx === "number" && FEED.items[idx]) {
+        const it = FEED.items[idx];
+        const ns =
+          it?.owner?.ns ||
+          it?.ns ||
+          it?.meta?.ns ||
+          null;
+        if (ns) return String(ns);
+      }
+    } catch {}
+
+    // 2) DOM 카드 data-*에서 시도 (카드에는 data-id / data-ns 가 이미 있음)
+    try {
+      const card = document.querySelector(`.feed-card[data-id="${CSS.escape(sid)}"]`);
+      const ns = card?.dataset?.ns || null;
+      if (ns) return String(ns);
+    } catch {}
+
+    return null;
+  }
+
+  function enrichOwnerForEvent(data) {
+    try {
+      const d = { ...(data || {}) };
+      const already = String(d?.owner?.ns || d?.ns || "");
+      if (already) return d;
+
+      const ns = ownerNSOf(d.id);
+      if (!ns) return d;
+
+      d.ns = String(ns);
+      d.owner = d.owner || {};
+      d.owner.ns = String(ns);
+      return d;
+    } catch {
+      return data;
+    }
+  }
 
 
   // --- RANDOMIZE util (Fisher–Yates) ---
@@ -2197,21 +2244,34 @@
     });
 
     __sock.on("item:like", (p) => {
-      try { window.applyItemLikeEvent?.(p); } catch {}
-      try { const id = String(p?.id || p?.itemId || ""); if (id) renderCountFromStore(id); } catch {}
-      try { __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type: "item:like", data: p } }); } catch {}
+      const enriched = enrichOwnerForEvent(p);
+      try { window.applyItemLikeEvent?.(enriched); } catch {}
+      try {
+        const id = String(enriched?.id || enriched?.itemId || "");
+        if (id) renderCountFromStore(id);
+      } catch {}
+      try {
+        __bcFeed?.postMessage({
+          kind: FEED_EVENT_KIND,
+          payload: { type: "item:like", data: enriched }
+        });
+      } catch {}
     });
 
     __sock.on("vote:update", (p) => {
+      const enriched = enrichOwnerForEvent(p);
       try {
-        const id = String((p && (p.id || p.itemId)) || "");
+        const id = String((enriched && (enriched.id || enriched.itemId)) || "");
         if (!id) return;
-        const counts = (p && (p.counts || p.totals || p.votes || p.items || p.data)) || {};
-        const my = p?.my ?? p?.mine ?? p?.choice ?? null;
+        const counts = (enriched && (enriched.counts || enriched.totals || enriched.votes || enriched.items || enriched.data)) || {};
+        const my = enriched?.my ?? enriched?.mine ?? enriched?.choice ?? null;
         POLL.updateEverywhere(id, counts, my);
       } catch {}
       try {
-        __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type:"vote:update", data: p } });
+        __bcFeed?.postMessage({
+          kind: FEED_EVENT_KIND,
+          payload: { type:"vote:update", data: enriched }
+        });
       } catch {}
     });
 
@@ -3046,16 +3106,23 @@
 
   // === FEED → other tabs (me.html) 알림 브릿지: 내가 한 행동을 방송 ===
   function bcNotifySelf(type, data){
+    // 좋아요/투표 관련 payload는 작성자 ns를 반드시 보강
+    const needEnrich =
+      type === "self:like" || type === "item:like" ||
+      type === "self:vote" || type === "vote:update";
+    const enriched = needEnrich ? enrichOwnerForEvent(data) : data;
+
     // BroadcastChannel
-    try { __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data } }); } catch {}
+    try {
+      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: enriched } });
+    } catch {}
 
     // localStorage 폴백 (다른 탭의 storage 이벤트가 받음)
     try {
       const ns = (typeof getNS === 'function' ? getNS() : 'default');
-      localStorage.setItem(`notify:self:${ns}`, JSON.stringify({ type, data, t: Date.now() }));
+      localStorage.setItem(`notify:self:${ns}`, JSON.stringify({ type, data: enriched, t: Date.now() }));
     } catch {}
   }
-
 
   /* =========================================================
    * 13) LOGOUT BUTTON (robust, idempotent)
