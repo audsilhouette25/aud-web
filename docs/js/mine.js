@@ -1089,19 +1089,13 @@
         const j = await r.json().catch(() => ({}));
         if (r.ok) {
           const { liked, likes } = pick(j) || pick(j.item) || pick(j.data) || {};
-          // 1) 내 로컬 기록이 이미 있으면 그대로 존중(=store를 덮지 않음)
-          const rec = (typeof window.getLikeIntent === "function") ? window.getLikeIntent(id) : null;
 
-          // 2) 로컬 기록이 *없을 때만* 서버 스냅샷으로 seed
-          if (!rec) {
-            if (typeof likes === "number") { try { window.setLikeCountOnly?.(id, likes); } catch {} }
-            if (typeof liked === "boolean") { try { window.setLikeIntent?.(id, liked, likes); } catch {} }
-          }
+          // ✅ 항상 서버 스냅샷을 스토어에 병합 (단일 소스 유지)
+          try { window.setLikeFromServer?.(id, liked, likes); } catch {}
 
-          // 3) UI는 로컬>서버 우선순위로 반영
-          const useLiked = rec?.liked ?? liked;
-          const useLikes = (typeof rec?.likes === "number") ? rec.likes : likes;
-          applyUI(id, useLiked, useLikes);
+          // ✅ UI는 스토어-권위 경로만 사용해 반영
+          applyUI(id, /*liked*/ undefined, /*likes*/ undefined);
+          try { renderCountFromStore?.(id); } catch {}
           return;
         }
       } catch {}
@@ -2253,16 +2247,24 @@
 
     __sock.on("item:like", (p) => {
       const enriched = enrichOwnerForEvent(p);
+      const id = String(enriched?.id || enriched?.itemId || "");
+      const liked = (enriched?.liked != null) ? !!enriched.liked
+                    : (enriched?.data?.liked ?? enriched?.item?.liked ?? null);
+      const likes = (typeof enriched?.likes === 'number') ? enriched.likes
+                    : (enriched?.data?.likes ?? enriched?.item?.likes ?? null);
+
+      // ✅ 1) 서버 스냅샷을 store에 먼저 병합
+      try { if (id && typeof likes === 'number') window.setLikeFromServer?.(id, liked, likes); } catch {}
+
+      // 2) 낙관 상태/비주얼 보정 (있으면 사용)
       try { window.applyItemLikeEvent?.(enriched); } catch {}
+
+      // ✅ 3) 렌더는 store 경유
+      try { if (id) renderCountFromStore(id); } catch {}
+
+      // BC 중계는 그대로
       try {
-        const id = String(enriched?.id || enriched?.itemId || "");
-        if (id) renderCountFromStore(id);
-      } catch {}
-      try {
-        __bcFeed?.postMessage({
-          kind: FEED_EVENT_KIND,
-          payload: { type: "item:like", data: enriched }
-        });
+        __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type: "item:like", data: enriched } });
       } catch {}
     });
 
@@ -3082,8 +3084,17 @@
 
       if (m.kind === FEED_EVENT_KIND && m.payload) {
         const { type, data } = m.payload;
-        if (type === "item:like")   try { window.applyItemLikeEvent?.(data); } catch {}
-        if (data?.id || data?.itemId) { try { renderCountFromStore(String(data.id || data.itemId)); } catch {} }
+        if (type === "item:like") {
+          const id = String(data?.id || data?.itemId || "");
+          const liked = (data?.liked != null) ? !!data.liked
+                        : (data?.data?.liked ?? data?.item?.liked ?? null);
+          const likes = (typeof data?.likes === 'number') ? data.likes
+                        : (data?.data?.likes ?? data?.item?.likes ?? null);
+          try { if (id && typeof likes === 'number') window.setLikeFromServer?.(id, liked, likes); } catch {}
+          try { window.applyItemLikeEvent?.(data); } catch {}
+          try { if (id) renderCountFromStore(id); } catch {}
+        }
+
         if (type === "vote:update") {
           try {
             const id = String(data?.id || data?.itemId || "");
