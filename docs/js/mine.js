@@ -1535,42 +1535,112 @@
     return false;
   }
 
-  // 상세 조회로 user 정보가 비어있을 때 한 번만 보강
+  // [ADD] 공개 프로필 보강 헬퍼: user.id 로 이름/아바타를 끌어온다.
+  async function fetchAuthorProfileById(uid) {
+    if (!uid) return null;
+
+    const pickUser = (obj) => {
+      const u = obj?.user || obj?.data?.user || obj?.item?.user || obj || {};
+      const email =
+        u.email ??
+        u.emails?.[0]?.value ??
+        obj?.email ?? obj?.data?.email ?? obj?.item?.email ?? null;
+
+      const avatar =
+        u.avatarUrl || u.avatar || u.picture || u.imageUrl || u.image_url || u.photo || null;
+
+      const displayName = u.displayName || u.name || obj?.displayName || obj?.name || null;
+
+      const id = u.id ?? u.sub ?? obj?.id ?? null;
+
+      return {
+        id: id ? String(id) : null,
+        displayName: displayName || null,
+        email: email || null,
+        avatarUrl: avatar || null
+      };
+    };
+
+    // 가능한 공개/내부 엔드포인트들을 순차 시도 (있는 것만 성공)
+    const paths = [
+      `/api/users/${encodeURIComponent(uid)}`,
+      `/api/user/${encodeURIComponent(uid)}`,
+      `/api/profiles/${encodeURIComponent(uid)}`,
+      `/api/profile/${encodeURIComponent(uid)}`,
+      `/auth/user?id=${encodeURIComponent(uid)}`
+    ];
+
+    for (const p of paths) {
+      try {
+        const r = await (window.auth?.apiFetch ? window.auth.apiFetch(p, { credentials: "include", cache: "no-store" })
+                                              : fetch(p, { credentials: "include", cache: "no-store" }));
+        const j = await r.json().catch(()=> ({}));
+        if (!r.ok) continue;
+        const u = pickUser(j);
+        // 최소한 이름이나 아바타 중 한 개라도 얻으면 성공으로 본다.
+        if (u.displayName || u.avatarUrl || u.email) return u;
+      } catch {}
+    }
+    return null;
+  }
+
+  // [REPLACE] 상세 조회로 user 정보가 비어있을 때 한 번만 보강
   async function ensureAuthorInfo(item) {
     if (!item) return item;
+
+    // 내 글은 me 캐시로 이미 커버됨
     if (mineFlagOf(item) === true || isMine(item)) return item;
 
     try {
       const ns = nsOf(item);
-      let r, j = {};
 
-      // ✅ 1순위: /api/items/:id
-      r = await api(`/api/items/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
-                    { credentials:'include', cache:'no-store' });
-      j = await r.json().catch(() => ({}));
-
-      // 폴백: /api/gallery/:id
+      // 1) 먼저 /api/items/:id → /api/gallery/:id 로 상세를 시도
+      let r = await api(`/api/items/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
+                        { credentials:'include', cache:'no-store' });
+      let j = await r.json().catch(() => ({}));
       if (!r.ok) {
         r = await api(`/api/gallery/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
                       { credentials:'include', cache:'no-store' });
         j = await r.json().catch(() => ({}));
       }
 
-      const pickUser = (o) => (o?.user || o?.item?.user || o?.data?.user || null);
-      const u = pickUser(j);
-      if (u) item.user = u;
+      // item.user를 우선 반영
+      const pickUserFromItem = (o) => (o?.user || o?.item?.user || o?.data?.user || null);
+      const u0 = pickUserFromItem(j);
+      if (u0) item.user = u0;
 
-      if (!pickUserEmail(item)) {
-        const email = u?.email ?? j?.email ?? j?.item?.email ?? j?.data?.email ?? null;
-        if (email) item.user = { ...(item.user||{}), email };
+      // 이메일이 마스킹된 경우('*' 포함)면 무시하고 보강 시도
+      const masked = (v) => typeof v === 'string' && v.includes('*');
+
+      const haveName   = !!(item?.user?.displayName || item?.user?.name);
+      const haveAvatar = !!(item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture);
+      const haveEmail  = !!(item?.user?.email) && !masked(item?.user?.email);
+
+      // 2) user.id가 있고 (이름/아바타/비마스킹 이메일) 중 하나라도 비었다면 공개 프로필을 조회
+      const authorId =
+        item?.user?.id ?? item?.author?.id ?? item?.user_id ?? item?.owner_id ?? item?.created_by ?? null;
+
+      if (authorId && (!haveName || !haveAvatar || !haveEmail)) {
+        const profile = await fetchAuthorProfileById(authorId);
+        if (profile) {
+          item.user = {
+            id: profile.id || item?.user?.id || String(authorId),
+            displayName: profile.displayName || item?.user?.displayName || item?.user?.name || (haveEmail ? item.user.email : "member"),
+            email: (profile.email && !masked(profile.email)) ? profile.email : (haveEmail ? item.user.email : ""),
+            avatarUrl: profile.avatarUrl || item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture || ""
+          };
+        }
       }
 
+      // 서버가 mine/by_me 플래그를 주면 반영
       const byme =
         j?.mine ?? j?.isMine ?? j?.by_me ?? j?.byMe ??
         j?.item?.mine ?? j?.item?.by_me ?? j?.data?.by_me ?? null;
       if (typeof byme === "boolean") item.mine = byme;
+
     } catch {}
 
+    // 기존 강제 정규화 유지
     return coerceUserFromItem(item);
   }
 
