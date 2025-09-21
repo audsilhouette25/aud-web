@@ -232,6 +232,17 @@
     showError(els.signupErr, "");
   }
 
+  function mountErrorPlaceholders(){
+    // 로그인
+    ensureErrBelow(els.loginEmail, "err-email");
+    ensureErrBelow(els.loginPw,    "err-pw");
+
+    // 회원가입
+    ensureErrBelow(els.signupEmail, "su-err-email");
+    ensureErrBelow(els.signupPw,    "su-err-pw");
+    ensureErrBelow(els.signupPw2,   "su-err-pw2");
+  }
+
   /* =============================================================
    *  5) ERROR TRANSLATION (server codes → user text)
    * ============================================================= */
@@ -505,6 +516,8 @@
     try {
       if (!FORCE_LOGIN && window.auth.isAuthed()) { log("already authed → gotoNext()"); gotoNext(); return; }
     } catch {}
+
+    mountErrorPlaceholders();
 
     // Form submits (if panels are forms)
     on(els.panelLogin,  "submit", onSubmitLogin);
