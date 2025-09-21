@@ -1720,64 +1720,64 @@
   }
 
   // [REPLACE] 상세 조회로 user 정보가 비어있을 때 한 번만 보강
-  async function ensureAuthorInfo(item) {
-    if (!item) return item;
+    async function ensureAuthorInfo(item) {
+      if (!item) return item;
 
-    // 내 글은 me 캐시로 이미 커버됨
-    if (mineFlagOf(item) === true || isMine(item)) return item;
+      // 내 글은 me 캐시로 이미 커버
+      if (mineFlagOf(item) === true || isMine(item)) return item;
 
-    try {
-      const ns = nsOf(item);
+      try {
+        const ns = nsOf(item);
 
-      // 1) 먼저 /api/items/:id → /api/gallery/:id 로 상세를 시도
-      let r = await api(`/api/items/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
+        // 1) 우선 상세 호출(/api/items → 실패 시 /api/gallery)
+        let r = await api(`/api/items/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
+                          { credentials:'include', cache:'no-store' });
+        let j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          r = await api(`/api/gallery/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
                         { credentials:'include', cache:'no-store' });
-      let j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        r = await api(`/api/gallery/${encodeURIComponent(item.id)}?ns=${encodeURIComponent(ns)}`,
-                      { credentials:'include', cache:'no-store' });
-        j = await r.json().catch(() => ({}));
-      }
-
-      // item.user를 우선 반영
-      const pickUserFromItem = (o) => (o?.user || o?.item?.user || o?.data?.user || null);
-      const u0 = pickUserFromItem(j);
-      if (u0) item.user = u0;
-
-      // 이름/이메일이 마스킹된 경우('*', '•', '·' 등 포함)면 '없음'으로 간주 → 보강 시도
-      const masked = (v) => typeof v === 'string' && /[*•·]/.test(v);
-      const nameRaw = item?.user?.displayName || item?.user?.name || '';
-      const haveName   = !!nameRaw && !masked(nameRaw);
-      const haveAvatar = !!(item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture);
-      const haveEmail  = !!(item?.user?.email) && !masked(item?.user?.email);
-
-      // 2) user.id가 있고 (이름/아바타/비마스킹 이메일) 중 하나라도 비었다면 공개 프로필을 조회
-      const authorId =
-        item?.user?.id ?? item?.author?.id ?? item?.user_id ?? item?.owner_id ?? item?.created_by ?? null;
-
-      if (authorId && (!haveName || !haveAvatar || !haveEmail)) {
-        const profile = await fetchAuthorProfileById(authorId);
-        if (profile) {
-          item.user = {
-            id: profile.id || item?.user?.id || String(authorId),
-            displayName: profile.displayName || item?.user?.displayName || item?.user?.name || (haveEmail ? item.user.email : "member"),
-            email: (profile.email && !masked(profile.email)) ? profile.email : (haveEmail ? item.user.email : ""),
-            avatarUrl: profile.avatarUrl || item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture || ""
-          };
+          j = await r.json().catch(() => ({}));
         }
-      }
 
-      // 서버가 mine/by_me 플래그를 주면 반영
-      const byme =
-        j?.mine ?? j?.isMine ?? j?.by_me ?? j?.byMe ??
-        j?.item?.mine ?? j?.item?.by_me ?? j?.data?.by_me ?? null;
-      if (typeof byme === "boolean") item.mine = byme;
+        // 상세에서 user 있으면 반영
+        const pickUserFromItem = (o) => (o?.user || o?.item?.user || o?.data?.user || null);
+        const u0 = pickUserFromItem(j);
+        if (u0) item.user = u0;
 
-    } catch {}
+        // '*' · '•' '·' 포함이면 마스킹으로 판단 → 보강 트리거
+        const masked = (v) => typeof v === 'string' && /[*•·]/.test(v);
+        const nameRaw = item?.user?.displayName || item?.user?.name || '';
+        const haveName   = !!nameRaw && !masked(nameRaw);
+        const haveAvatar = !!(item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture);
+        const haveEmail  = !!(item?.user?.email) && !masked(item?.user?.email);
 
-    // 기존 강제 정규화 유지
-    return coerceUserFromItem(item);
-  }
+        // 2) user.id가 있고 핵심 필드가 비면 공개 프로필 1회 조회
+        const authorId =
+          item?.user?.id ?? item?.author?.id ?? item?.user_id ?? item?.owner_id ?? item?.created_by ?? null;
+
+        if (authorId && (!haveName || !haveAvatar || !haveEmail)) {
+          const profile = await fetchAuthorProfileById(authorId);
+          if (profile) {
+            item.user = {
+              id: profile.id || item?.user?.id || String(authorId),
+              displayName: profile.displayName || item?.user?.displayName || item?.user?.name || (haveEmail ? item.user.email : "member"),
+              email: (profile.email && !masked(profile.email)) ? profile.email : (haveEmail ? item.user.email : ""),
+              avatarUrl: profile.avatarUrl || item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture || ""
+            };
+          }
+        }
+
+        // 서버가 mine/by_me 플래그를 줬다면 반영
+        const byme =
+          j?.mine ?? j?.isMine ?? j?.by_me ?? j?.byMe ??
+          j?.item?.mine ?? j?.item?.by_me ?? j?.data?.by_me ?? null;
+        if (typeof byme === "boolean") item.mine = byme;
+
+      } catch {}
+
+      // 최종 정규화
+      return coerceUserFromItem(item);
+    }
 
 
   // === 삭제 API (경로 호환 넓힘: DELETE 표준 → POST 폴백) ===================
@@ -2845,6 +2845,7 @@
       // 내 글이면 me.html에서 저장한 최신 프로필 스냅샷을 우선 사용
       const profSnap = readProfileCache();
       const minePost = isMine(item);
+
       const userIdForDom =
         pickUserId(item) ||
         (minePost && (profSnap?.id || getMeId())) ||
@@ -2854,6 +2855,7 @@
       const emailName = emailRaw.split('@')[0] || '';
       const looksMasked = /[*•·]/.test(emailRaw) || /[*•·]/.test(emailName);
       const safeEmailName = looksMasked ? '' : emailName;
+
       const name = (minePost && profSnap?.displayName)
         ? profSnap.displayName
         : (item?.user?.displayName || item?.user?.name || safeEmailName || 'member');
@@ -2861,7 +2863,9 @@
       const avatarSrc = (minePost && profSnap?.avatarUrl)
         ? profSnap.avatarUrl
         : Avatar.fromUserObject(item?.user);
+
       const avatar = Avatar.resolve(avatarSrc, name || emailName || 'member');
+
       return `
       <article class="feed-card pm-split" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}">
         <div class="pm-layout">
@@ -2875,34 +2879,10 @@
             <header class="pm-right-head">
               <div class="account" data-user-id="${esc(userIdForDom)}">
                 <img class="avatar" src="${avatar}" alt="${name}" />
-                <div>
-                  <div class="name">${name}</div>
-                </div>
+                <div><div class="name">${name}</div></div>
               </div>
             </header>
-
-            <div class="pm-thread">
-              <section class="pm-caption">
-                <div class="caption-text" data-caption></div>
-              </section>
-
-              <!-- 투표 영역 -->
-              <section class="pm-vote" data-for-id="${esc(item.id)}">
-                <!-- mount 시 버튼/카운트가 채워짐 -->
-              </section>
-            </div>
-
-            <div class="sticky-foot">
-              <div class="actions">
-                <button class="btn-like" type="button" aria-pressed="${liked}" aria-label="좋아요">
-                  <span class="ico ico-heart" aria-hidden="true"></span>
-                </button>
-              </div>
-              <div class="foot-meta">
-                <div class="likes-line"><span class="likes-count">${fmtInt(likes)}</span> ${likeWordOf(likes)}</div>
-                <div class="date-line">${fmtDate(item.created_at)}</div>
-              </div>
-            </div>
+            ...
           </aside>
         </div>
       </article>`;

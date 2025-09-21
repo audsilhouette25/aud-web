@@ -73,6 +73,11 @@
     </section>
   </section>
 <!-- 소켓 (선택) -->
+
+  <script>
+    window.PROFILE_ENDPOINTS = ['/api/users/:id/public'];
+  </script>
+
   <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
 
   <script src="./js/fetch-sanitizer.js"></script>
@@ -91,10 +96,6 @@
 
   <!-- 6) 소켓 초기화 (필요 시) -->
   <script src="./js/socket-init.js" defer></script>
-
-  <script>
-    window.PROFILE_ENDPOINTS = ['/api/users/:id', '/api/profiles/:id'];
-  </script>
 
   <!-- 7) 페이지 전용 스크립트 -->
   <script type="module" src="./js/mine.js"></script>
