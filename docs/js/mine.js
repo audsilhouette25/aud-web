@@ -176,7 +176,10 @@
             const check = await fetch("/auth/me", { credentials: "include", cache: "no-store" });
             if (!check || check.status !== 200) expired = true;
           } catch {}
-          if (expired) { window.auth?.markNavigate?.(); location.href = "/login.html"; }
+          if (expired) { window.auth?.markNavigate?.(); 
+            const LOGIN_URL = window.LOGIN_URL || "/login.html";
+            location.href = LOGIN_URL;
+          }
         }
         return res;
       };
