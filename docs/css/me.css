@@ -324,7 +324,7 @@ progress#m-rate-bar::-webkit-progress-value{
 ===================================================================== */
 .quick{
   margin-top: 18px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
 }
 .grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .kpi{ display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
