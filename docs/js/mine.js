@@ -1018,6 +1018,19 @@
           </div>
         </div>
       </div>
+      <footer class="author-line">
+        <a class="author-chip"
+           href="${safeHref('profile.html')}${item?.user?.id ? ('?id=' + encodeURIComponent(String(item.user.id))) : ''}"
+           data-user-id="${escAttr(item?.user?.id || '')}"
+           data-ns="${escAttr(nsOf(item))}"
+           aria-label="Post author">
+          <img class="avatar"
+               alt="${escAttr(item?.user?.displayName || 'member')}"
+               src="${escAttr(item?.user?.avatarUrl || '')}"
+               width="28" height="28" />
+          <span class="name">${esc(item?.user?.displayName || 'member')}</span>
+        </a>
+      </footer>
     </article>`;
   }
 
@@ -1165,7 +1178,7 @@
 
       // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)
       try { upgradeHeartIconIn(card); } catch {}
-
+      try { Avatar.install(card); } catch {}
       // DOM 조각에 카드 추가
       frag.appendChild(card);
 
