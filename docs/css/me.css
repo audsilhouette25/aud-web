@@ -10,6 +10,9 @@
   --muted: #666;
   --focus: #0B72FF;
   --heart-red: #E53935;
+  /* Notice metrics */
+  --notice-h: 64px;      /* 알림 1개 기준 높이 */
+  --notice-gap: 8px;     /* .notify-list의 gap(.5rem ≒ 8px) */
 
   /* Layout */
   --nav-h: 64px;
@@ -410,6 +413,10 @@ progress#m-rate-bar::-webkit-progress-value{
 .notify-list{
   list-style:none; margin:0; padding:0;
   display:flex; flex-direction:column; gap:.5rem;
+  /* 1.5개 보이게 + 스크롤 */
+  max-block-size: calc(var(--notice-h) * 1.5 + var(--notice-gap));
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
 }
 .notice{
   padding:.75rem .9rem;
@@ -417,6 +424,7 @@ progress#m-rate-bar::-webkit-progress-value{
   border-radius:12px; background:#fff;
   transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
   animation: noticeIn .18s ease-out both;
+  min-block-size: var(--notice-h);
 }
 .notice:hover{
   background:#fafbff;
@@ -428,7 +436,7 @@ progress#m-rate-bar::-webkit-progress-value{
   to{ opacity:1; transform: translateY(0); }
 }
 .notice .time{ font-size:.85rem; color:#7b8192; margin-left:.75rem; }
-.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; }
+.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 
 .notify-empty{ margin:.5rem 0 0; color:#8a8f9f; font-size:.92rem; }
 .panel.notify { position: relative; }
