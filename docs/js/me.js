@@ -685,6 +685,15 @@
     ensureNativePermission();
     ensureSocket();
     if (isNotifyOn()) { flushQueuedNotices().catch(() => {}); }
+    if (!window.__meNotifyEvtBound) {
+      window.addEventListener("notify:toggle", async () => {
+        try { if (isNotifyOn()) await flushQueuedNotices(); } catch {}
+      });
+      window.addEventListener("notify:flush", async () => {
+        try { await flushQueuedNotices(); } catch {}
+      });
+      window.__meNotifyEvtBound = true;
+    }
     // 2) 토글 UI가 있는 경우에만 동기화/이벤트 바인딩
     const tgl = $("#notify-toggle");
     if (!tgl) return;
