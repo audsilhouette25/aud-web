@@ -133,10 +133,10 @@ form .input-lg:last-of-type{ margin-bottom: 8px; }
 /* 필드 에러 */
 .field-error{
   display: block;              /* ← display: none으로 꺼지지 않게 */
-  min-height: 16px;            /* 기존 유지 */
+  min-height: 15px;            /* 기존 유지 */
   color: var(--error);
   font-size: 13px;
-  margin: 4px 0 6px;
+  margin: 4px 0 4px;
   visibility: hidden;          /* 기본은 보이지 않지만(자리만 차지) */
 }
 
