@@ -64,7 +64,6 @@
 
   const getMeId = () => __ME_ID;
   const getMeEmail = () => __ME_EMAIL;
-  try { window.getMeId = getMeId; window.getMeEmail = getMeEmail; } catch {}
 
   // ── Author normalize (mine 전용) ─────────────────────────────
   function _parseJSON(s){ try{ return (typeof s === "string") ? JSON.parse(s) : (s || null); } catch { return null; } }
@@ -167,7 +166,6 @@
   (function hookAuth401RedirectOnce() {
     try {
       if (!window.auth || typeof window.auth.apiFetch !== "function" || window.auth.__mine401Hooked) return;
-      window.auth.__mine401Hooked = true;
       const orig = window.auth.apiFetch;
       window.auth.apiFetch = async (...args) => {
         const res = await orig(...args);
@@ -177,13 +175,18 @@
             const check = await fetch("/auth/me", { credentials: "include", cache: "no-store" });
             if (!check || check.status !== 200) expired = true;
           } catch {}
-          if (expired) { window.auth?.markNavigate?.(); 
-            const LOGIN_URL = window.LOGIN_URL || "/login.html";
-            location.href = LOGIN_URL;
+          if (expired) {
+            try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+            try {
+              const ret = encodeURIComponent(location.href);
+              window.auth?.markNavigate?.();
+              location.replace(`${safeHref('login.html')}?next=${ret}`);
+            } catch {}
           }
         }
         return res;
       };
+      window.auth.__mine401Hooked = true;
     } catch {}
   })();
 
@@ -216,7 +219,6 @@
     }
     return { ...opt, headers };
   }
-  try { window.withCSRF = withCSRF; } catch {}
 
   const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
   const toAPI = (p) => {
@@ -772,7 +774,7 @@
       if (!sheet) {
         const tag = document.createElement("style");
         tag.id = "mine-heart-rules";
-        (document.head || document.documentElement).appendChild(tag);
+        document.head.appendChild(tag);
         sheet = tag.sheet;
       }
       const add = (r) => { try { sheet.insertRule(r, sheet.cssRules.length); } catch {} };
@@ -1493,6 +1495,8 @@
       try { window.setLikeIntent?.(id, nextLiked, nextLikes); } catch {}
     } catch {}
   };
+
+  window.toggleLike = toggleLike;
   
   // --- 메인 토글: 끈적 낙관 + 모순 스냅샷 TTL 차단 ---------------------------
   async function toggleLike(card, forceLike){
@@ -1664,14 +1668,10 @@
     return false;
   }
 
+
   // 설정: 서버에 프로필 API를 만들면 페이지 어디서든 이렇게 켜주면 됨.
   //   window.PROFILE_ENDPOINTS = ['/api/users/:id', '/api/profiles/:id'];
   const PROFILE_ENDPOINTS = (window.PROFILE_ENDPOINTS || []).filter(Boolean);
-
-  if (PROFILE_ENDPOINTS.length === 0) {
-    __PROFILE_API_SUPPORTED = false; // 404 탐지 루프를 일찍 차단
-    // console.debug('[profile] PROFILE_ENDPOINTS not provided; skip remote author fetch');
-  }
 
   // 한번 404 나면 전역으로 비활성화
   let __PROFILE_API_SUPPORTED = PROFILE_ENDPOINTS.length > 0 ? null : false;
@@ -2202,7 +2202,6 @@
           if (btn.classList.contains('is-locked') || btn.disabled) {
             const hint = container.querySelector('.vote-hint');
             if (hint) hint.textContent = 'This label is not unlocked yet. Collect it to unlock #aud.';
-            else alert('This label is locked. Collect it to unlock #aud.');
             return;
           }
           const lb = btn.dataset.label;
@@ -2440,8 +2439,7 @@
     s.id = "feed-sentinel";
     s.setAttribute("aria-hidden", "true");
     Object.assign(s.style, { width: "100%", height: "1px", margin: "1px 0" });
-    const parent = container || $feedBottom() || $feedRoot() || document.body;
-    parent.appendChild(s);
+    (container || $feedBottom() || $feedRoot())?.appendChild(s);
     return s;
   }
 
@@ -2671,14 +2669,6 @@
     try { window.__hookA11yLikes = set; } catch {}
   })();
 
-  // --- SAFETY NO-OP (모달 하트 포인터 캡처 핫픽스 훅이 없는 환경 대비) ---
-  function fixModalHeartPointerCapture(root){ /* no-op */ }
-  try {
-    window.fixModalHeartPointerCapture =
-      window.fixModalHeartPointerCapture || fixModalHeartPointerCapture;
-  } catch {}
-
-
   /* =========================================================
    * 11) POST MODAL (카드 크게 보기)
    * ========================================================= */
@@ -2755,7 +2745,6 @@
 
       // 기존 한 줄을 아래로 교체
       wrap.addEventListener("click", (e) => {
-        if (e.defaultPrevented) return;
         if (!sheet.contains(e.target)) close();
       }, { capture: true }); // ← 캡처 단계에서 받아서 내부 stopPropagation에도 안전
       btnClose.addEventListener("click", close);
@@ -3245,8 +3234,7 @@
     // localStorage 폴백 (다른 탭의 storage 이벤트가 받음)
     try {
       const ns = (typeof getNS === 'function' ? getNS() : 'default');
-      const scope = (location.pathname || '').replace(/[^\w-]/g,'_') || 'root';
-      localStorage.setItem(`notify:self:${ns}:${scope}`, JSON.stringify({ type, data: enriched, t: Date.now() }));
+      localStorage.setItem(`notify:self:${ns}`, JSON.stringify({ type, data: enriched, t: Date.now() }));
     } catch {}
   }
 
@@ -3282,7 +3270,7 @@
         location.assign(target);
       } else {
         const next = encodeURIComponent(target);
-        location.assign(`${safeHref('login.html')}?next=${next}`);
+        location.assign(`${pageHref('login.html')}?next=${next}`);
       }
     };
 

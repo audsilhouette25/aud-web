@@ -239,6 +239,7 @@ window.LABEL_VOTES_SYNC_KEY = LABEL_VOTES_SYNC_KEY;
       last = USER_NS;
 
       try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: USER_NS })); } catch {}
+      try { rebindNS(); } catch {}
     }catch{}
   }
 
@@ -607,7 +608,7 @@ window.addEventListener("storage", (e)=>{
   // 로그인(=persistEnabled) 상태면: 지속 스냅샷 키들 수신
   if (persistEnabled()) {
     const k = e?.key;
-    if (!k || (k !== HEARTS_SYNC_KEY && k !== TS_SYNC_KEY && k !== LABEL_SYNC_KEY && k !== JIB_SYNC_KEY && k !== LABEL_VOTES_SYNC_KEY && k !== LIKES_SYNC_KEY)) return;
+    if (!k || (k !== HEARTS_SYNC_KEY && k !== TS_SYNC_KEY && k !== LABEL_SYNC_KEY && k !== JIB_SYNC_KEY && k !== LABEL_VOTES_SYNC_KEY)) return;
     try {
       const payload = JSON.parse(e.newValue || "null");
       applyIncoming(k, payload);
@@ -1221,7 +1222,7 @@ labels.getHearts = function getHearts() { return { ...loadHearts() }; };
       const { map } = safeParse(lastLikes, {});
       if (map && typeof map === "object"){
         S.setItem(LIKES_KEY, JSON.stringify(map));
-        window.dispatchEvent(new CustomEvent("itemLikes:changed", { detail: { map } }));
+        // window.dispatchEvent(new Event("itemLikes:changed"));
       }
     }
 
@@ -1234,7 +1235,7 @@ labels.getHearts = function getHearts() { return { ...loadHearts() }; };
       }
     }
 
-    const lastVotes = localStorage.getItem(LABEL_VOTES_SYNC_KEY);
+    const lastVotes = persistEnabled() ? lsGet(LABEL_VOTES_SYNC_KEY) : null;
     if (lastVotes){
       const { map } = safeParse(lastVotes, {});
       if (map && typeof map === "object"){
