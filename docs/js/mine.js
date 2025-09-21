@@ -166,6 +166,7 @@
   (function hookAuth401RedirectOnce() {
     try {
       if (!window.auth || typeof window.auth.apiFetch !== "function" || window.auth.__mine401Hooked) return;
+      window.auth.__mine401Hooked = true;
       const orig = window.auth.apiFetch;
       window.auth.apiFetch = async (...args) => {
         const res = await orig(...args);
@@ -175,18 +176,10 @@
             const check = await fetch("/auth/me", { credentials: "include", cache: "no-store" });
             if (!check || check.status !== 200) expired = true;
           } catch {}
-          if (expired) {
-            try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-            try {
-              const ret = encodeURIComponent(location.href);
-              window.auth?.markNavigate?.();
-              location.replace(`${safeHref('login.html')}?next=${ret}`);
-            } catch {}
-          }
+          if (expired) { window.auth?.markNavigate?.(); location.href = "/login.html"; }
         }
         return res;
       };
-      window.auth.__mine401Hooked = true;
     } catch {}
   })();
 
