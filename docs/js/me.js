@@ -131,7 +131,6 @@
   }
 
 
-
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
   const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
@@ -895,19 +894,6 @@
         }
       });
 
-      socket.on("comment:like", (p) => {
-        if (!isNotifyOn() || !p || !p.id) return;
-        const mineOrWatched = isMineOrWatchedFromPayload(p);
-        if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
-        if (MY_UID && String(p.by) === String(MY_UID)) return;
-        if (p.liked) {
-          const likes = Number(p.likes || 0);
-          pushNotice("A comment on my post got a like",
-            `Comment ${p.cid} · Total ${qty(likes, "like")}`,
-            { tag: `comment-like:${p.id}:${p.cid}`, data: { id: String(p.id), cid: String(p.cid || "") } }
-          );
-        }
-      });
 
       socket.on("vote:update", (p) => {
         if (!isNotifyOn() || !p || !p.id) return;
@@ -1711,53 +1697,6 @@
 
     window.addEventListener("auth:state", refreshQuickCounts);
     window.addEventListener("store:ns-changed", refreshQuickCounts);
-
-    // === store.js 변화 이벤트 → 알림 ===
-
-    // 좋아요 스냅샷 맵 변경
-    window.addEventListener("itemLikes:changed", (ev) => {
-      try {
-        const cur = (ev?.detail?.map && typeof ev.detail.map === "object") ? ev.detail.map : (window.readLikesMap?.() || {});
-        const changedIds = new Set([...Object.keys(cur), ...Object.keys(__LIKES_PREV)]);
-
-        for (const id of changedIds) {
-          const a = __LIKES_PREV[id] || {};
-          const b = cur[id] || {};
-          const likedChanged = (typeof a.l === "boolean" || typeof b.l === "boolean") && (!!a.l !== !!b.l);
-          const countChanged = (typeof a.c === "number" || typeof b.c === "number") && ((a.c|0) !== (b.c|0));
-
-          // ✅ 내가 방금 누른/취소한 경우: 완전 무시 (개수 변화라도 알림 X)
-          if (likedChanged) continue;
-
-          // 원격 변화(다른 사람이 누른 것)만 알림
-          if (countChanged) {
-            const _cnt = Number(b.c ?? 0);
-            pushNotice("Like count updated", `Total ${_cnt} ${_cnt === 1 ? "like" : "likes"}`, {
-              tag: `like-count:${id}`,
-              data: { id: String(id) }
-            });
-          }
-        }
-        __LIKES_PREV = cur;
-      } catch {}
-    });
-
-    // 라벨별 투표 총합 변경
-    window.addEventListener("label:votes-changed", (ev) => {
-      try {
-        const cur = (ev?.detail?.map && typeof ev.detail.map === "object") ? ev.detail.map : (window.readLabelVotes?.() || {});
-        // 총합 증감 감지 → 상위 득표 라벨 안내
-        const entries = Object.entries(cur);
-        const max = Math.max(...entries.map(([, n]) => Number(n||0)), 0);
-        const tops = entries.filter(([, n]) => Number(n||0) === max && max > 0).map(([k]) => k);
-        if (tops.length) {
-          pushNotice("Vote totals updated", `Top: ${tops.join(", ")} (${max})`, { tag: `votes-total`, data: {} });
-        } else {
-          pushNotice("Vote totals updated", "", { tag: `votes-total`, data: {} });
-        }
-        __VOTES_PREV = cur;
-      } catch {}
-    });
 
     // 7) UI handlers
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });

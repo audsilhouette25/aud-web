@@ -326,8 +326,8 @@ progress#m-rate-bar::-webkit-progress-value{
   margin-top: 18px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
 }
-.grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-.kpi{ display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;justify-items: center; align-items: center; }
+.kpi{ display: flex; flex-direction: column; align-items: center;  gap: 6px; text-align: center; }
 .kpi b{ font-size: 20px; }
 .kpi span{ font-size: 12px; color: #777; }
 .panel .list{ list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
