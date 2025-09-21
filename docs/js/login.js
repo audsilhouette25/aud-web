@@ -162,6 +162,20 @@
   /* =============================================================
    *  4) UI HELPERS (busy states, field errors)
    * ============================================================= */
+
+  // [ADD] 필드 아래에 .field-error span을 보장(없으면 생성)
+  function ensureErrBelow(inputEl, id){
+    if (!inputEl) return null;
+    const exist = document.getElementById(id);
+    if (exist) return exist;
+    const span = document.createElement("div");
+    span.className = "field-error";   // CSS에서 visibility로 제어
+    span.id = id;
+    // input의 바로 다음 형제 위치에 삽입(레이아웃 안정)
+    inputEl.insertAdjacentElement("afterend", span);
+    return span;
+  }
+
   function setBusy(btn, on, txtBusy = "Signing in…"){
     if (!btn) return;
     btn.disabled = !!on;
@@ -175,31 +189,47 @@
       delete btn.dataset.prev;
     }
   }
+
+  // display 토글 없이 클래스/visibility로만 제어
   function setFieldError(inputEl, errEl, msg){
     if (!inputEl || !errEl) return;
     const has = !!msg;
-    // 입력 필드 상태
     inputEl.classList.toggle("is-invalid", has);
     inputEl.setAttribute("aria-invalid", has ? "true" : "false");
-    // 에러 블록: display를 바꾸지 않는다
     errEl.textContent = has ? String(msg) : "";
-    errEl.classList.toggle("is-on", has);  // ← visibility 토글 전용 클래스
-    // errEl.style.display 는 건드리지 않음
+    errEl.classList.toggle("is-on", has);
   }
 
   function showError(errEl, msg){
     if (!errEl) return;
     const has = !!msg;
     errEl.textContent = has ? String(msg) : "";
-    // 로그인/회원가입 공통 에러 블록도 동일 원칙 적용
     errEl.classList.toggle("is-on", has);
-    // errEl.style.display 는 건드리지 않음
   }
 
   function clearFieldErrors(){
-    setFieldError(els.loginEmail, $("#err-email"), "");
-    setFieldError(els.loginPw,    $("#err-pw"),    "");
+    // 로그인
+    setFieldError(
+      els.loginEmail,
+      $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"),
+      ""
+    );
+    setFieldError(
+      els.loginPw,
+      $("#err-pw") || ensureErrBelow(els.loginPw, "err-pw"),
+      ""
+    );
     showError(els.loginErr, "");
+
+    // 회원가입(필드별)
+    const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
+    const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
+    const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
+
+    setFieldError(els.signupEmail, suEmailErr, "");
+    setFieldError(els.signupPw,    suPwErr,    "");
+    setFieldError(els.signupPw2,   suPw2Err,   "");
+    showError(els.signupErr, "");
   }
 
   /* =============================================================
@@ -234,9 +264,9 @@
     const email = (els.signupEmail?.value || "").trim();
     const pw1   = (els.signupPw?.value    || "").trim();
     const pw2   = (els.signupPw2?.value   || "").trim();
-    if (!EMAIL_RX.test(email)) return { ok:false, msg:"Please enter a valid email address." };
-    if (pw1.length < 8)        return { ok:false, msg:"Password must be at least 8 characters." };
-    if (pw1 !== pw2)           return { ok:false, msg:"Passwords do not match." };
+    if (!EMAIL_RX.test(email)) return { ok:false, field:"email", msg:"Please enter a valid email address." };
+    if (pw1.length < 8)        return { ok:false, field:"pw",    msg:"Password must be at least 8 characters." };
+    if (pw1 !== pw2)           return { ok:false, field:"pw2",   msg:"Passwords do not match." };
     return { ok:true, email, pw1, pw2 };
   }
 
@@ -335,11 +365,22 @@
       const r = await postJSON("/auth/signup", { email, password: pw1 });
       const out = await r.json().catch(() => ({}));
       if (!r.ok || out?.ok === false) {
-        const t = translateError(out?.error || out?.code);
-        return { ok:false, msg:t.msg };
+        const code = String(out?.error || out?.code || "").toUpperCase();
+        if (code === "DUPLICATE_EMAIL") {
+          return { ok:false, field:"email", msg:"This email is already registered." };
+        }
+        if (code === "INVALID_EMAIL") {
+          return { ok:false, field:"email", msg:"Please enter a valid email address." };
+        }
+        if (code === "WEAK_PASSWORD") {
+          return { ok:false, field:"pw", msg:"Please choose a stronger password." };
+        }
+        return { ok:false, field:null, msg: out?.message || "Sign-up failed. Please try again." };
       }
       return { ok:true };
-    } catch { return { ok:false, msg:"Sign-up failed. Please try again." }; }
+    } catch {
+      return { ok:false, field:null, msg:"Sign-up failed. Please try again." };
+    }
   }
 
   /* =============================================================
@@ -396,8 +437,8 @@
 
     const v = assertLoginInputs();
     if (!v.ok){
-      if (v.field === "email") setFieldError(els.loginEmail, $("#err-email"), v.msg);
-      if (v.field === "pw")    setFieldError(els.loginPw,    $("#err-pw"),    v.msg);
+      if (v.field === "email") setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), v.msg);
+      if (v.field === "pw")    setFieldError(els.loginPw,    $("#err-pw")    || ensureErrBelow(els.loginPw,    "err-pw"),    v.msg);
       return;
     }
 
@@ -407,24 +448,43 @@
 
     if (!res.ok){
       const target = res.field === "email" ? "email" : "pw";
-      if (target === "email") setFieldError(els.loginEmail, $("#err-email"), res.msg);
-      else                     setFieldError(els.loginPw,    $("#err-pw"),    res.msg);
+      if (target === "email") setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), res.msg);
+      else                    setFieldError(els.loginPw,    $("#err-pw")    || ensureErrBelow(els.loginPw,    "err-pw"),    res.msg);
       return;
     }
   }
 
   async function onSubmitSignup(e){
     e.preventDefault();
+
+    // 필드/공통 에러 초기화
+    const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
+    const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
+    const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
+    setFieldError(els.signupEmail, suEmailErr, "");
+    setFieldError(els.signupPw,    suPwErr,    "");
+    setFieldError(els.signupPw2,   suPw2Err,   "");
     showError(els.signupErr, "");
 
+    // 클라이언트 검증
     const v = assertSignupInputs();
-    if (!v.ok){ showError(els.signupErr, v.msg); return; }
+    if (!v.ok){
+      if (v.field === "email") setFieldError(els.signupEmail, suEmailErr, v.msg);
+      if (v.field === "pw")    setFieldError(els.signupPw,    suPwErr,    v.msg);
+      if (v.field === "pw2")   setFieldError(els.signupPw2,   suPw2Err,   v.msg);
+      return;
+    }
 
     setBusy(els.signupBtn, true, "Creating account…");
     const out = await doSignup(v.email, v.pw1);
     setBusy(els.signupBtn, false);
 
-    if (!out.ok){ showError(els.signupErr, out.msg); return; }
+    if (!out.ok){
+      if (out.field === "email") setFieldError(els.signupEmail, suEmailErr, out.msg);
+      else if (out.field === "pw") setFieldError(els.signupPw, suPwErr, out.msg);
+      else showError(els.signupErr, out.msg);
+      return;
+    }
 
     // Auto-login right after sign-up
     if (els.loginEmail) els.loginEmail.value = v.email;
@@ -432,8 +492,8 @@
     const r2 = await doLogin(v.email, v.pw1);
     if (!r2.ok){
       const target = r2.field === "email" ? "email" : "pw";
-      if (target === "email") setFieldError(els.loginEmail, $("#err-email"), r2.msg || "Automatic sign-in failed.");
-      else                     setFieldError(els.loginPw,    $("#err-pw"),    r2.msg || "Automatic sign-in failed.");
+      if (target === "email") setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), r2.msg || "Automatic sign-in failed.");
+      else                    setFieldError(els.loginPw,    $("#err-pw")    || ensureErrBelow(els.loginPw,    "err-pw"),    r2.msg || "Automatic sign-in failed.");
       return;
     }
   }
@@ -450,9 +510,27 @@
     on(els.panelLogin,  "submit", onSubmitLogin);
     on(els.panelSignup, "submit", onSubmitSignup);
 
-    // Clear field-level errors while typing
-    on(els.loginEmail, "input", () => setFieldError(els.loginEmail, $("#err-email"), ""));
-    on(els.loginPw,    "input", () => setFieldError(els.loginPw,    $("#err-pw"),    ""));
+    // Clear field-level errors while typing (로그인)
+    on(els.loginEmail, "input", () =>
+      setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), "")
+    );
+    on(els.loginPw, "input", () =>
+      setFieldError(els.loginPw, $("#err-pw") || ensureErrBelow(els.loginPw, "err-pw"), "")
+    );
+
+    // 회원가입 입력 시 필드별 에러 실시간 클리어
+    on(els.signupEmail, "input", () => {
+      const el = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
+      setFieldError(els.signupEmail, el, "");
+    });
+    on(els.signupPw, "input", () => {
+      const el = $("#su-err-pw") || ensureErrBelow(els.signupPw, "su-err-pw");
+      setFieldError(els.signupPw, el, "");
+    });
+    on(els.signupPw2, "input", () => {
+      const el = $("#su-err-pw2") || ensureErrBelow(els.signupPw2, "su-err-pw2");
+      setFieldError(els.signupPw2, el, "");
+    });
 
     bindTabDelegation();
 
