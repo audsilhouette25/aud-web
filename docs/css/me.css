@@ -342,14 +342,14 @@ progress#m-rate-bar::-webkit-progress-value{
   align-items: center;
   text-align: center;
 }
-
-.grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; align-items: center; place-content: center; }
-.kpi{ display: flex; flex-direction: column; align-items: center;  gap: 6px; text-align: center; }
+.grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.kpi{ display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .kpi b{ font-size: 20px; }
 .kpi span{ font-size: 12px; color: #777; }
 .panel .list{ list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .panel .list li{ display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
 .panel .list li b{ font-variant-numeric: tabular-nums; color: #333; }
+
 
 /* =====================================================================
    10) Notifications panel
