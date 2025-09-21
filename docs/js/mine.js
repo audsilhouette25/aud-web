@@ -85,6 +85,8 @@
       _parseJSON(it.user) ||
       _parseJSON(it.user_json) ||
       _parseJSON(it.author_json) ||
+      it.authorProfile ||                 // ⬅️ 추가: 서버가 넣어주는 공개 프로필
+      _parseJSON?.(it.authorProfile) ||   // ⬅️ 추가: 문자열인 경우까지 커버
       null;
 
     const id  = it.user_id || it.owner_id || it.created_by || authorObj?.id || authorObj?.user_id || null;
@@ -1743,6 +1745,17 @@
       const pickUserFromItem = (o) => (o?.user || o?.item?.user || o?.data?.user || null);
       const u0 = pickUserFromItem(j);
       if (u0) item.user = u0;
+
+      // 상세 응답이 authorProfile만 줄 수도 있으므로 병합
+      const ap = j?.authorProfile || j?.item?.authorProfile || j?.data?.authorProfile || null;
+      if (ap) {
+        item.user = {
+          id:        ap.id || item?.user?.id || null,
+          displayName: ap.displayName || item?.user?.displayName || item?.user?.name || null,
+          email:     ap.email || item?.user?.email || null,
+          avatarUrl: ap.avatarUrl || item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture || null,
+        };
+      }
 
       // 이메일이 마스킹된 경우('*' 포함)면 무시하고 보강 시도
       const masked = (v) => typeof v === 'string' && v.includes('*');
