@@ -436,7 +436,7 @@ progress#m-rate-bar::-webkit-progress-value{
   to{ opacity:1; transform: translateY(0); }
 }
 .notice .time{ font-size:.85rem; color:#7b8192; margin-left:.75rem; }
-.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; overflow:hidden; }
 
 .notify-empty{ margin:.5rem 0 0; color:#8a8f9f; font-size:.92rem; }
 .panel.notify { position: relative; }
