@@ -160,3 +160,23 @@ form label:first-of-type{ margin-top: 0; }
 .btn-primary:hover{ opacity:.92; }
 .btn-primary:active{ transform: translateY(1px); }
 .btn-primary:focus-visible{ outline:none; box-shadow:0 0 0 4px rgba(0,0,0,.15); }
+
+
+/* 폼 하단 전역 에러 */
+.form-error{
+  min-height: 20px;
+  color:var(--error);
+  font-size:14px;
+  margin-top:12px;
+}
+
+/* (선택) 공통 auth 네비 슬롯 */
+.auth-slot{ display:flex; gap:10px; align-items:center; }
+.auth-slot .btn{
+  padding:8px 14px; border-radius:9999px;
+  border:1px solid rgba(0,0,0,.12); background:#fff;
+  font-weight:600; cursor:pointer;
+}
+.auth-slot .btn:hover{ opacity:.92; }
+.auth-slot .link{ font-size:14px; text-decoration:none; opacity:.85; }
+.auth-slot .link.muted{ opacity:.65; }
