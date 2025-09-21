@@ -340,7 +340,7 @@ progress#m-rate-bar::-webkit-progress-value{
 
 .quick .panel:first-child .kpi{
   align-items: center;
-  text-align: center;
+  text-align: start;
 }
 .grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .kpi{ display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
