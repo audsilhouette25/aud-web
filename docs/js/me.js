@@ -596,6 +596,32 @@
   const setWantsNative = (v) => { try { localStorage.setItem(NATIVE_KEY, v ? "1" : "0"); } catch {} };
   const hasNativeAPI  = () => typeof window.Notification === "function";
 
+  const LOG_KEY = () => `notify:log:${getNS()}`;
+  const LOG_MAX = 50;                                  // 최대 50개
+  const LOG_TTL = 1000 * 60 * 60 * 24 * 7;            // 7일
+
+  function readLog() {
+    try { return JSON.parse(localStorage.getItem(LOG_KEY()) || "[]"); }
+    catch { return []; }
+  }
+  function writeLog(arr) {
+    try { localStorage.setItem(LOG_KEY(), JSON.stringify(arr)); } catch {}
+  }
+  function appendLog(entry) {
+    const now = Date.now();
+    // TTL 필터 + push + 초과분 삭제(오래된 것부터)
+    const arr = readLog().filter(it => (now - (it.ts || 0)) < LOG_TTL);
+    arr.push({
+      text: entry.text || "",
+      sub:  entry.sub  || "",
+      tag:  entry.tag  || "",
+      data: entry.data || null,
+      ts:   entry.ts   || now
+    });
+    while (arr.length > LOG_MAX) arr.shift();
+    writeLog(arr);
+  }
+
   async function ensureNativePermission() {
     if (!hasNativeAPI()) return false;
     if (Notification.permission === "granted") return true;
@@ -675,6 +701,11 @@
     while (ul.children.length > 20) ul.removeChild(ul.lastChild);
 
     try { maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
+
+    // ☆ 새로고침 후 보관용 영구 로그
+    if (opt.persist !== false) {
+      try { appendLog({ text, sub, tag: opt?.tag || "", data: opt?.data || null, ts: Date.now() }); } catch {}
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
@@ -1733,6 +1764,17 @@
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
 
     // 8) notifications & sockets
+    // 부팅 시 저장된 알림 복원(오래된→최신 순으로 렌더, 재기록 금지)
+    (function seedNoticesFromLog(){
+      try {
+        const arr = readLog().slice(-LOG_MAX); // 안전차단
+        // 오래된 순으로 그려야 화면에는 최신이 위로(prepend) 쌓임
+        for (const it of arr) {
+          pushNotice(it.text, it.sub, { tag: it.tag || `log:${it.ts}`, data: it.data, persist: false });
+        }
+      } catch {}
+    })();
+
     setupNotifyUI();
     ensureSocket();
     try { if (quick.authed) await reconcileMissedWhileAway({ maxItems: 100, concurrency: 4 }); } catch {}
