@@ -132,10 +132,20 @@ form .input-lg:last-of-type{ margin-bottom: 8px; }
 
 /* 필드 에러 */
 .field-error{
-  min-height:16px;
-  color:var(--error); font-size:13px;
-  margin:4px 0 10px;
+  display: block;              /* ← display: none으로 꺼지지 않게 */
+  min-height: 16px;            /* 기존 유지 */
+  color: var(--error);
+  font-size: 13px;
+  margin: 4px 0 10px;
+  visibility: hidden;          /* 기본은 보이지 않지만(자리만 차지) */
 }
+
+
+/* 에러가 있을 때만 보이도록 */
+.field-error.is-on{
+  visibility: visible;
+}
+
 .input-lg.is-invalid{
   border-color:var(--error);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--error) 10%, transparent);

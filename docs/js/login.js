@@ -175,16 +175,27 @@
       delete btn.dataset.prev;
     }
   }
-  function showError(el, msg){ if (!el) return; el.textContent = msg || ""; el.style.display = msg ? "block" : "none"; }
-
   function setFieldError(inputEl, errEl, msg){
     if (!inputEl || !errEl) return;
     const has = !!msg;
+    // 입력 필드 상태
     inputEl.classList.toggle("is-invalid", has);
     inputEl.setAttribute("aria-invalid", has ? "true" : "false");
+    // 에러 블록: display를 바꾸지 않는다
     errEl.textContent = has ? String(msg) : "";
-    errEl.style.display = has ? "block" : "none";
+    errEl.classList.toggle("is-on", has);  // ← visibility 토글 전용 클래스
+    // errEl.style.display 는 건드리지 않음
   }
+
+  function showError(errEl, msg){
+    if (!errEl) return;
+    const has = !!msg;
+    errEl.textContent = has ? String(msg) : "";
+    // 로그인/회원가입 공통 에러 블록도 동일 원칙 적용
+    errEl.classList.toggle("is-on", has);
+    // errEl.style.display 는 건드리지 않음
+  }
+
   function clearFieldErrors(){
     setFieldError(els.loginEmail, $("#err-email"), "");
     setFieldError(els.loginPw,    $("#err-pw"),    "");
