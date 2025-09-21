@@ -136,7 +136,7 @@ form .input-lg:last-of-type{ margin-bottom: 8px; }
   min-height: 15px;            /* 기존 유지 */
   color: var(--error);
   font-size: 13px;
-  margin: 4px 0 4px;
+  margin: 2px 0 2px;
   visibility: hidden;          /* 기본은 보이지 않지만(자리만 차지) */
 }
 
