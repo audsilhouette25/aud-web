@@ -17,8 +17,8 @@ window.SDF_NS = USER_NS; // 다른 모듈들이 참조
 /* 기존: const GALLERY_PREFIX = "mine:";  → 계정별로 분리 */
 const GALLERY_PREFIX = `mine:${USER_NS}:`;
 
-const TS_KEY = "aud:label:timestamp";
-const HEARTS_KEY = "aud:label:hearts";
+const TS_KEY = `aud:${USER_NS}:label:timestamp`;
+const HEARTS_KEY = `aud:${USER_NS}:label:hearts`;
 
 const _S = () => (window.store
   && typeof window.store.getTimestamp === "function"
@@ -856,7 +856,7 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
 
 (function SimpleDrawModule(){
   const SDF = window.SDF || {};
-  const ensureReady = (SDF.ensureReady || ((cb)=>document.addEventListener("DOMContentLoaded", cb, {once:true})));
+  const ensureReady = (window.ensureReady || ((cb)=>document.addEventListener("DOMContentLoaded", cb, {once:true})));
   const { clamp, wheelDeltaPx, hexToRgb, rgbToHex, hsvToRgb, rgbToHsv, dataURLtoBlob, blobToImage, makeThumbnail, el } = SDF.Utils || {};
   const Icons = SDF.Icons || {};
 
@@ -973,11 +973,20 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
         try {
           const labelForPersist = resolveEffectiveLabel();
           const dataURL = offscreen.toDataURL("image/png"); // alpha preserved
-          localStorage.setItem(
-            keyForPersist(labelForPersist),
-            JSON.stringify({ w: offSize.w, h: offSize.h, dataURL, zoom, scrollX, scrollY, tbPos, collapsed })
-          );
-        } catch {}
+
+          // 💡 4.5MB 임계치 보호 (origin당 ~5MB 한계 고려)
+          const payload = JSON.stringify({
+            w: offSize.w, h: offSize.h, dataURL, zoom, scrollX, scrollY, tbPos, collapsed
+          });
+          if (payload.length > 4_500_000) {
+            console.warn("[saveState] skipped: payload too large (~%d KB)", Math.round(payload.length/1024));
+            return;
+          }
+
+          localStorage.setItem(keyForPersist(labelForPersist), payload);
+        } catch (e) {
+          console.warn("[saveState] skipped:", e);
+        }
       }
 
       async function loadState() {
@@ -1516,7 +1525,7 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
 (function GalleryHorizontalModule() {
   const SDF = window.SDF || {};
   const ensureReady =
-    SDF.ensureReady ||
+    window.ensureReady ||
     ((cb) =>
       document.readyState === "loading"
         ? document.addEventListener("DOMContentLoaded", cb, { once: true })
@@ -1833,22 +1842,38 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
   // FormData에 다양한 백엔드 호환 키로 주입
   function appendAuthorFields(fd, a){
     if (!fd || !a) return;
-    // 권장 키
+
+    // 서버 파싱 우선순위: authorProfile > author > user > flat
+    const authorProfile = {
+      id: a.id || null,
+      displayName: a.name || "",
+      avatarUrl: a.avatar || "",
+      email: a.email || "",
+      handle: a.handle || "",
+      ns: a.ns || "default",
+    };
+    fd.append("authorProfile", JSON.stringify(authorProfile)); // ← 최우선
+
+    // 다음 우선순위
+    fd.append("author", JSON.stringify(a));
+    fd.append("user",   JSON.stringify(a));
+
+    // flat (최후)
     if (a.id) fd.append("author_id", a.id);
     fd.append("author_ns", a.ns || "default");
     fd.append("author_name", a.name || "");
     if (a.handle) fd.append("author_handle", a.handle);
     if (a.avatar) fd.append("author_avatar", a.avatar);
 
-    // 구(舊) 백엔드 호환
+    // legacy 호환(flat)
     if (a.id) {
       fd.append("user_id", a.id);
       fd.append("owner_id", a.id);
     }
-    fd.append("ns", a.ns || "default");      // 이미 넣고 있어도 중복 무해
-    fd.append("user", JSON.stringify(a));     // 객체 통으로도 전달
-    fd.append("author", JSON.stringify(a));   // 혹시 author만 읽는 서버 대비
+    fd.append("ns", a.ns || "default");
   }
+
+
 
 /* ========================================================================== *
  * FEED — Unified Post Flow (No-inline-CSS, DRY)
@@ -1979,7 +2004,6 @@ function goMineAfterShare(label = getLabel()) {
     fd.append("id", id);
     fd.append("label", label);
     fd.append("createdAt", String(now()));
-    fd.append("ns", ns);
     fd.append("visibility", "public");
     if (width)  fd.append("width",  String(width));
     if (height) fd.append("height", String(height));
@@ -2036,7 +2060,12 @@ function goMineAfterShare(label = getLabel()) {
         return false;
       }
       return true;
-    }catch{ return true; }
+    }catch{
+      // 엄격: 인증 장애 시에도 작성/업로드 막기
+      const ret = encodeURIComponent(location.href);
+      location.replace(`${pageHref('login.html')}?next=${ret}`);
+      return false;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -2499,61 +2528,6 @@ function goMineAfterShare(label = getLabel()) {
 
     // 상태
     const state = { blob:null, w:0, h:0 };
-
-      // 현재 줌 레벨을 저장하는 변수 (초기값: 1)
-    let currentZoom = 1;
-    const MIN_ZOOM = 0.5; // 최소 줌
-    const MAX_ZOOM = 3;   // 최대 줌
-
-    // 줌 슬라이더 요소와 모달 콘텐츠 요소를 가져옵니다.
-    // 실제 HTML 구조에 맞게 ID나 클래스 선택자를 수정해야 합니다.
-    const zoomSlider = document.getElementById('zoom-slider');
-    const modalContent = document.querySelector('.modal-content'); // 클래스로 선택하는 것을 추천
-
-    // 줌 슬라이더의 값이 변경될 때마다 실행될 함수
-    function handleZoom() {
-      const zoomLevel = parseFloat(zoomSlider.value);
-      currentZoom = Math.max(MIN_ZOOM, Math.min(zoomLevel, MAX_ZOOM));
-      modalContent.style.transform = `scale(${currentZoom})`;
-    }
-
-    // 줌 슬라이더에 'input' 이벤트 리스너를 추가합니다.
-    if (zoomSlider && modalContent) {
-      // 모달이 열릴 때마다 이벤트 리스너를 중복으로 추가하지 않도록 방지
-      if (!zoomSlider.dataset.zoomHandlerAttached) {
-        zoomSlider.addEventListener('input', handleZoom);
-        zoomSlider.dataset.zoomHandlerAttached = 'true';
-      }
-    }
-
-    // (선택 사항) 줌 버튼 클릭 시 줌 레벨을 변경하는 함수
-    function zoomIn() {
-      currentZoom = Math.min(currentZoom + 0.1, MAX_ZOOM);
-      zoomSlider.value = currentZoom;
-      modalContent.style.transform = `scale(${currentZoom})`;
-    }
-
-    function zoomOut() {
-      currentZoom = Math.max(currentZoom - 0.1, MIN_ZOOM);
-      zoomSlider.value = currentZoom;
-      modalContent.style.transform = `scale(${currentZoom})`;
-    }
-
-    // 줌인/줌아웃 버튼에 이벤트 리스너를 추가합니다.
-    const zoomInButton = document.getElementById('zoom-in-btn');
-    const zoomOutButton = document.getElementById('zoom-out-btn');
-
-    if (zoomInButton && zoomOutButton) {
-      // 이벤트 리스너 중복 방지
-      if (!zoomInButton.dataset.zoomHandlerAttached) {
-          zoomInButton.addEventListener('click', zoomIn);
-          zoomInButton.dataset.zoomHandlerAttached = 'true';
-      }
-      if (!zoomOutButton.dataset.zoomHandlerAttached) {
-          zoomOutButton.addEventListener('click', zoomOut);
-          zoomOutButton.dataset.zoomHandlerAttached = 'true';
-      }
-    }
 
     function applySelection(b, w, h){
       state.blob = b; state.w = w|0; state.h = h|0;
