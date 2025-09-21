@@ -677,6 +677,110 @@
     try { maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 4.5) Missed-notice reconciliation (부팅 시 놓친 알림 복구)
+   *  - 페이지가 닫혀 있던 동안(로그아웃/다른 계정 활동 포함) 증가한 좋아요/투표를
+   *    '카운트 스냅샷' 비교로 합성해서 알림(ON이면 토스트, OFF면 큐)에 넣는다.
+   * ──────────────────────────────────────────────────────────────────────────── */
+
+  // 스냅샷 키 (NS별로 분리)
+  function SNAP_L_KEY() { return `me:last-like-snap:${getNS()}`; } // { [itemId]: likeCount }
+  function SNAP_V_KEY() { return `me:last-vote-snap:${getNS()}`; } // { [itemId]: totalVotes }
+
+  function __safeJSON(v, fb) { try { return v ? (JSON.parse(v) ?? fb) : fb; } catch { return fb; } }
+  function __readSnap(k, fb) { return __safeJSON(localStorage.getItem(k), fb); }
+  function __writeSnap(k, obj) { try { localStorage.setItem(k, JSON.stringify(obj || {})); } catch {} }
+
+  async function __fetchLikeCount(itemId) {
+    // 가능한 엔드포인트 몇 개를 유연하게 시도
+    const pid = encodeURIComponent(itemId);
+    const tryRead = async (url) => {
+      try {
+        const r = await api(url, { credentials: "include", cache: "no-store" });
+        const j = await r?.json?.().catch?.(() => ({}));
+        if (!r || !r.ok) return null;
+        return j.likeCount ?? j.likes ?? j.item?.likes ?? j.data?.likes ?? null;
+      } catch { return null; }
+    };
+    return (await tryRead(`/api/items/${pid}`))
+        ?? (await tryRead(`/api/items/${pid}/like`))
+        ?? null;
+  }
+
+  async function __fetchVoteTotal(itemId) {
+    const pid = encodeURIComponent(itemId);
+    const tryRead = async (url) => {
+      try {
+        const r = await api(url, { credentials: "include", cache: "no-store" });
+        const j = await r?.json?.().catch?.(() => ({}));
+        if (!r || !r.ok) return null;
+        const counts = j.counts ?? j.item?.counts ?? j.data?.counts ?? null;
+        if (!counts || typeof counts !== "object") return null;
+        let s = 0; for (const k in counts) s += (+counts[k] || 0);
+        return s;
+      } catch { return null; }
+    };
+    return (await tryRead(`/api/items/${pid}/votes`))
+        ?? (await tryRead(`/api/votes?item=${pid}`))
+        ?? null;
+  }
+
+  // 알림 출력(ON이면 토스트, OFF면 pushNotice가 자동으로 큐에 적재)
+  function __emitMissed(text, sub, tag, data) {
+    try { pushNotice(text, sub, { tag, data }); } catch {
+      // 혹시 pushNotice가 아직 준비 전이라면 큐 키에 직접 적재
+      const qKey = `notify:queue:${getNS()}`;
+      const q = __readSnap(qKey, []);
+      q.push({ text, sub, tag, data, ts: Date.now() });
+      __writeSnap(qKey, q);
+    }
+  }
+
+  // 메인: 부팅 시 놓친 알림 복구
+  async function reconcileMissedWhileAway({ maxItems = 100, concurrency = 4 } = {}) {
+    // 내 게시물 목록 확보
+    const myItems = await fetchAllMyItems(Math.ceil(maxItems / 60), 60);
+    if (!Array.isArray(myItems) || !myItems.length) return { scanned: 0, liked: 0, voted: 0 };
+
+    const ids = myItems.map(it => String(it?.id)).filter(Boolean).slice(0, maxItems);
+
+    const prevL = __readSnap(SNAP_L_KEY(), {});
+    const prevV = __readSnap(SNAP_V_KEY(), {});
+    const nextL = { ...prevL };
+    const nextV = { ...prevV };
+
+    let likeHits = 0, voteHits = 0;
+
+    await mapLimit(ids, concurrency, async (id) => {
+      const [lc, vt] = await Promise.all([ __fetchLikeCount(id), __fetchVoteTotal(id) ]);
+
+      if (typeof lc === "number") {
+        const prev = +prevL[id] || 0;
+        if (lc > prev) {
+          __emitMissed("My post got liked", `+${lc - prev} · Total ${qty(lc, "like")}`, `like:${id}`, { id, delta: lc - prev, total: lc });
+          likeHits++;
+        }
+        nextL[id] = lc;
+      }
+
+      if (typeof vt === "number") {
+        const prev = +prevV[id] || 0;
+        if (vt > prev) {
+          __emitMissed("My post votes have been updated", `+${vt - prev} · Total ${qty(vt, "vote")}`, `vote:${id}`, { id, delta: vt - prev, total: vt });
+          voteHits++;
+        }
+        nextV[id] = vt;
+      }
+    });
+
+    __writeSnap(SNAP_L_KEY(), nextL);
+    __writeSnap(SNAP_V_KEY(), nextV);
+
+    // OFF였다면 큐에 쌓였을 것이고, ON이면 바로 토스트가 떠 있음
+    return { scanned: ids.length, liked: likeHits, voted: voteHits };
+  }
+
+
   function setupNotifyUI() {
     // 1) 로그인 여부 무관 기본 ON (게스트 포함) —— 토글 유무와 상관없이 먼저 실행
     setNotifyOn(true);
@@ -1631,6 +1735,7 @@
     // 8) notifications & sockets
     setupNotifyUI();
     ensureSocket();
+    try { if (quick.authed) await reconcileMissedWhileAway({ maxItems: 100, concurrency: 4 }); } catch {}
     try {
       const ns = getNS();
       const bc = new BroadcastChannel(`aud:sync:${ns}`);
