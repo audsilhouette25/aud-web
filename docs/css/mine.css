@@ -27,12 +27,6 @@
   --sheet-ar-num: 16;          /* 단계A 비율 (16:9 ~= 1.78, 600+350+gutter : 600 ≈ 1.77) */
   --sheet-ar-den: 9;
   --pm-fixed-h: 92dvh;         /* 단계B 고정 높이 (필요하면 88dvh~96dvh로 조절) */
-
-  --author-gap: 10px;
-  --author-pad-x: 8px;
-  --author-pad-y: 10px;
-  --author-font-size: 14px;
-  --author-weight: 700;
 }
 
 html, body { height: 100%; }
@@ -289,43 +283,13 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 
 /* 모달 헤더에서는 살짝 크게 (기존 규칙 유지) */
 .post-modal--split .pm-right-head .avatar{
-  width: 44px; height: 44px; /* 헤더만 예외 사이즈면 유지 */
-}
-.post-modal--split .pm-right-head .account .name{
-  font-weight: var(--author-weight);
-  font-size: var(--author-font-size);
+  width: 44px; height: 44px;
 }
 
 /* 내 카드만 링 강조(기존 룰 유지) — 타 계정도 동일 룩(원형+cover)은 그대로 */
 .feed-card[data-owner="me"] .avatar{
   box-shadow: inset 0 0 0 2px var(--accent);
 }
-
-/* 공통 계정 라인업 이미 있음(.account) → 카드에서도 사용 */
-.account{
-  display: inline-flex;
-  align-items: center;
-  gap: var(--author-gap);
-  min-width: 0;
-}
-
-.account .name{
-  font-weight: var(--author-weight);
-  font-size: var(--author-font-size);
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account .meta{
-  font-size: 12px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 
 /* =====================================================================
    10) Feed

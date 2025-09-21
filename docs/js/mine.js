@@ -1744,10 +1744,10 @@
       const u0 = pickUserFromItem(j);
       if (u0) item.user = u0;
 
-      // 이메일이 마스킹된 경우('*' 포함)면 무시하고 보강 시도
-      const masked = (v) => typeof v === 'string' && v.includes('*');
-
-      const haveName   = !!(item?.user?.displayName || item?.user?.name);
+      // 이름/이메일이 마스킹된 경우('*', '•', '·' 등 포함)면 '없음'으로 간주 → 보강 시도
+      const masked = (v) => typeof v === 'string' && /[*•·]/.test(v);
+      const nameRaw = item?.user?.displayName || item?.user?.name || '';
+      const haveName   = !!nameRaw && !masked(nameRaw);
       const haveAvatar = !!(item?.user?.avatarUrl || item?.user?.avatar || item?.user?.picture);
       const haveEmail  = !!(item?.user?.email) && !masked(item?.user?.email);
 
@@ -2850,10 +2850,13 @@
         (minePost && (profSnap?.id || getMeId())) ||
         '';
 
-      const emailName = (item?.user?.email || '').split('@')[0] || '';
+      const emailRaw = String(item?.user?.email || '');
+      const emailName = emailRaw.split('@')[0] || '';
+      const looksMasked = /[*•·]/.test(emailRaw) || /[*•·]/.test(emailName);
+      const safeEmailName = looksMasked ? '' : emailName;
       const name = (minePost && profSnap?.displayName)
         ? profSnap.displayName
-        : (item?.user?.displayName || item?.user?.name || emailName || 'member');
+        : (item?.user?.displayName || item?.user?.name || safeEmailName || 'member');
 
       const avatarSrc = (minePost && profSnap?.avatarUrl)
         ? profSnap.avatarUrl
