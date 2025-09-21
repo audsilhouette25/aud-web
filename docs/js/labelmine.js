@@ -2842,19 +2842,16 @@ function goMineAfterShare(label = getLabel()) {
         // 현재 배치에서 프레임 중심이 가리키는 원본 이미지 좌표(wx, wy)
         const iw = img.naturalWidth, ih = img.naturalHeight;
         const drawW0 = iw * zoom, drawH0 = ih * zoom;
-
-        // FIX: 반올림 제거해 서브픽셀 정밀도 유지
-        const dx0 = fx + tx - drawW0/2 + fw/2; // Math.round(...) 제거
-        const dy0 = fy + ty - drawH0/2 + fh/2; // Math.round(...) 제거
-
+        // 소수 좌표 유지: 반올림 제거
+        const dx0 = fx + tx - drawW0/2 + fw/2;
+        const dy0 = fy + ty - drawH0/2 + fh/2;
         const wx = (cx - dx0) / zoom;
         const wy = (cy - dy0) / zoom;
 
-        // 새로운 배율로 전환
         const s1 = Math.max(minCover, Math.min(+zoomInput.max || 4, Number(nextZoom) || minCover));
         zoom = s1;
 
-        // 프레임 중심(cx,cy)에 동일 원본 좌표(wx,wy)가 오도록 오프셋 재계산
+        // 앵커 유지: 반올림 제거
         tx = zoom * ((iw/2) - wx);
         ty = zoom * ((ih/2) - wy);
 
@@ -2963,7 +2960,6 @@ function goMineAfterShare(label = getLabel()) {
           viewW = Math.max(1, Math.floor(rect.width));
           viewH = Math.max(1, Math.floor(rect.height));
 
-          // FIX: 리사이즈 시에도 DPR 다시 적용
           const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
           canvas.style.width  = `${viewW}px`;
           canvas.style.height = `${viewH}px`;
