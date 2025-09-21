@@ -322,33 +322,76 @@ progress#m-rate-bar::-webkit-progress-value{
 /* =====================================================================
    9) Quick Panels (컬렉션 요약 등)
 ===================================================================== */
+/* === Quick 영역 === */
 .quick{
   margin-top: 18px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
 }
-/* Collection 패널 전용 중앙 정렬 */
-.quick .panel:first-child {           /* 왼쪽 첫 패널이 Collection */
+
+/* 왼쪽 첫 패널(= Collection) */
+.quick .panel:first-child{
   display: grid;
 }
 
-.quick .panel:first-child .grid-3 {
-  block-size: 100%;                  /* 패널 높이 채우기 */ 
-  align-content: center;             /* 수직 중앙 */
-  justify-content: start;     
-  justify-items: start;    
+/* 그리드 내용: 세로 가운데, 가로는 시작 정렬 */
+.quick .panel:first-child .grid-3{
+  block-size: 100%;
+  align-content: center;   /* vertical center */
+  justify-content: start;  /* horizontal start */
+  justify-items: start;    /* each cell start */
 }
 
+/* KPI: 숫자 왼쪽, 라벨 오른쪽, 기준선(아래) 맞춤 */
 .quick .panel:first-child .kpi{
-  align-items: center;
-  text-align: start;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
 }
-.grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-.kpi{ display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.kpi b{ font-size: 20px; }
-.kpi span{ font-size: 12px; color: #777; }
-.panel .list{ list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.panel .list li{ display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
-.panel .list li b{ font-variant-numeric: tabular-nums; color: #333; }
+.quick .panel:first-child .kpi b{
+  font-size: 20px;
+  line-height: 1;
+}
+.quick .panel:first-child .kpi span{
+  font-size: 12px;
+  line-height: 1;
+  color: #777;
+}
+
+/* 기본 그리드 / KPI (다른 패널 공통) */
+.grid-3{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.kpi{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* 리스트 공통 */
+.panel .list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.panel .list li{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.panel .list li b{
+  font-variant-numeric: tabular-nums;
+  color: #333;
+}
 
 
 /* =====================================================================
