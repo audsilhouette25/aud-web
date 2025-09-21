@@ -131,6 +131,7 @@
   }
 
 
+
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
   const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
@@ -1697,6 +1698,17 @@
 
     window.addEventListener("auth:state", refreshQuickCounts);
     window.addEventListener("store:ns-changed", refreshQuickCounts);
+
+    // === store.js 변화 이벤트 → 알림 ===
+
+    // 좋아요 스냅샷 맵 변경
+    window.addEventListener("itemLikes:changed", (ev) => {
+    });
+
+    // 라벨별 투표 총합 변경
+    window.addEventListener("label:votes-changed", () => {
+      // no-op: 소켓/브로드캐스트/폴백(reconcile)에서 아이템별로만 알림 처리
+    });
 
     // 7) UI handlers
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });

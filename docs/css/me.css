@@ -326,6 +326,23 @@ progress#m-rate-bar::-webkit-progress-value{
   margin-top: 18px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
 }
+/* Collection 패널 전용 중앙 정렬 */
+.quick .panel:first-child {           /* 왼쪽 첫 패널이 Collection */
+  display: grid;
+}
+
+.quick .panel:first-child .grid-3 {
+  block-size: 100%;                  /* 패널 높이 채우기 */ 
+  align-content: center;             /* 수직 중앙 */
+  justify-content: center;           /* 수평 중앙 */
+  justify-items: center;             /* 각 셀도 중앙 */
+}
+
+.quick .panel:first-child .kpi{
+  align-items: center;
+  text-align: center;
+}
+
 .grid-3{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;justify-items: center; align-items: center;place-content: center; }
 .kpi{ display: flex; flex-direction: column; align-items: center;  gap: 6px; text-align: center; }
 .kpi b{ font-size: 20px; }
