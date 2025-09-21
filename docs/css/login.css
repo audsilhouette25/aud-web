@@ -62,8 +62,10 @@ header.nav{
 }
 
 /* =====================================================================
-   3) Auth Card & Forms
+   3) Auth Card & Forms  — vertical rhythm unified (login == signup)
+   스택: [label] → [.input-lg] → [.field-error]
 ===================================================================== */
+
 /* 카드 */
 .auth-card{
   width: min(385px, 92vw);
@@ -83,76 +85,70 @@ header.nav{
 }
 
 /* 탭 전환 */
-.auth-switch{ display:flex; gap:8px; margin-bottom:16px; }
-.auth-tab{
-  flex:1; padding:10px 12px; border-radius:9999px;
-  border:1px solid rgba(0,0,0,.12); background:#fff;
-  font-weight:600; cursor:pointer;
-  transition: background .2s, color .2s, border-color .2s;
+.auth-tabs{
+  display:flex; gap:8px; justify-content:center; margin-bottom:16px;
 }
-.auth-tab:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,0,0,.12); }
-
-/* 활성/비활성 — aria-selected 기준(권장) */
-.auth-switch .auth-tab[aria-selected="true"]{
+.auth-tabs .tab{
+  padding:8px 14px; border-radius:9999px;
+  border:1px solid rgba(0,0,0,.12); background:#fff; cursor:pointer;
+  font-weight:700; font-size:14px;
+}
+.auth-tabs .tab[aria-selected="true"]{
   background:#111; color:#fff; border-color:#111;
 }
-.auth-switch .auth-tab[aria-selected="false"]{
-  background:#fff; color:#111; border-color:rgba(0,0,0,.12);
+
+/* ====== 핵심: 수직 리듬 통일 ====== */
+.auth-card form{
+  /* 입력칸(필드) 사이 간격을 하나의 변수로 통제 */
+  --stack-gap: 14px; /* 여기 값만 바꾸면 두 탭이 동시에 동일하게 변함 */
 }
 
-/* 하위 호환: 구 .is-active가 남아있을 때 처리(aria가 아니면 무시) */
-.auth-switch .auth-tab.is-active:not([aria-selected="true"]){
-  background:#fff !important;
-  color:#111 !important;
-  border-color:rgba(0,0,0,.12) !important;
-}
-
-/* 라벨/인풋 */
+/* 1) 라벨: 다음 스택을 여는 트리거 (위쪽 간격 담당) */
 form label{
   display:block;
   font-size:14px; font-weight:600; color:#333;
-  margin-top:8px;
+  margin: var(--stack-gap) 0 6px;  /* 위=필드 간 간격, 아래=라벨→인풋 간격 */
 }
+/* 첫 번째 라벨은 상단 간격 제거 */
+form label:first-of-type{ margin-top: 0; }
+
+/* 2) 인풋: 자체 마진 제거 → 간격은 라벨/에러가 관리 */
 .input-lg{
   width:100%;
-  margin:6px 0 10px 0;
+  margin: 0;                     /* (중요) 기존 6px 0 10px 0 → 0 */
   padding:12px 12px;
   border-radius:10px;
   border:1px solid rgba(0,0,0,.14);
   background:#fff; font-size:16px;
   transition: border-color .15s, box-shadow .15s;
 }
-form .input-lg:last-of-type{ margin-bottom: 8px; }
-
-.input-lg::placeholder{ color:#aaa; }
 .input-lg:focus{
-  outline:none; border-color:#111;
-  box-shadow:0 0 0 3px rgba(0,0,0,.08);
+  outline:none;
+  border-color: #111;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #111 10%, transparent);
 }
 
-/* 필드 에러 */
+/* 3) 에러 placeholder: 아주 얇은 상단 간격 + 고정 높이로 라인 흔들림 방지 */
 .field-error{
-  display: block;              /* ← display: none으로 꺼지지 않게 */
-  min-height: 15px;            /* 기존 유지 */
-  color: var(--error);
+  display:block;
+  min-height: 14px;              /* placeholder 고정 높이(두 탭 동일) */
+  margin: 6px 0 0;               /* 인풋→에러 사이 6px만 */
   font-size: 13px;
-  margin: 2px 0 2px;
-  visibility: hidden;          /* 기본은 보이지 않지만(자리만 차지) */
+  color: var(--error);
+  visibility: hidden;            /* 내용 없을 때도 자리만 차지 */
 }
+/* 에러가 있을 때만 표시 */
+.field-error.is-on{ visibility: visible; }
 
-
-/* 에러가 있을 때만 보이도록 */
-.field-error.is-on{
-  visibility: visible;
-}
-
+/* 인풋 에러 상태 */
 .input-lg.is-invalid{
-  border-color:var(--error);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--error) 10%, transparent);
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 12%, transparent);
 }
 
-/* 제출 버튼 */
-.auth-card form .btn-primary{ margin-top: 24px; }
+/* 4) 제출 버튼: 스택과 분리된 상단 간격(양 탭 동일) */
+.auth-card form .btn-primary{ margin-top: 20px; }
+/* 버튼 자체 스타일(기존 유지) */
 .btn-primary{
   width:100%;
   padding:12px 16px;
@@ -164,22 +160,3 @@ form .input-lg:last-of-type{ margin-bottom: 8px; }
 .btn-primary:hover{ opacity:.92; }
 .btn-primary:active{ transform: translateY(1px); }
 .btn-primary:focus-visible{ outline:none; box-shadow:0 0 0 4px rgba(0,0,0,.15); }
-
-/* 폼 하단 전역 에러 */
-.form-error{
-  min-height: 20px;
-  color:var(--error);
-  font-size:14px;
-  margin-top:12px;
-}
-
-/* (선택) 공통 auth 네비 슬롯 */
-.auth-slot{ display:flex; gap:10px; align-items:center; }
-.auth-slot .btn{
-  padding:8px 14px; border-radius:9999px;
-  border:1px solid rgba(0,0,0,.12); background:#fff;
-  font-weight:600; cursor:pointer;
-}
-.auth-slot .btn:hover{ opacity:.92; }
-.auth-slot .link{ font-size:14px; text-decoration:none; opacity:.85; }
-.auth-slot .link.muted{ opacity:.65; }
