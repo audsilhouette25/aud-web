@@ -289,6 +289,8 @@
   /** Clear session collections when user or namespace changes. */
   function purgeCollectionsIfUserChanged(prevProfile, meProfileNow) {
     const ns = getNS();
+    writeProfileCache({ id: MY_UID, displayName }); 
+    window.setNSIdentity?.(ns, { displayName, avatarUrl: currentAvatarUrl || null }); 
     const lastUIDKey = `me:last-uid:${ns}`;
     const lastNSKey  = `me:last-ns`;
 

@@ -1774,11 +1774,58 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     return { id: id && String(id), ns, name: String(name||""), handle: String(handle||""), avatar: String(avatar||"") };
   }
 
+  // ★ REPLACE: getAuthorMeta()
   let __meCache = null;
-  async function getAuthorMeta() {
+  async function getAuthorMeta(){
     if (__meCache) return __meCache;
-    const u = await (window.auth?.getUser?.().catch(()=>null));
-    const a = normAuthor(u || {});
+
+    // ns 결정
+    const ns = (typeof getNS === "function"
+                  ? getNS()
+                  : (localStorage.getItem("auth:userns") || "default")
+              ).trim().toLowerCase();
+
+    // 1) store.js 의 ns identity 먼저 (me 페이지에서 이미 기록됨)
+    const fromStore = (typeof window.getNSIdentity === "function")
+        ? (window.getNSIdentity(ns) || {})
+        : {};
+
+    // 2) me 페이지가 쓰는 me:profile 캐시 (ns 스코프)
+    const readMeProfile = () => {
+      const k = `me:profile:${ns}`;
+      try {
+        return JSON.parse(
+          sessionStorage.getItem(k) ||
+          localStorage.getItem(k)   || "null"
+        ) || null;
+      } catch { return null; }
+    };
+    const fromCache = readMeProfile() || {};
+
+    // 3) auth.getUser() (최후 보루)
+    const me = await (window.auth?.getUser?.().catch(()=>null)) || {};
+    const meUser = me.user || me || {};
+
+    const pick = (key) =>
+      fromStore[key] ?? fromCache[key] ?? meUser[key] ?? null;
+
+    const id =
+      meUser.id ?? meUser.user_id ?? meUser.uid ?? meUser.sub ?? null;
+
+    const name =
+      pick("displayName") || pick("name") ||
+      (pick("email") ? String(pick("email")).split("@")[0] : "") ||
+      (id ? `Member #${id}` : "Member");
+
+    const a = {
+      id: id && String(id),
+      ns,
+      name: String(name || ""),
+      handle: meUser.handle || meUser.username || meUser.login || "",
+      avatar: pick("avatarUrl") || pick("avatar") || pick("picture") || "",
+      email:  pick("email") || ""
+    };
+
     __meCache = a;
     return a;
   }
