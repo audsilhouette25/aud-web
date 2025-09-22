@@ -319,15 +319,31 @@
     return { resolve, wire, install, svgPlaceholder, fromUserObject };
   })();
 
-  // -- me.html에서 저장한 프로필 캐시 읽기 (session/local 중 최신 rev)
+  // === me 프로필 캐시: NS 스코프 키 유틸 ===
+  const PROFILE_KEY_PREFIX = "me:profile";
+  function profileKeys() {
+    const ns = (typeof getNS === "function" ? getNS() : "default");
+    const uid = (typeof getMeId === "function" && getMeId()) ? String(getMeId()) : "anon";
+    return [
+      `${PROFILE_KEY_PREFIX}:${ns}:${uid}`, // 가장 구체적
+      `${PROFILE_KEY_PREFIX}:${ns}`,        // NS 스코프
+      PROFILE_KEY_PREFIX,                   // 레거시 호환
+    ];
+  }
+
   function readProfileCache() {
-    let a = null, b = null;
-    try { a = JSON.parse(sessionStorage.getItem("me:profile") || "null"); } catch {}
-    try { b = JSON.parse(localStorage.getItem("me:profile")  || "null"); } catch {}
-    if (!a && !b) return null;
-    if (a && !b) return a;
-    if (!a && b) return b;
-    return (Number(a.rev||0) >= Number(b.rev||0)) ? a : b;
+    let latest = null;
+    const consider = (obj) => {
+      if (!obj) return;
+      const rv = Number(obj.rev ?? obj.updatedAt ?? obj.updated_at ?? obj.ts ?? 0);
+      const best = Number(latest?.rev ?? latest?.updatedAt ?? latest?.updated_at ?? latest?.ts ?? 0);
+      if (!latest || rv > best) latest = obj;
+    };
+    for (const k of profileKeys()) {
+      try { consider(JSON.parse(sessionStorage.getItem(k) || "null")); } catch {}
+      try { consider(JSON.parse(localStorage.getItem(k)  || "null")); } catch {}
+    }
+    return latest;
   }
 
   // 전역으로 새로 붙는 .avatar 자동 와이어
@@ -2566,9 +2582,14 @@
         } catch {}
       }
       // me.html에서 프로필이 바뀌면(localStorage) mine도 즉시 반영
-      if (e.key === "me:profile") {
+      if (e.key && e.key.startsWith("me:profile") && e.newValue) {
         try {
-          const p = JSON.parse(e.newValue);
+          // 키에서 ns 추출: me:profile:{ns}(:{uid})
+          const parts = e.key.split(":");
+          const nsFromKey = parts[2] || "default";
+          if (typeof getNS === "function" && nsFromKey !== getNS()) return; // 다른 ns면 무시
+
+          const p = JSON.parse(e.newValue || "null");
           if (p) {
             if (!p.id && getMeId()) p.id = getMeId();
             window.dispatchEvent(new CustomEvent("user:updated", { detail: p }));
