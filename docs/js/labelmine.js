@@ -2170,9 +2170,10 @@ if (c.width >= c.height) {
   out.height = target;
   out.width = Math.round(c.width * (target / c.height));
 }
-out.getContext('2d').imageSmoothingQuality = 'high';
-out.getContext('2d').drawImage(c, 0, 0, out.width, out.height);
-// 캔버스 → Blob (aspect-preserving)
+const oc = out.getContext('2d');
+oc.imageSmoothingQuality = 'high';
+oc.drawImage(c, 0, 0, out.width, out.height);
+// 캔버스 → Blob (aspect preserved)
 blob   = await SDF.Utils.canvasToBlob(out, 'image/png');
 width  = out.width;
 height = out.height;
@@ -2192,10 +2193,6 @@ height = out.height;
     fd.append("visibility", "public");
     if (width)  fd.append("width",  String(width));
     if (height) fd.append("height", String(height));
-    const ar = (width && height) ? Number((width/height).toFixed(4)) : null;
-    if (typeof ar === "number") fd.append("ar", String(ar));
-    fd.append("w", String(width));
-    fd.append("h", String(height));
     if (csrf)   fd.append("_csrf",  csrf);
 
     // ✨ 추가: 캡션/배경색
@@ -3003,6 +3000,9 @@ height = out.height;
 
       // State
       let ar = "1:1";
+      // local overlay flag (no global side-effects)
+      function reflectOverlay(){ try{ shell.classList.toggle('ar-12', ar === "1:2"); }catch{} }
+    
       let tx = 0, ty = 0; // 팬 오프셋 (프레임 중심 기준)
       let isPanning = false, panStart = {x:0, y:0}, startTX = 0, startTY = 0;
       let viewW = 0, viewH = 0;
@@ -3052,6 +3052,7 @@ height = out.height;
         stage.appendChild(frame);
 
         applyAspect(ar);
+        reflectOverlay();
         draw();
         bindEvents();
       }
@@ -3103,6 +3104,7 @@ height = out.height;
 
       function applyAspect(next){
         ar = next;
+        reflectOverlay();
         const { fw, fh } = frameRect();
         minCover = Math.max(fw / img.naturalWidth, fh / img.naturalHeight);
         zoom = Math.max(minCover, zoom);
