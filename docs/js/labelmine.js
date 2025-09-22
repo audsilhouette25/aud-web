@@ -173,19 +173,37 @@ const IMG_SRC = {
       root.querySelectorAll(".im-acct-name, [data-role='profile-name'], .name")
         .forEach(el => { el.textContent = name; });
 
-      // 아바타 이미지
-      root.querySelectorAll(".im-acct-avatar .avatar-img, img.avatar, img.profile, .avatar-img")
-        .forEach(img => {
-          // 캐시버스팅
-          const next = bust(url, rev);
-          if (next) {
-            img.referrerPolicy = img.referrerPolicy || "no-referrer";
-            img.decoding = img.decoding || "async";
-            img.loading  = img.loading  || "lazy";
-            img.src = next;
-          }
-        });
-    });
+      // 아바타 이미지 (컨테이너 기준으로 보정: 없으면 <img class="avatar avatar--sm"> 생성)
+// 1) .im-acct-avatar 내부 보장
+root.querySelectorAll(".im-acct-avatar").forEach(box => {
+  let img = box.querySelector("img.avatar");
+  if (!img) {
+    img = document.createElement("img");
+    img.className = "avatar avatar--sm";
+    img.alt = name;
+    img.decoding = "async";
+    img.loading  = "lazy";
+    img.referrerPolicy = img.referrerPolicy || "no-referrer";
+    box.appendChild(img);
+  }
+  const next = bust(url, rev);
+  if (next) {
+    if (img.src !== next) img.src = next;
+  }
+  box.classList.add("has-img");
+});
+
+// 2) 추가로 페이지 내 산발적 아바타 img들도 최신 URL로 동기화
+root.querySelectorAll("img.avatar, img.profile, .avatar-img").forEach(img => {
+  const next = bust(url, rev);
+  if (next) {
+    img.referrerPolicy = img.referrerPolicy || "no-referrer";
+    img.decoding = img.decoding || "async";
+    img.loading  = img.loading  || "lazy";
+    if (img.src !== next) img.src = next;
+  }
+});
+});
   }
   window.updateStep3View = updateStep3View;
 
