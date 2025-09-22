@@ -388,6 +388,7 @@ function renderHeartButton(){
   btn.appendChild(icon);
 
   const num = document.createElement("span");
+  num.setAttribute("aria-live", "polite");
   num.textContent = String(count);
 
   let timerId;
@@ -2405,24 +2406,6 @@ function goMineAfterShare(label = getLabel()) {
         img.addEventListener('error', () => { img.src = svgAvatar(displayName); }, { once: true });
         avatar.appendChild(img);
       })();
-        if (a?.avatar) {
-        const u = new URL(toAPI(a.avatar), location.href);
-        // 캐시 무효화: 프로필 캐시에 rev/updatedAt이 있으면 우선, 없으면 now()
-        const cached = (() => {
-          try {
-            const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
-            return JSON.parse(sessionStorage.getItem(`me:profile:${ns}`) || localStorage.getItem(`me:profile:${ns}`) || "null") || {};
-          } catch { return {}; }
-        })();
-        const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
-        u.searchParams.set("v", String(rev));
-        avatar.style.backgroundImage = `url("${u.toString()}")`;
-        avatar.classList.add("has-img");
-      } else {
-        // 폴백: 이니셜 SVG
-        avatar.style.backgroundImage = `url("${svgAvatar(a?.name || 'member')}")`;
-        avatar.classList.add("has-img");
-      }
 
       (async () => {
         try {
