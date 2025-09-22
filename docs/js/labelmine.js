@@ -150,7 +150,8 @@ const IMG_SRC = {
         : u.toString();
     }catch{ return p; }
   }
-
+  window.toAPI = toAPI;
+  
   function updateStep3View(patch={}){
     const latest = pickLatest(readLatestProfile() || {}, patch || {});
     const name = latest.displayName || latest.name || latest.handle || latest.email || "member";
@@ -186,6 +187,7 @@ const IMG_SRC = {
         });
     });
   }
+  window.updateStep3View = updateStep3View;
 
   // same-tab: me.js가 쏘는 브로드캐스트
   window.addEventListener("user:updated", (ev) => {
@@ -1231,7 +1233,7 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
         if (!placing.active || !placing.img) return;
         ensureCapacityForWorldRect(placing.wx, placing.wy, placing.w, placing.h);
         const octx = offscreen.getContext("2d"); octx.setTransform(OFF_DPR, 0, 0, OFF_DPR, 0, 0);
-        const off = worldToOff(placing.wx, placing.wy); octx.drawImage(placing.img, off.x, off.y);
+        const off = worldToOff(placing.wx, placing.wy); octx.drawImage(placing.img, off.x, off.y, placing.w, placing.h);
         placing.active = false; placing.img = null; repaint(); scheduleSave();
       }
 
@@ -1469,7 +1471,7 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       // include ghost placement at 1:1 if active
       if (placing.active && placing.img){
       const tlx = placing.wx - vwX; const tly = placing.wy - vwY;
-      ctx.drawImage(placing.img, Math.round(tlx), Math.round(tly));
+      ctx.drawImage(placing.img, Math.round(tlx), Math.round(tly), placing.w, placing.h);
       }
       return out;
       }
@@ -1688,13 +1690,6 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     })();
   });
 })();
-
-// /js/sdf-gallery-horizontal.js
-// GalleryHorizontal (vanilla) — window.SDF / window.store 기반
-// - 중복된 render/이벤트 블록 통합
-// - 스코프/의존성 정리
-// - 누락된 SVG_SELECT 추가
-// - aria-pressed, title, lazy 로딩 등 소소한 접근성 강화
 
 // /js/sdf-gallery-horizontal.js
 // GalleryHorizontal (vanilla) — window.SDF / window.store 기반
@@ -2537,17 +2532,9 @@ function goMineAfterShare(label = getLabel()) {
       const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
       const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
       acct.append(avatar, name);
-      // ---- Step3 기본 아바타 렌더링 ----
-      // ① API 경로 리라이트(uploads 포함)
-      const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
-      function toAPI(p){
-        try{
-          const u = new URL(p, location.href);
-          return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
-            ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
-            : u.toString();
-        }catch{ return p; }
-      }
+
+      const toAPI = window.toAPI || ((x) => x);
+
       // ② 이니셜 SVG 생성(네트워크 요청 없음)
       function initialsOf(name='member'){
         const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -2592,7 +2579,7 @@ function goMineAfterShare(label = getLabel()) {
         }
         img.addEventListener('error', () => { img.src = svgAvatar(displayName); }, { once: true });
         avatar.appendChild(img);
-        updateStep3View && updateStep3View({});
+        window.updateStep3View && window.updateStep3View({});
       })();
 
       (async () => {
