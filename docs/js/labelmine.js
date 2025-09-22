@@ -1758,6 +1758,20 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
   });
 })();
 
+  // [PATCH][UTIL] 이니셜 아바타 SVG dataURL 생성기 (새로 추가)
+  function makeInitialsAvatar({ text="?", size=96, bg="#4A5568", fg="#FFFFFF" } = {}){
+    const t = String(text).trim().toUpperCase() || "?";
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <rect width="${size}" height="${size}" rx="${Math.round(size/2)}" fill="${bg}"/>
+      <text x="50%" y="50%" dy=".06em" text-anchor="middle"
+        font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial"
+        font-size="${Math.round(size*0.46)}"
+        font-weight="700" fill="${fg}">${t}</text>
+    </svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
+
   // ── Author helpers ─────────────────────────────────────────────
   function normAuthor(u) {
     const id =
@@ -1781,22 +1795,21 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
 
     // ns 결정
     const ns = (typeof getNS === "function"
-                  ? getNS()
-                  : (localStorage.getItem("auth:userns") || "default")
+                ? getNS()
+                : (localStorage.getItem("auth:userns") || "default")
               ).trim().toLowerCase();
 
-    // 1) store.js 의 ns identity 먼저 (me 페이지에서 이미 기록됨)
+    // 1) store.js의 ns identity (me 페이지에서 기록됨)
     const fromStore = (typeof window.getNSIdentity === "function")
         ? (window.getNSIdentity(ns) || {})
         : {};
 
-    // 2) me 페이지가 쓰는 me:profile 캐시 (ns 스코프)
+    // 2) me:profile 캐시 (ns 스코프)
     const readMeProfile = () => {
       const k = `me:profile:${ns}`;
       try {
         return JSON.parse(
-          sessionStorage.getItem(k) ||
-          localStorage.getItem(k)   || "null"
+          sessionStorage.getItem(k) || localStorage.getItem(k) || "null"
         ) || null;
       } catch { return null; }
     };
@@ -1807,23 +1820,41 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     const meUser = me.user || me || {};
 
     const pick = (key) =>
-      fromStore[key] ?? fromCache[key] ?? meUser[key] ?? null;
+      (fromStore && fromStore[key] != null ? fromStore[key] :
+      fromCache && fromCache[key] != null ? fromCache[key] :
+      meUser && meUser[key] != null ? meUser[key] : null);
 
     const id =
-      meUser.id ?? meUser.user_id ?? meUser.uid ?? meUser.sub ?? null;
+      meUser.id ?? meUser.user_id ?? meUser.uid ?? meUser.sub ?? meUser.pk ?? null;
 
-    const name =
+    const email  = pick("email") || "";
+    const handle = meUser.handle || meUser.username || meUser.login || "";
+    const baseName =
       pick("displayName") || pick("name") ||
-      (pick("email") ? String(pick("email")).split("@")[0] : "") ||
+      (email ? String(email).split("@")[0] : "") ||
       (id ? `Member #${id}` : "Member");
+
+    // 아바타 원천
+    let avatar =
+      pick("avatarUrl") || pick("avatar") || pick("picture") ||
+      (meUser.profile && (meUser.profile.avatarUrl || meUser.profile.avatar)) ||
+      "";
+
+    // 없으면 이니셜 아바타 생성
+    if (!avatar) {
+      const base   = baseName || handle || (email ? String(email).split("@")[0] : "") || "U";
+      const initials = base.trim().split(/\s+/).map(s => s[0] || "")
+                        .join("").slice(0,2).toUpperCase() || "U";
+      avatar = makeInitialsAvatar({ text: initials });
+    }
 
     const a = {
       id: id && String(id),
       ns,
-      name: String(name || ""),
-      handle: meUser.handle || meUser.username || meUser.login || "",
-      avatar: pick("avatarUrl") || pick("avatar") || pick("picture") || "",
-      email:  pick("email") || ""
+      name: String(baseName || ""),
+      handle: String(handle || ""),
+      avatar: String(avatar || ""),
+      email:  String(email || "")
     };
 
     __meCache = a;
@@ -2350,6 +2381,7 @@ function goMineAfterShare(label = getLabel()) {
       const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
       acct.append(avatar, name);
       // 프로필 페인터
+      // [PATCH] paintAcct 교체본 (openComposeModal / openFeedModal 양쪽 동일하게 적용)
       function paintAcct(meta = {}) {
         const nm = meta.name || meta.handle ||
                   (meta.email ? String(meta.email).split("@")[0] : "") || "member";
@@ -2358,16 +2390,22 @@ function goMineAfterShare(label = getLabel()) {
         avatar.classList.remove("has-img");
         avatar.style.backgroundImage = "";
 
-        if (meta.avatar) {
-          let src = meta.avatar;
-          try {
-            const u = new URL(src, location.origin);
-            u.searchParams.set("v", String(Date.now())); // 캐시 버스트
-            src = u.toString();
-          } catch {}
-          avatar.style.backgroundImage = `url("${src}")`;
-          avatar.classList.add("has-img");
+        // 1) getAuthorMeta 폴백(이니셜) 사용 + 2) 즉석 폴백 보장
+        let src = meta.avatar || "";
+        if (!src) {
+          const initials = nm.trim().split(/\s+/).map(s=>s[0]||"").join("").slice(0,2).toUpperCase() || "U";
+          src = makeInitialsAvatar({ text: initials });
         }
+
+        // dataURL/절대경로 모두 허용, query bust는 try/catch로 안전 처리
+        try {
+          const u = new URL(src, location.origin);
+          u.searchParams.set("v", String(Date.now())); // 캐시 버스트 (dataURL에도 무해)
+          src = u.toString();
+        } catch {}
+
+        avatar.style.backgroundImage = `url("${src}")`;
+        avatar.classList.add("has-img");
       }
 
       // 1) 모달 오픈 시 1회 채우기
@@ -2500,16 +2538,22 @@ function goMineAfterShare(label = getLabel()) {
       avatar.classList.remove("has-img");
       avatar.style.backgroundImage = "";
 
-      if (meta.avatar) {
-        let src = meta.avatar;
-        try {
-          const u = new URL(src, location.origin);
-          u.searchParams.set("v", String(Date.now())); // 캐시 버스트
-          src = u.toString();
-        } catch {}
-        avatar.style.backgroundImage = `url("${src}")`;
-        avatar.classList.add("has-img");
+      // 1) getAuthorMeta 폴백(이니셜) 사용 + 2) 즉석 폴백 보장
+      let src = meta.avatar || "";
+      if (!src) {
+        const initials = nm.trim().split(/\s+/).map(s=>s[0]||"").join("").slice(0,2).toUpperCase() || "U";
+        src = makeInitialsAvatar({ text: initials });
       }
+
+      // dataURL/절대경로 모두 허용, query bust는 try/catch로 안전 처리
+      try {
+        const u = new URL(src, location.origin);
+        u.searchParams.set("v", String(Date.now())); // 캐시 버스트 (dataURL에도 무해)
+        src = u.toString();
+      } catch {}
+
+      avatar.style.backgroundImage = `url("${src}")`;
+      avatar.classList.add("has-img");
     }
 
     // 1) 모달 오픈 시 1회 채우기
