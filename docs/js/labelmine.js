@@ -2527,105 +2527,108 @@ function goMineAfterShare(label = getLabel()) {
   // 3) Compose Modal (공통) — Promise(true | {back:true, blob,w,h})
   //    • ESC 닫기 추가(일관성)
   // ─────────────────────────────────────────────────────────────
-  function openComposeModal({ blob, w, h }){
-    return new Promise((resolve, reject)=>{
+  function openComposeModal({ blob, w, h }) {
+    return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
 
-      const back  = document.createElement("div");
-      back.className  = "imodal-backdrop";
+      // ── 루트
+      const backdrop = document.createElement("div");
+      backdrop.className = "imodal-backdrop";
+
       const shell = document.createElement("div");
       shell.className = "imodal";
 
-      const isTall12 = (h / w) >= 1.9;              // 1:2(세로형) 판정
-      shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
+      // ── 헤더
+      const head = document.createElement("div");
+      head.className = "im-head";
 
-      shell.style.setProperty("--im-ar",  isTall12 ? "1 / 2" : "auto");
-      shell.style.setProperty("--im-fit", "contain"); // 1:2 포함 전부 contain 유지
-
-      if (isTall12) {
-        stage.classList.add("is-ratio-12");
-      } else {
-        stage.classList.remove("is-ratio-12");
-      }
-
-
-      // Header
-      const head  = document.createElement("div"); head.className = "im-head";
-      const backBtn = document.createElement("button"); backBtn.type = "button"; backBtn.className = "im-head-back";
+      const backBtn = document.createElement("button");
+      backBtn.type = "button";
+      backBtn.className = "im-head-back";
       backBtn.innerHTML = '<span class="feed-ico-back"></span>';
-      const title = document.createElement("div"); title.className = "im-head-title"; title.textContent = "New post";
-      const share = document.createElement("button"); share.className = "im-head-share"; share.type = "button"; share.textContent = "Share";
-      head.append(backBtn, title, share);
 
-      // Body (좌: 이미지, 우: 작성 + 컬러)
-      const body  = document.createElement("div"); body.className = "im-body";
-      const left  = document.createElement("div"); left.className = "im-left";
-      const stage = document.createElement("div"); stage.className = "im-stage has-image";
-      const img   = document.createElement("img"); img.src = url; img.alt = "";
-      stage.append(img); left.append(stage);
+      const title = document.createElement("div");
+      title.className = "im-head-title";
+      title.textContent = "New post";
 
-      const right = document.createElement("div"); right.className = "im-right";
-      const acct  = document.createElement("div"); acct.className  = "im-acct";
-      const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
-      const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
-      acct.append(avatar, name);
+      const shareBtn = document.createElement("button");
+      shareBtn.type = "button";
+      shareBtn.className = "im-head-share";
+      shareBtn.textContent = "Share";
 
-      const toAPI = window.toAPI || ((x) => x);
+      head.append(backBtn, title, shareBtn);
 
-      // ② 이니셜 SVG 생성(네트워크 요청 없음)
-      function initialsOf(name='member'){
+      // ── 바디 (좌: 이미지/배경, 우: 작성)
+      const body = document.createElement("div");
+      body.className = "im-body";
+
+      const left = document.createElement("div");
+      left.className = "im-left";
+
+      const stage = document.createElement("div");
+      stage.className = "im-stage has-image";
+
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "";
+      stage.append(img);
+      left.append(stage);
+
+      const isTall12 = (h / w) >= 1.9; // 1:2 이상 세로형
+      shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
+      shell.style.setProperty("--im-ar", isTall12 ? "1 / 2" : "auto");
+      shell.style.setProperty("--im-fit", "contain");
+      if (isTall12) stage.classList.add("is-ratio-12");
+      else stage.classList.remove("is-ratio-12");
+
+      const right = document.createElement("div");
+      right.className = "im-right";
+
+      // ── 계정 영역 (아바타 + 이름)
+      const acct = document.createElement("div");
+      acct.className = "im-acct";
+
+      const avatarBox = document.createElement("div");
+      avatarBox.className = "im-acct-avatar";
+
+      // 기본 이니셜 SVG (네트워크 의존 X)
+      function initialsOf(name = "member") {
         const parts = String(name).trim().split(/\s+/).filter(Boolean);
-        const init  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-        return (init || (name[0] || 'U')).toUpperCase().slice(0, 2);
+        const init = (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
+        return (init || name[0] || "U").toUpperCase().slice(0, 2);
       }
-      function svgAvatar(name='member'){
-        let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0;
-        const hue = Math.abs(h)%360;
-        const bg  = `hsl(${hue},75%,85%)`, fg=`hsl(${hue},60%,28%)`, txt=initialsOf(name);
-        return 'data:image/svg+xml;utf8,'+encodeURIComponent(
+      function svgAvatar(name = "member") {
+        let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+        const hue = Math.abs(h) % 360;
+        const bg = `hsl(${hue},75%,85%)`, fg = `hsl(${hue},60%,28%)`, txt = initialsOf(name);
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(
           `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
             <rect width="80" height="80" rx="40" fill="${bg}"/>
             <text x="50%" y="54%" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
                   font-size="32" font-weight="600" fill="${fg}" text-anchor="middle">${txt}</text>
-          </svg>`);
+          </svg>`
+        );
       }
-      // ③ 현재 사용자 정보로 아바타 결정
-      (async () => {
-        const me = await (window.auth?.getUser?.().catch(()=>null)) || {};
-        const displayName = me.displayName || me.name || me.email || 'member';
-        const rawUrl = me.avatarUrl || me.avatar || me.picture || '';
-        const img = document.createElement('img');
-        img.className = 'avatar-img';
-        img.alt = '';
-        img.decoding = 'async';
-        img.loading = 'lazy';
-        img.referrerPolicy = 'no-referrer';
-        if (rawUrl) {
-          const u = new URL(toAPI(rawUrl), location.href);
-          const cached = (() => {
-            try {
-              const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
-              return JSON.parse(sessionStorage.getItem(`me:profile:${ns}`) || localStorage.getItem(`me:profile:${ns}`) || "null") || {};
-            } catch { return {}; }
-          })();
-          const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
-          u.searchParams.set("v", String(rev));
-          img.src = u.toString();
-        } else {
-          img.src = svgAvatar(displayName);
-        }
-        img.addEventListener('error', () => { img.src = svgAvatar(displayName); }, { once: true });
-        avatar.appendChild(img);
-        window.updateStep3View && window.updateStep3View({});
-      })();
+      // 기본 아바타 즉시 표시
+      const defaultAvatarImg = document.createElement("img");
+      defaultAvatarImg.className = "avatar-img";
+      defaultAvatarImg.alt = "";
+      defaultAvatarImg.decoding = "async";
+      defaultAvatarImg.loading = "lazy";
+      defaultAvatarImg.referrerPolicy = "no-referrer";
+      defaultAvatarImg.src = svgAvatar("member");
+      avatarBox.appendChild(defaultAvatarImg);
 
-      (async () => {
-        try {
-          const a = await getAuthorMeta();
-          if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
-        } catch {}
-      })();
+      const nameEl = document.createElement("div");
+      nameEl.className = "im-acct-name";
+      nameEl.textContent = "You";
 
+      acct.append(avatarBox, nameEl);
+
+      // 프로필 최신화(이미 전역에 updateStep3View가 있어 name/avatar 교체 가능)
+      try { window.updateStep3View && window.updateStep3View({}); } catch {}
+
+      // ── 캡션
       const caption = document.createElement("textarea");
       caption.className = "im-caption";
       caption.id = "post-caption";
@@ -2633,62 +2636,85 @@ function goMineAfterShare(label = getLabel()) {
       caption.placeholder = "";
       caption.maxLength = 2200;
 
-      const meta = document.createElement("div"); meta.className = "im-cap-meta";
-      const mR = document.createElement("span"); mR.textContent = "0 / 2200";
-      caption.addEventListener("input", ()=>{ mR.textContent = `${caption.value.length} / 2200`; });
-      meta.append(mR);
+      const meta = document.createElement("div");
+      meta.className = "im-cap-meta";
+      const count = document.createElement("span");
+      count.textContent = "0 / 2200";
+      caption.addEventListener("input", () => {
+        count.textContent = `${caption.value.length} / 2200`;
+      });
+      meta.append(count);
 
-      // 배경색(공통 컬러 피커 사용)
-      let bgHex = '#FFFFFF';
-      const applyBg = (c) => { left.style.background = c; stage.style.background = c; bgHex = c; };
-      const picker = buildColorPicker({ onChange: (hex) => applyBg(hex) });
-      applyBg('#FFFFFF');
+      // ── 배경색 피커 (이미 제공된 buildColorPicker 사용)
+      let bgHex = "#FFFFFF";
+      const applyBg = (hex) => { left.style.background = hex; stage.style.background = hex; bgHex = hex; };
+      const picker = buildColorPicker({
+        onChange: (hex) => applyBg(hex),
+        keys: ["#FFFFFF", "#275999", "#FFA765"]
+      });
+      applyBg("#FFFFFF");
 
       right.append(acct, caption, meta, picker.el);
       body.append(left, right);
       shell.append(head, body);
-      back.append(shell);
+      backdrop.append(shell);
 
-      // 전역 X
+      // 전역 닫기(X)
       const globalClose = document.createElement("button");
       globalClose.className = "im-head-close";
       globalClose.type = "button";
-      globalClose.setAttribute("aria-label","닫기");
+      globalClose.setAttribute("aria-label", "닫기");
       globalClose.innerHTML = '<span class="im-x"></span>';
+      backdrop.append(globalClose);
 
-      // 조립
-      back.append(globalClose);
-      document.body.append(back);
+      document.body.append(backdrop);
 
-      function cleanup(){
-        URL.revokeObjectURL(url);
+      // ── 정리 함수
+      function cleanup() {
+        try { URL.revokeObjectURL(url); } catch {}
         window.removeEventListener("keydown", onEsc);
-        back.remove();
+        backdrop.removeEventListener("click", onBackdropClick);
+        globalClose.removeEventListener("click", onCloseClick);
+        backBtn.removeEventListener("click", onBackClick);
+        shareBtn.removeEventListener("click", onShareClick);
+        backdrop.remove();
       }
 
-      const onEsc = (e)=>{ if (e.key === "Escape"){ cleanup(); reject(new Error("cancel")); } };
-      window.addEventListener("keydown", onEsc);
+      // ── 핸들러
+      const onEsc = (e) => { if (e.key === "Escape") { cleanup(); reject(new Error("cancel")); } };
+      const onBackdropClick = (e) => { if (e.target === backdrop) { cleanup(); reject(new Error("cancel")); } };
+      const onCloseClick = () => { cleanup(); reject(new Error("cancel")); };
 
-      globalClose.addEventListener("click", ()=>{ cleanup(); reject(new Error("cancel")); });
-      back.addEventListener("click", (e)=>{ if (e.target === back){ cleanup(); reject(new Error("cancel")); }});
-      backBtn.addEventListener("click", ()=>{ cleanup(); resolve({ back:true, blob, w, h }); });
+      const onBackClick = () => {
+        cleanup();
+        // 호출자에게 "뒤로가기" 의사 전달(갤러리로 복귀하도록)
+        resolve({ back: true, blob, w, h });
+      };
 
-      share.addEventListener("click", async () => {
-        share.disabled = true;
-        const prev = share.textContent;
-        share.textContent = "Sharing…";
+      const onShareClick = async () => {
+        // 업로드: 이미 uploadPost 내부에서 정규화(레터박스 등) 수행
         try {
-          if (!await requireLoginOrRedirect()) return;
-          await uploadPost({ blob, text: caption.value, width: w, height: h, bg: bgHex });
-          // ✅ 업로드 성공 → mine으로 이동
-          goMineAfterShare();
-          return; // 네비게이션 트리거 이후 아래 코드는 사실상 실행되지 않음
-        } catch (e) {
-          console.error(e);
-          share.disabled = false;
-          share.textContent = prev || "Share";
+          shareBtn.disabled = true;
+          shareBtn.textContent = "Sharing...";
+          const text = caption.value || "";
+          const res = await uploadPost({ blob, text, width: w, height: h, bg: bgHex });
+          // 업로드 성공 후 내 피드로 이동
+          try { goMineAfterShare(); } catch {}
+          cleanup();
+          resolve(true);
+        } catch (err) {
+          console.error("[Share] failed:", err);
+          shareBtn.disabled = false;
+          shareBtn.textContent = "Share";
         }
-      });
+      };
+
+      // ── 바인딩
+      window.addEventListener("keydown", onEsc);
+      backdrop.addEventListener("click", onBackdropClick);
+      globalClose.addEventListener("click", onCloseClick);
+      backBtn.addEventListener("click", onBackClick);
+      shareBtn.addEventListener("click", onShareClick);
     });
   }
 
