@@ -838,3 +838,14 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 
 /* 모달 하단 발판(푸터)에서 클릭을 보장 */
 .pm-foot-click { pointer-events: auto !important; z-index: 10000 !important; }
+
+/* === Avatar normalization verify — 2025-09-22 === */
+/* mine.css 전역 아바타 규칙 검증 완료. 추가 변경 없음(전역 규칙 유지). */
+
+
+/* === UX tweak: tighter avatar–name spacing in post modal head (2025-09-22) === */
+.post-modal--split .pm-right-head .account{ gap: 6px; }  /* 기존 10px → 6px */
+@container (min-width: 640px){
+  .post-modal--split .pm-right-head .account{ gap: 8px; } /* 큰 화면에서 8px로 살짝 여유 */
+}
+

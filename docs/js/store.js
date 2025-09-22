@@ -1081,8 +1081,6 @@ const labels = {
     const meta = {
       id, label, createdAt: Date.now(),
       width: canvas.width, height: canvas.height,
-      w: canvas.width, h: canvas.height,
-      ar: (canvas.width && canvas.height) ? Number((canvas.width / canvas.height).toFixed(4)) : null,
       thumbDataURL: await makeThumbDataURL(canvas, 480),
     };
     const next = [...loadGalleryMeta(label), meta];
@@ -1099,9 +1097,6 @@ const labels = {
         fd.append("width", String(meta.width));
         fd.append("height", String(meta.height));
         fd.append("thumbDataURL", meta.thumbDataURL);
-        if (typeof meta.ar === "number") fd.append("ar", String(meta.ar));
-        fd.append("w", String(meta.width));
-        fd.append("h", String(meta.height));
         fd.append("ns", USER_NS);
         fd.append("file", blob, `${id}.png`);
         const up = await apiFetch(SERVER_ENDPOINT_G_UPLOAD, { method: "POST", body: fd });
