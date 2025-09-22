@@ -299,6 +299,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
+  grid-auto-flow: dense;            /* added: fill holes when tall cards present */
 }
 @media (max-width: 480px){ .feed-grid{ --feed-col: 200px; } }
 .feed{ width: 100%; margin-top: var(--feed-top-gap); margin-bottom: var(--feed-bottom-gap); }
@@ -315,6 +316,10 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   position: relative; width: 100%; aspect-ratio: 1 / 1;
   display: grid; place-items: center; background: var(--bg, #f6f6f6);
 }
+
+/* === Portrait (1:2) / Landscape (2:1) media === */
+.feed-card[data-ar="1:2"] .media{ aspect-ratio: 1 / 2; }
+.feed-card[data-ar="2:1"] .media{ aspect-ratio: 2 / 1; }
 .feed-card .media img{ display: block; width: 100%; height: auto; object-fit: contain; background: transparent; }
 .feed-card > .meta, .feed-card > .actions, .feed-card .meta, .feed-card .actions { display: flex; align-items: center; }
 .feed-card .meta{ padding: 8px 10px 4px; color: #444; font-size: 13px; }

@@ -1180,6 +1180,32 @@
           img.remove();
         }, { once: true });
       }
+      // === aspect ratio tagging (meta + naturalWidth/Height fallback) ===
+      try {
+        const initAR = (typeof classifyAspect === 'function') ? classifyAspect(_it) : "1:1";
+        if (card && initAR) card.setAttribute('data-ar', initAR);
+        const img2 = card.querySelector('.media img');
+        const applyNatural = () => {
+          try {
+            const w = img2?.naturalWidth || 0, h = img2?.naturalHeight || 0;
+            if (w && h) {
+              const ar = w / h;
+              const eq = (a,b)=> Math.abs(a-b) <= 0.04;
+              let tag = '1:1';
+              if (eq(ar, 0.5)) tag = '1:2';
+              else if (eq(ar, 2)) tag = '2:1';
+              else if (ar < 0.75) tag = '1:2';
+              else if (ar > 1.5) tag = '2:1';
+              card.setAttribute('data-ar', tag);
+            }
+          } catch {}
+        };
+        if (img2) {
+          if (img2.complete) applyNatural();
+          else img2.addEventListener('load', applyNatural, { once: true });
+        }
+      } catch {}
+
 
       // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)
       try { upgradeHeartIconIn(card); } catch {}
