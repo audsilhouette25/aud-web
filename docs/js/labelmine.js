@@ -982,28 +982,15 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       const id = `g_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
 
       // ✅ 트림 금지. 구도 그대로 정사각화(레터박스)
-      const arSel = (typeof window.LM_getAR==="function" ? window.LM_getAR() : "1:1");
-let dataURL;
-if (arSel === "1:2") {
-  // ===== 1:2 export path =====
-  const base = letterboxToSquare(canvas, { size: 2048, bg: null });
-  const out = document.createElement("canvas");
-  out.width = 1024; out.height = 2048;
-  const ctx = out.getContext("2d"); ctx.imageSmoothingQuality="high";
-  const sx = Math.max(0, Math.round((base.width - out.width)/2));
-  ctx.drawImage(base, sx, 0, out.width, out.height, 0, 0, out.width, out.height);
-  dataURL = out.toDataURL("image/png");
-} else {
-  const norm = letterboxToSquare(canvas, { size: 1024, bg: null });
-  dataURL = norm.toDataURL("image/png");
-}
+      const norm = letterboxToSquare(canvas, { size: 1024, bg: null });
+
+      const dataURL = norm.toDataURL("image/png");
       const thumbDataURL = await SDF.Utils.makeThumbnail(dataURL, 320, 240);
 
       const arr = _load(label);
-      arr.unshift({ id, dataURL, thumbDataURL, createdAt: new Date().toISOString(), ar: arSel, w: (arSel==="1:2"?1024:1024), h: (arSel==="1:2"?2048:1024) });
+      arr.unshift({ id, dataURL, thumbDataURL, createdAt: new Date().toISOString() });
       _save(label, arr);
-      window.dispatchEvent(new CustomEvent(SDF.GALLERY_EVENT, { detail: { kind: "add", label, id, ar: (typeof LM_getAR==="function"?LM_getAR():"1:1") } }));
-      window.dispatchEvent(new CustomEvent("sdf:aspect-changed", { detail: { ar: (typeof LM_getAR==="function"?LM_getAR():"1:1") } }));
+      window.dispatchEvent(new CustomEvent(SDF.GALLERY_EVENT, { detail: { kind: "add", label, id } }));
       return id;
     }
 
@@ -2175,12 +2162,20 @@ function goMineAfterShare(label = getLabel()) {
 
       // 트림+패딩(+정사각). 원본이 너무 크면 1024~2048 사이에서 적당히.
       const target = Math.max(1024, Math.min(2048, Math.max(c.width, c.height)));
-      const norm = SDF.Utils.letterboxToSquare(c, { size: target, bg: null });
-
-      // 캔버스 → Blob
-      blob   = await SDF.Utils.canvasToBlob(norm, 'image/png');
-      width  = norm.width;
-      height = norm.height;
+let out = document.createElement('canvas');
+if (c.width >= c.height) {
+  out.width = target;
+  out.height = Math.round(c.height * (target / c.width));
+} else {
+  out.height = target;
+  out.width = Math.round(c.width * (target / c.height));
+}
+out.getContext('2d').imageSmoothingQuality = 'high';
+out.getContext('2d').drawImage(c, 0, 0, out.width, out.height);
+// 캔버스 → Blob (aspect-preserving)
+blob   = await SDF.Utils.canvasToBlob(out, 'image/png');
+width  = out.width;
+height = out.height;
     } catch (e) {
       // 실패해도 그냥 원본으로 진행
       console.warn('[upload] normalize skipped:', e);
@@ -2197,6 +2192,10 @@ function goMineAfterShare(label = getLabel()) {
     fd.append("visibility", "public");
     if (width)  fd.append("width",  String(width));
     if (height) fd.append("height", String(height));
+    const ar = (width && height) ? Number((width/height).toFixed(4)) : null;
+    if (typeof ar === "number") fd.append("ar", String(ar));
+    fd.append("w", String(width));
+    fd.append("h", String(height));
     if (csrf)   fd.append("_csrf",  csrf);
 
     // ✨ 추가: 캡션/배경색
@@ -3454,45 +3453,3 @@ window.addEventListener("auth:logout", ()=>{
   const ret = encodeURIComponent(location.href);
   location.replace(`${pageHref('login.html')}?next=${ret}`);
 });
-
-
-// ===== Aspect Ratio Manager (Labelmine) =====
-(function aspectManager(){
-  const RKEY = "labelmine:aspect";
-  function setAR(ar){
-    try{
-      if (!ar) return;
-      sessionStorage.setItem(RKEY, ar);
-      const crop = document.querySelector('.cmodal, .crop-modal');
-      if (crop) crop.setAttribute('data-ar', ar);
-      const feed = document.querySelector('.imodal, .feed-modal');
-      if (feed) feed.setAttribute('data-ar', ar);
-      document.documentElement.setAttribute('data-lm-ar', ar);
-    }catch{}
-  }
-  function getAR(){ try{ return sessionStorage.getItem(RKEY) || "1:1"; }catch{ return "1:1"; } }
-  window.LM_setAR = setAR; window.LM_getAR = getAR;
-
-  // Hook buttons like [data-ar="1:1"] / [data-ar="1:2"]
-  document.addEventListener('click', (e)=>{
-    const btn = e.target.closest('[data-ar]');
-    if (!btn) return;
-    const ar = btn.getAttribute('data-ar');
-    if (ar === '1:1' || ar === '1:2') setAR(ar);
-  });
-
-  // Init once per load
-  setAR(getAR());
-})();
-
-
-
-// Reflect aspect to any open modals (feed/crop) on demand
-window.addEventListener("sdf:aspect-changed", (e)=>{
-  const ar = (e?.detail?.ar) || (window.LM_getAR && window.LM_getAR()) || "1:1";
-  const crop = document.querySelector('.cmodal, .crop-modal');
-  if (crop) crop.setAttribute('data-ar', ar);
-  const feed = document.querySelector('.imodal, .feed-modal');
-  if (feed) feed.setAttribute('data-ar', ar);
-});
-
