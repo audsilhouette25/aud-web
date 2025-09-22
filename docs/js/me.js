@@ -130,7 +130,8 @@
     return recent.length;
   }
 
-  let nextSrc = (typeof window.__toAPI === "function") ? window.__toAPI(url) : String(url || "");
+  const toAPI = (u) =>
+  (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
 
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
@@ -425,7 +426,7 @@
       img.referrerPolicy = "no-referrer";
       container.appendChild(img);
     }
-      let nextSrc = __toAPI(url);
+      let nextSrc = toAPI(url);
       try {
         const u = new URL(nextSrc, location.origin);
         if (opts && opts.version != null) u.searchParams.set("v", String(opts.version));
