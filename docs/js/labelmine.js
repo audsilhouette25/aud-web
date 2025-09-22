@@ -2349,16 +2349,30 @@ function goMineAfterShare(label = getLabel()) {
       const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
       const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
       acct.append(avatar, name);
-      (async () => {
-        try {
-          const a = await getAuthorMeta();
-          if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
-          if (a?.avatar) {
-            avatar.style.backgroundImage = `url("${a.avatar}")`;
-            avatar.classList.add("has-img");
-          }
-        } catch {}
-      })();
+      // 프로필 페인터
+      function paintAcct(meta = {}) {
+        const nm = meta.name || meta.handle || (meta.email ? String(meta.email).split("@")[0] : "") || "member";
+        name.textContent = nm;
+        avatar.classList.remove("has-img");
+        avatar.style.backgroundImage = "";
+        if (meta.avatar) {
+          let src = meta.avatar;
+          try {
+            const u = new URL(src, location.origin);
+            u.searchParams.set("v", String(Date.now())); // 캐시버스트
+            src = u.toString();
+          } catch {}
+          avatar.style.backgroundImage = `url("${src}")`;
+          avatar.classList.add("has-img");
+        }
+      }
+      // 1) 모달 오픈 즉시 1회 채우기
+      (async () => { try { const a = await getAuthorMeta(); paintAcct(a); } catch {} })();
+      // 2) 이후 프로필 변경 브로드캐스트 수신
+      window.addEventListener("user:updated", (ev) => {
+        const d = ev?.detail || {};
+        paintAcct({ name: d.displayName, avatar: d.avatarUrl, email: d.email, handle: d.handle });
+      });
 
       const caption = document.createElement("textarea");
       caption.className = "im-caption";
