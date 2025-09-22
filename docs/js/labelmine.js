@@ -1773,22 +1773,7 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
   }
 
   // ── Author helpers ─────────────────────────────────────────────
-  function normAuthor(u) {
-    const id =
-      u?.id ?? u?.user_id ?? u?.uid ?? u?.sub ?? u?.pk ?? u?.profile?.id ?? null;
-    const name =
-      u?.displayName ?? u?.name ?? u?.nickname ?? u?.profile?.name ?? u?.username ?? "";
-    const handle =
-      u?.handle ?? u?.username ?? u?.login ?? u?.profile?.handle ?? "";
-    const avatar =
-      u?.avatar_url ?? u?.avatar ?? u?.picture ?? u?.profile?.avatarUrl ?? "";
-    const ns =
-      (window.SDF_NS ||
-       (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
-    return { id: id && String(id), ns, name: String(name||""), handle: String(handle||""), avatar: String(avatar||"") };
-  }
 
-  // ★ REPLACE: getAuthorMeta()
   let __meCache = null;
   async function getAuthorMeta(){
     if (__meCache) return __meCache;
@@ -2397,12 +2382,13 @@ function goMineAfterShare(label = getLabel()) {
           src = makeInitialsAvatar({ text: initials });
         }
 
-        // dataURL/절대경로 모두 허용, query bust는 try/catch로 안전 처리
-        try {
-          const u = new URL(src, location.origin);
-          u.searchParams.set("v", String(Date.now())); // 캐시 버스트 (dataURL에도 무해)
-          src = u.toString();
-        } catch {}
+        if (!/^data:/i.test(src)) {
+          try {
+            const u = new URL(src, location.origin);
+            u.searchParams.set("v", String(Date.now()));
+            src = u.toString();
+          } catch {}
+        }
 
         avatar.style.backgroundImage = `url("${src}")`;
         avatar.classList.add("has-img");
@@ -2545,12 +2531,13 @@ function goMineAfterShare(label = getLabel()) {
         src = makeInitialsAvatar({ text: initials });
       }
 
-      // dataURL/절대경로 모두 허용, query bust는 try/catch로 안전 처리
-      try {
-        const u = new URL(src, location.origin);
-        u.searchParams.set("v", String(Date.now())); // 캐시 버스트 (dataURL에도 무해)
-        src = u.toString();
-      } catch {}
+      if (!/^data:/i.test(src)) {
+        try {
+          const u = new URL(src, location.origin);
+          u.searchParams.set("v", String(Date.now()));
+          src = u.toString();
+        } catch {}
+      }
 
       avatar.style.backgroundImage = `url("${src}")`;
       avatar.classList.add("has-img");
