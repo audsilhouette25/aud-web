@@ -2351,28 +2351,39 @@ function goMineAfterShare(label = getLabel()) {
       acct.append(avatar, name);
       // 프로필 페인터
       function paintAcct(meta = {}) {
-        const nm = meta.name || meta.handle || (meta.email ? String(meta.email).split("@")[0] : "") || "member";
+        const nm = meta.name || meta.handle ||
+                  (meta.email ? String(meta.email).split("@")[0] : "") || "member";
         name.textContent = nm;
+
         avatar.classList.remove("has-img");
         avatar.style.backgroundImage = "";
+
         if (meta.avatar) {
           let src = meta.avatar;
           try {
             const u = new URL(src, location.origin);
-            u.searchParams.set("v", String(Date.now())); // 캐시버스트
+            u.searchParams.set("v", String(Date.now())); // 캐시 버스트
             src = u.toString();
           } catch {}
           avatar.style.backgroundImage = `url("${src}")`;
           avatar.classList.add("has-img");
         }
       }
-      // 1) 모달 오픈 즉시 1회 채우기
-      (async () => { try { const a = await getAuthorMeta(); paintAcct(a); } catch {} })();
-      // 2) 이후 프로필 변경 브로드캐스트 수신
-      window.addEventListener("user:updated", (ev) => {
+
+      // 1) 모달 오픈 시 1회 채우기
+      (async () => {
+        try {
+          const a = await getAuthorMeta();
+          paintAcct(a);
+        } catch {}
+      })();
+
+      // 2) 이후 프로필 변경 브로드캐스트 수신(이름/아바타 실시간 반영)
+      const onUserUpdated = (ev) => {
         const d = ev?.detail || {};
         paintAcct({ name: d.displayName, avatar: d.avatarUrl, email: d.email, handle: d.handle });
-      });
+      };
+      window.addEventListener("user:updated", onUserUpdated);
 
       const caption = document.createElement("textarea");
       caption.className = "im-caption";
@@ -2411,6 +2422,7 @@ function goMineAfterShare(label = getLabel()) {
       function cleanup(){
         URL.revokeObjectURL(url);
         window.removeEventListener("keydown", onEsc);
+        window.removeEventListener("user:updated", onUserUpdated);
         back.remove();
       }
 
@@ -2478,6 +2490,42 @@ function goMineAfterShare(label = getLabel()) {
     const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
     const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
     acct.append(avatar, name);
+
+    // 프로필 페인터
+    function paintAcct(meta = {}) {
+      const nm = meta.name || meta.handle ||
+                (meta.email ? String(meta.email).split("@")[0] : "") || "member";
+      name.textContent = nm;
+
+      avatar.classList.remove("has-img");
+      avatar.style.backgroundImage = "";
+
+      if (meta.avatar) {
+        let src = meta.avatar;
+        try {
+          const u = new URL(src, location.origin);
+          u.searchParams.set("v", String(Date.now())); // 캐시 버스트
+          src = u.toString();
+        } catch {}
+        avatar.style.backgroundImage = `url("${src}")`;
+        avatar.classList.add("has-img");
+      }
+    }
+
+    // 1) 모달 오픈 시 1회 채우기
+    (async () => {
+      try {
+        const a = await getAuthorMeta();
+        paintAcct(a);
+      } catch {}
+    })();
+
+    // 2) 이후 프로필 변경 브로드캐스트 수신(이름/아바타 실시간 반영)
+    const onUserUpdated = (ev) => {
+      const d = ev?.detail || {};
+      paintAcct({ name: d.displayName, avatar: d.avatarUrl, email: d.email, handle: d.handle });
+    };
+    window.addEventListener("user:updated", onUserUpdated);
 
     const caption = document.createElement("textarea"); caption.className = "im-caption"; caption.placeholder = "문구 입력..."; caption.maxLength = 300;
     const meta = document.createElement("div"); meta.className = "im-cap-meta";
@@ -2587,6 +2635,21 @@ function goMineAfterShare(label = getLabel()) {
     function closeAndReset(){
       caption.value = ""; mR.textContent = "0 / 300";
       applySelection(null,0,0);
+      // 줌 슬라이더/버튼 리스너 정리 (존재할 때만)
+      if (zoomSlider && handleZoom) {
+        try { zoomSlider.removeEventListener('input', handleZoom); } catch {}
+        delete zoomSlider.dataset.zoomHandlerAttached;
+      }
+      if (zoomInButton && zoomIn) {
+        try { zoomInButton.removeEventListener('click', zoomIn); } catch {}
+        delete zoomInButton.dataset.zoomHandlerAttached;
+      }
+      if (zoomOutButton && zoomOut) {
+        try { zoomOutButton.removeEventListener('click', zoomOut); } catch {}
+        delete zoomOutButton.dataset.zoomHandlerAttached;
+      }
+      window.removeEventListener("keydown", onEsc);  
+      window.removeEventListener("user:updated", onUserUpdated);
       back.remove();
       document.body.classList.remove("is-compose");
     }
@@ -2595,7 +2658,12 @@ function goMineAfterShare(label = getLabel()) {
     globalClose.addEventListener("click", closeAndReset);
     back.addEventListener("click", (e)=>{ if (e.target === back) closeAndReset(); });
     backBtn.addEventListener("click", closeAndReset);
-    window.addEventListener("keydown", function onEsc(e){ if (e.key === "Escape"){ closeAndReset(); window.removeEventListener("keydown", onEsc); } });
+    function onEsc(e){
+      if (e.key === "Escape"){
+        closeAndReset();
+      }
+    }
+    window.addEventListener("keydown", onEsc);
 
     pick.addEventListener("click", async ()=>{
       try{
