@@ -2540,8 +2540,13 @@ function goMineAfterShare(label = getLabel()) {
       shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
 
       shell.style.setProperty("--im-ar",  isTall12 ? "1 / 2" : "auto");
-      shell.style.setProperty("--im-fit", isTall12 ? "cover"   : "contain");
+      shell.style.setProperty("--im-fit", "contain"); // 1:2 포함 전부 contain 유지
 
+      if (isTall12) {
+        stage.classList.add("is-ratio-12");
+      } else {
+        stage.classList.remove("is-ratio-12");
+      }
 
 
       // Header
