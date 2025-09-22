@@ -982,15 +982,28 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       const id = `g_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
 
       // ✅ 트림 금지. 구도 그대로 정사각화(레터박스)
-      const norm = letterboxToSquare(canvas, { size: 1024, bg: null });
-
-      const dataURL = norm.toDataURL("image/png");
+      const arSel = (typeof window.LM_getAR==="function" ? window.LM_getAR() : "1:1");
+let dataURL;
+if (arSel === "1:2") {
+  // ===== 1:2 export path =====
+  const base = letterboxToSquare(canvas, { size: 2048, bg: null });
+  const out = document.createElement("canvas");
+  out.width = 1024; out.height = 2048;
+  const ctx = out.getContext("2d"); ctx.imageSmoothingQuality="high";
+  const sx = Math.max(0, Math.round((base.width - out.width)/2));
+  ctx.drawImage(base, sx, 0, out.width, out.height, 0, 0, out.width, out.height);
+  dataURL = out.toDataURL("image/png");
+} else {
+  const norm = letterboxToSquare(canvas, { size: 1024, bg: null });
+  dataURL = norm.toDataURL("image/png");
+}
       const thumbDataURL = await SDF.Utils.makeThumbnail(dataURL, 320, 240);
 
       const arr = _load(label);
-      arr.unshift({ id, dataURL, thumbDataURL, createdAt: new Date().toISOString() });
+      arr.unshift({ id, dataURL, thumbDataURL, createdAt: new Date().toISOString(), ar: arSel, w: (arSel==="1:2"?1024:1024), h: (arSel==="1:2"?2048:1024) });
       _save(label, arr);
-      window.dispatchEvent(new CustomEvent(SDF.GALLERY_EVENT, { detail: { kind: "add", label, id } }));
+      window.dispatchEvent(new CustomEvent(SDF.GALLERY_EVENT, { detail: { kind: "add", label, id, ar: (typeof LM_getAR==="function"?LM_getAR():"1:1") } }));
+      window.dispatchEvent(new CustomEvent("sdf:aspect-changed", { detail: { ar: (typeof LM_getAR==="function"?LM_getAR():"1:1") } }));
       return id;
     }
 
@@ -3441,3 +3454,45 @@ window.addEventListener("auth:logout", ()=>{
   const ret = encodeURIComponent(location.href);
   location.replace(`${pageHref('login.html')}?next=${ret}`);
 });
+
+
+// ===== Aspect Ratio Manager (Labelmine) =====
+(function aspectManager(){
+  const RKEY = "labelmine:aspect";
+  function setAR(ar){
+    try{
+      if (!ar) return;
+      sessionStorage.setItem(RKEY, ar);
+      const crop = document.querySelector('.cmodal, .crop-modal');
+      if (crop) crop.setAttribute('data-ar', ar);
+      const feed = document.querySelector('.imodal, .feed-modal');
+      if (feed) feed.setAttribute('data-ar', ar);
+      document.documentElement.setAttribute('data-lm-ar', ar);
+    }catch{}
+  }
+  function getAR(){ try{ return sessionStorage.getItem(RKEY) || "1:1"; }catch{ return "1:1"; } }
+  window.LM_setAR = setAR; window.LM_getAR = getAR;
+
+  // Hook buttons like [data-ar="1:1"] / [data-ar="1:2"]
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-ar]');
+    if (!btn) return;
+    const ar = btn.getAttribute('data-ar');
+    if (ar === '1:1' || ar === '1:2') setAR(ar);
+  });
+
+  // Init once per load
+  setAR(getAR());
+})();
+
+
+
+// Reflect aspect to any open modals (feed/crop) on demand
+window.addEventListener("sdf:aspect-changed", (e)=>{
+  const ar = (e?.detail?.ar) || (window.LM_getAR && window.LM_getAR()) || "1:1";
+  const crop = document.querySelector('.cmodal, .crop-modal');
+  if (crop) crop.setAttribute('data-ar', ar);
+  const feed = document.querySelector('.imodal, .feed-modal');
+  if (feed) feed.setAttribute('data-ar', ar);
+});
+
