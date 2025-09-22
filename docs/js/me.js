@@ -130,7 +130,7 @@
     return recent.length;
   }
 
-
+  let nextSrc = (typeof window.__toAPI === "function") ? window.__toAPI(url) : String(url || "");
 
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
