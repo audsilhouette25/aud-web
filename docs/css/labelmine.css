@@ -431,7 +431,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   box-sizing:border-box; min-width:0; border-left:1px solid var(--split-border); padding:12px;
   overflow:auto; display:grid; grid-auto-rows:max-content; gap:10px; background:#fff; -webkit-overflow-scrolling:touch;
 }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ display:flex; align-items:center; gap:10px; }
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ display:flex; align-items:center; gap:6px; }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{ width:32px; height:32px; border-radius:9999px; background:#e5e7eb; }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-acct-name{ font-weight:600; }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-caption{
@@ -667,3 +667,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   max-width: 100%;     /* 이미지가 컨테이너보다 커지는 것을 방지 */
   max-height: 100%;    /* 이미지가 컨테이너보다 커지는 것을 방지 */
 }
+
+}
+
