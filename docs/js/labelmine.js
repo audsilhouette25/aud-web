@@ -1758,43 +1758,45 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
   });
 })();
 
-  // [PATCH][UTIL] 이니셜 아바타 SVG dataURL 생성기 (새로 추가)
-  function makeInitialsAvatar({ text="?", size=96, bg="#4A5568", fg="#FFFFFF" } = {}){
-    const t = String(text).trim().toUpperCase() || "?";
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <rect width="${size}" height="${size}" rx="${Math.round(size/2)}" fill="${bg}"/>
-      <text x="50%" y="50%" dy=".06em" text-anchor="middle"
-        font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial"
-        font-size="${Math.round(size*0.46)}"
-        font-weight="700" fill="${fg}">${t}</text>
-    </svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  // ── Author helpers ─────────────────────────────────────────────
+  function normAuthor(u) {
+    const id =
+      u?.id ?? u?.user_id ?? u?.uid ?? u?.sub ?? u?.pk ?? u?.profile?.id ?? null;
+    const name =
+      u?.displayName ?? u?.name ?? u?.nickname ?? u?.profile?.name ?? u?.username ?? "";
+    const handle =
+      u?.handle ?? u?.username ?? u?.login ?? u?.profile?.handle ?? "";
+    const avatar =
+      u?.avatar_url ?? u?.avatar ?? u?.picture ?? u?.profile?.avatarUrl ?? "";
+    const ns =
+      (window.SDF_NS ||
+       (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
+    return { id: id && String(id), ns, name: String(name||""), handle: String(handle||""), avatar: String(avatar||"") };
   }
 
-  // ── Author helpers ─────────────────────────────────────────────
-
+  // ★ REPLACE: getAuthorMeta()
   let __meCache = null;
   async function getAuthorMeta(){
     if (__meCache) return __meCache;
 
     // ns 결정
     const ns = (typeof getNS === "function"
-                ? getNS()
-                : (localStorage.getItem("auth:userns") || "default")
+                  ? getNS()
+                  : (localStorage.getItem("auth:userns") || "default")
               ).trim().toLowerCase();
 
-    // 1) store.js의 ns identity (me 페이지에서 기록됨)
+    // 1) store.js 의 ns identity 먼저 (me 페이지에서 이미 기록됨)
     const fromStore = (typeof window.getNSIdentity === "function")
         ? (window.getNSIdentity(ns) || {})
         : {};
 
-    // 2) me:profile 캐시 (ns 스코프)
+    // 2) me 페이지가 쓰는 me:profile 캐시 (ns 스코프)
     const readMeProfile = () => {
       const k = `me:profile:${ns}`;
       try {
         return JSON.parse(
-          sessionStorage.getItem(k) || localStorage.getItem(k) || "null"
+          sessionStorage.getItem(k) ||
+          localStorage.getItem(k)   || "null"
         ) || null;
       } catch { return null; }
     };
@@ -1805,41 +1807,23 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     const meUser = me.user || me || {};
 
     const pick = (key) =>
-      (fromStore && fromStore[key] != null ? fromStore[key] :
-      fromCache && fromCache[key] != null ? fromCache[key] :
-      meUser && meUser[key] != null ? meUser[key] : null);
+      fromStore[key] ?? fromCache[key] ?? meUser[key] ?? null;
 
     const id =
-      meUser.id ?? meUser.user_id ?? meUser.uid ?? meUser.sub ?? meUser.pk ?? null;
+      meUser.id ?? meUser.user_id ?? meUser.uid ?? meUser.sub ?? null;
 
-    const email  = pick("email") || "";
-    const handle = meUser.handle || meUser.username || meUser.login || "";
-    const baseName =
+    const name =
       pick("displayName") || pick("name") ||
-      (email ? String(email).split("@")[0] : "") ||
+      (pick("email") ? String(pick("email")).split("@")[0] : "") ||
       (id ? `Member #${id}` : "Member");
-
-    // 아바타 원천
-    let avatar =
-      pick("avatarUrl") || pick("avatar") || pick("picture") ||
-      (meUser.profile && (meUser.profile.avatarUrl || meUser.profile.avatar)) ||
-      "";
-
-    // 없으면 이니셜 아바타 생성
-    if (!avatar) {
-      const base   = baseName || handle || (email ? String(email).split("@")[0] : "") || "U";
-      const initials = base.trim().split(/\s+/).map(s => s[0] || "")
-                        .join("").slice(0,2).toUpperCase() || "U";
-      avatar = makeInitialsAvatar({ text: initials });
-    }
 
     const a = {
       id: id && String(id),
       ns,
-      name: String(baseName || ""),
-      handle: String(handle || ""),
-      avatar: String(avatar || ""),
-      email:  String(email || "")
+      name: String(name || ""),
+      handle: meUser.handle || meUser.username || meUser.login || "",
+      avatar: pick("avatarUrl") || pick("avatar") || pick("picture") || "",
+      email:  pick("email") || ""
     };
 
     __meCache = a;
@@ -2365,49 +2349,16 @@ function goMineAfterShare(label = getLabel()) {
       const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
       const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
       acct.append(avatar, name);
-      // 프로필 페인터
-      // [PATCH] paintAcct 교체본 (openComposeModal / openFeedModal 양쪽 동일하게 적용)
-      function paintAcct(meta = {}) {
-        const nm = meta.name || meta.handle ||
-                  (meta.email ? String(meta.email).split("@")[0] : "") || "member";
-        name.textContent = nm;
-
-        avatar.classList.remove("has-img");
-        avatar.style.backgroundImage = "";
-
-        // 1) getAuthorMeta 폴백(이니셜) 사용 + 2) 즉석 폴백 보장
-        let src = meta.avatar || "";
-        if (!src) {
-          const initials = nm.trim().split(/\s+/).map(s=>s[0]||"").join("").slice(0,2).toUpperCase() || "U";
-          src = makeInitialsAvatar({ text: initials });
-        }
-
-        if (!/^data:/i.test(src)) {
-          try {
-            const u = new URL(src, location.origin);
-            u.searchParams.set("v", String(Date.now()));
-            src = u.toString();
-          } catch {}
-        }
-
-        avatar.style.backgroundImage = `url("${src}")`;
-        avatar.classList.add("has-img");
-      }
-
-      // 1) 모달 오픈 시 1회 채우기
       (async () => {
         try {
           const a = await getAuthorMeta();
-          paintAcct(a);
+          if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
+          if (a?.avatar) {
+            avatar.style.backgroundImage = `url("${a.avatar}")`;
+            avatar.classList.add("has-img");
+          }
         } catch {}
       })();
-
-      // 2) 이후 프로필 변경 브로드캐스트 수신(이름/아바타 실시간 반영)
-      const onUserUpdated = (ev) => {
-        const d = ev?.detail || {};
-        paintAcct({ name: d.displayName, avatar: d.avatarUrl, email: d.email, handle: d.handle });
-      };
-      window.addEventListener("user:updated", onUserUpdated);
 
       const caption = document.createElement("textarea");
       caption.className = "im-caption";
@@ -2446,7 +2397,6 @@ function goMineAfterShare(label = getLabel()) {
       function cleanup(){
         URL.revokeObjectURL(url);
         window.removeEventListener("keydown", onEsc);
-        window.removeEventListener("user:updated", onUserUpdated);
         back.remove();
       }
 
@@ -2514,49 +2464,6 @@ function goMineAfterShare(label = getLabel()) {
     const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
     const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
     acct.append(avatar, name);
-
-    // 프로필 페인터
-    function paintAcct(meta = {}) {
-      const nm = meta.name || meta.handle ||
-                (meta.email ? String(meta.email).split("@")[0] : "") || "member";
-      name.textContent = nm;
-
-      avatar.classList.remove("has-img");
-      avatar.style.backgroundImage = "";
-
-      // 1) getAuthorMeta 폴백(이니셜) 사용 + 2) 즉석 폴백 보장
-      let src = meta.avatar || "";
-      if (!src) {
-        const initials = nm.trim().split(/\s+/).map(s=>s[0]||"").join("").slice(0,2).toUpperCase() || "U";
-        src = makeInitialsAvatar({ text: initials });
-      }
-
-      if (!/^data:/i.test(src)) {
-        try {
-          const u = new URL(src, location.origin);
-          u.searchParams.set("v", String(Date.now()));
-          src = u.toString();
-        } catch {}
-      }
-
-      avatar.style.backgroundImage = `url("${src}")`;
-      avatar.classList.add("has-img");
-    }
-
-    // 1) 모달 오픈 시 1회 채우기
-    (async () => {
-      try {
-        const a = await getAuthorMeta();
-        paintAcct(a);
-      } catch {}
-    })();
-
-    // 2) 이후 프로필 변경 브로드캐스트 수신(이름/아바타 실시간 반영)
-    const onUserUpdated = (ev) => {
-      const d = ev?.detail || {};
-      paintAcct({ name: d.displayName, avatar: d.avatarUrl, email: d.email, handle: d.handle });
-    };
-    window.addEventListener("user:updated", onUserUpdated);
 
     const caption = document.createElement("textarea"); caption.className = "im-caption"; caption.placeholder = "문구 입력..."; caption.maxLength = 300;
     const meta = document.createElement("div"); meta.className = "im-cap-meta";
@@ -2666,21 +2573,6 @@ function goMineAfterShare(label = getLabel()) {
     function closeAndReset(){
       caption.value = ""; mR.textContent = "0 / 300";
       applySelection(null,0,0);
-      // 줌 슬라이더/버튼 리스너 정리 (존재할 때만)
-      if (zoomSlider && handleZoom) {
-        try { zoomSlider.removeEventListener('input', handleZoom); } catch {}
-        delete zoomSlider.dataset.zoomHandlerAttached;
-      }
-      if (zoomInButton && zoomIn) {
-        try { zoomInButton.removeEventListener('click', zoomIn); } catch {}
-        delete zoomInButton.dataset.zoomHandlerAttached;
-      }
-      if (zoomOutButton && zoomOut) {
-        try { zoomOutButton.removeEventListener('click', zoomOut); } catch {}
-        delete zoomOutButton.dataset.zoomHandlerAttached;
-      }
-      window.removeEventListener("keydown", onEsc);  
-      window.removeEventListener("user:updated", onUserUpdated);
       back.remove();
       document.body.classList.remove("is-compose");
     }
@@ -2689,12 +2581,7 @@ function goMineAfterShare(label = getLabel()) {
     globalClose.addEventListener("click", closeAndReset);
     back.addEventListener("click", (e)=>{ if (e.target === back) closeAndReset(); });
     backBtn.addEventListener("click", closeAndReset);
-    function onEsc(e){
-      if (e.key === "Escape"){
-        closeAndReset();
-      }
-    }
-    window.addEventListener("keydown", onEsc);
+    window.addEventListener("keydown", function onEsc(e){ if (e.key === "Escape"){ closeAndReset(); window.removeEventListener("keydown", onEsc); } });
 
     pick.addEventListener("click", async ()=>{
       try{
