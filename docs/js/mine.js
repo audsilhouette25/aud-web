@@ -1018,10 +1018,8 @@
     // 소유자 판정 (isMine(item) 있으면 우선; 없으면 id 비교)
     const mine = isMine(item);
 
-    
-    const _ar = classifyAspect(item);
-return `
-    <article class="feed-card" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}" data-owner="${mine ? 'me' : 'other'}" data-ar="${_ar}">
+    return `
+    <article class="feed-card" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}" data-owner="${mine ? 'me' : 'other'}">
       <div class="media">
         <img src="${blobURL(item)}" alt="${safeLabel || 'item'}" loading="lazy" />
         <div class="hover-ui" role="group" aria-label="Post actions">
