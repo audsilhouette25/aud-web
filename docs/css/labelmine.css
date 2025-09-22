@@ -667,6 +667,3 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   max-width: 100%;     /* 이미지가 컨테이너보다 커지는 것을 방지 */
   max-height: 100%;    /* 이미지가 컨테이너보다 커지는 것을 방지 */
 }
-
-}
-
