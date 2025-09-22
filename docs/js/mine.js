@@ -307,7 +307,7 @@
         : null;
       const base = `[data-user-id="${CSS.escape(String(d.id))}"]`;
       // 아바타 갱신
-      document.querySelectorAll(`${base} .avatar`)
+      document.querySelectorAll(`${base} .avatar, ${base} img.profile, ${base} .avatar-img`)
         .forEach(img => wire(img, u, d.displayName || img.alt || 'member'));
       // 이름 갱신
       if (d.displayName) {

@@ -1643,6 +1643,7 @@
 
     // 3) Render
     renderProfile(me);
+    await broadcastMyProfile({});
     renderQuick(quick);
 
     try {

@@ -78,6 +78,46 @@ const IMG_SRC = {
   portal: "./asset/portal.png",
 };
 
+// labelmine — me 프로필 변경 즉시 반영(step3 모달 프리뷰 & 캐시)
+window.addEventListener('user:updated', (ev) => {
+  const d = ev?.detail || {};
+  if (!d) return;
+
+  // 1) me:profile:{ns} 캐시 병합 갱신 (session/local 양쪽)
+  try {
+    const ns = (typeof window.getNS === 'function' && window.getNS())
+            || (localStorage.getItem('auth:userns') || 'default').toLowerCase();
+    const key = `me:profile:${ns}`;
+    const prev = JSON.parse(sessionStorage.getItem(key) || localStorage.getItem(key) || 'null') || {};
+    const next = { ...prev, ...d, ns, updatedAt: Date.now(), rev: Date.now() };
+    sessionStorage.setItem(key, JSON.stringify(next));
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+
+  // 2) 열린 step3 모달 내 프리뷰 즉시 교체
+  const ver = d.rev ? String(d.rev) : String(Date.now());
+  const bust = (u) => (u ? (u.includes('?') ? `${u}&v=${encodeURIComponent(ver)}` 
+                                             : `${u}?v=${encodeURIComponent(ver)}`) : '');
+
+  const roots = [
+    document.querySelector('#labelmine-step3'),
+    document.querySelector('.lm-step3'),
+    document.querySelector('#labelmine .step3'),
+  ].filter(Boolean);
+
+  roots.forEach(root => {
+    // 아바타 이미지 후보(관용적 셀렉터 묶음)
+    root.querySelectorAll('img.avatar, img.profile, .avatar-img, [data-role="profile-avatar"] img')
+      .forEach(img => { if (d.avatarUrl) img.src = bust(d.avatarUrl); });
+
+    // 이름 갱신
+    if (d.displayName) {
+      root.querySelectorAll('.name, [data-role="profile-name"]').forEach(el => { el.textContent = d.displayName; });
+    }
+  });
+});
+
+
 /* ---- boot-time clear (runs once per server boot id) ---- */
 (function maybeBootClear(){
   // auth 준비 헬퍼
