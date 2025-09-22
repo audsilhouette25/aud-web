@@ -174,20 +174,6 @@ const IMG_SRC = {
         .forEach(el => { el.textContent = name; });
 
       // 아바타 이미지
-// 아바타 컨테이너 내에 <img class="avatar avatar--sm">가 없으면 생성
-      root.querySelectorAll(".im-acct-avatar").forEach(box => {
-        let img = box.querySelector("img.avatar");
-        if (!img) {
-          img = document.createElement("img");
-          img.className = "avatar avatar--sm";
-          img.alt = name;
-          img.decoding = "async";
-          img.loading = "lazy";
-          img.referrerPolicy = img.referrerPolicy || "no-referrer";
-          box.appendChild(img);
-        }
-      });
-
       root.querySelectorAll(".im-acct-avatar .avatar-img, img.avatar, img.profile, .avatar-img")
         .forEach(img => {
           // 캐시버스팅
