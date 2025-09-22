@@ -425,19 +425,18 @@
       img.referrerPolicy = "no-referrer";
       container.appendChild(img);
     }
-    let nextSrc = url;
-    try {
-      const u = new URL(url, location.origin);
-      if (opts && opts.version != null) {
-        u.searchParams.set("v", String(opts.version));
-      } else if (!u.searchParams.has("v")) {
-        const cached = readProfileCache() || {};
-        const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
-        u.searchParams.set("v", String(rev));
-      }
-      nextSrc = u.toString();
-    } catch {}
-    if (img.src !== nextSrc) img.src = nextSrc;
+      let nextSrc = __toAPI(url);
+      try {
+        const u = new URL(nextSrc, location.origin);
+        if (opts && opts.version != null) u.searchParams.set("v", String(opts.version));
+        else if (!u.searchParams.has("v")) {
+          const cached = readProfileCache() || {};
+          const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
+          u.searchParams.set("v", String(rev));
+        }
+        nextSrc = u.toString();
+      } catch {}
+      if (img.src !== nextSrc) img.src = nextSrc;
     container.classList.add("has-img", "url-mode");
     container.removeAttribute("data-initials");
   }

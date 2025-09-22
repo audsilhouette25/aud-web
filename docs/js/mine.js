@@ -224,7 +224,7 @@
   const toAPI = (p) => {
     try {
       const u = new URL(p, location.href);
-      return (API_ORIGIN && /^\/(api|auth)\//.test(u.pathname))
+      return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
         ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
         : u.toString();
     } catch { return p; }
@@ -270,8 +270,8 @@
 
     // “지금” 쓸 해석 규칙: 있으면 절대/상대/데이터URI 모두 허용, 없으면 즉시 SVG
     function resolve(raw, displayName='member') {
-      if (raw && typeof raw === 'string') return raw;  // http(s)/data:/상대경로 모두 허용
-      return svgPlaceholder(displayName);              // 네트워크 요청 자체가 없음 → 404 없음
+      if (raw && typeof raw === 'string') return toAPI(raw);
+      return svgPlaceholder(displayName);
     }
 
     // <img>에 안전하게 연결(+실패 시 즉시 SVG로 대체)

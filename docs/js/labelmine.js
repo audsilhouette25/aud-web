@@ -2349,14 +2349,85 @@ function goMineAfterShare(label = getLabel()) {
       const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
       const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
       acct.append(avatar, name);
+      // ---- Step3 기본 아바타 렌더링 ----
+      // ① API 경로 리라이트(uploads 포함)
+      const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
+      function toAPI(p){
+        try{
+          const u = new URL(p, location.href);
+          return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
+            ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
+            : u.toString();
+        }catch{ return p; }
+      }
+      // ② 이니셜 SVG 생성(네트워크 요청 없음)
+      function initialsOf(name='member'){
+        const parts = String(name).trim().split(/\s+/).filter(Boolean);
+        const init  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+        return (init || (name[0] || 'U')).toUpperCase().slice(0, 2);
+      }
+      function svgAvatar(name='member'){
+        let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0;
+        const hue = Math.abs(h)%360;
+        const bg  = `hsl(${hue},75%,85%)`, fg=`hsl(${hue},60%,28%)`, txt=initialsOf(name);
+        return 'data:image/svg+xml;utf8,'+encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+            <rect width="80" height="80" rx="40" fill="${bg}"/>
+            <text x="50%" y="54%" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
+                  font-size="32" font-weight="600" fill="${fg}" text-anchor="middle">${txt}</text>
+          </svg>`);
+      }
+      // ③ 현재 사용자 정보로 아바타 결정
+      (async () => {
+        const me = await (window.auth?.getUser?.().catch(()=>null)) || {};
+        const displayName = me.displayName || me.name || me.email || 'member';
+        const rawUrl = me.avatarUrl || me.avatar || me.picture || '';
+        const img = document.createElement('img');
+        img.className = 'avatar-img';
+        img.alt = '';
+        img.decoding = 'async';
+        img.loading = 'lazy';
+        img.referrerPolicy = 'no-referrer';
+        if (rawUrl) {
+          const u = new URL(toAPI(rawUrl), location.href);
+          const cached = (() => {
+            try {
+              const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+              return JSON.parse(sessionStorage.getItem(`me:profile:${ns}`) || localStorage.getItem(`me:profile:${ns}`) || "null") || {};
+            } catch { return {}; }
+          })();
+          const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
+          u.searchParams.set("v", String(rev));
+          img.src = u.toString();
+        } else {
+          img.src = svgAvatar(displayName);
+        }
+        img.addEventListener('error', () => { img.src = svgAvatar(displayName); }, { once: true });
+        avatar.appendChild(img);
+      })();
+        if (a?.avatar) {
+        const u = new URL(toAPI(a.avatar), location.href);
+        // 캐시 무효화: 프로필 캐시에 rev/updatedAt이 있으면 우선, 없으면 now()
+        const cached = (() => {
+          try {
+            const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+            return JSON.parse(sessionStorage.getItem(`me:profile:${ns}`) || localStorage.getItem(`me:profile:${ns}`) || "null") || {};
+          } catch { return {}; }
+        })();
+        const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
+        u.searchParams.set("v", String(rev));
+        avatar.style.backgroundImage = `url("${u.toString()}")`;
+        avatar.classList.add("has-img");
+      } else {
+        // 폴백: 이니셜 SVG
+        avatar.style.backgroundImage = `url("${svgAvatar(a?.name || 'member')}")`;
+        avatar.classList.add("has-img");
+      }
+
       (async () => {
         try {
           const a = await getAuthorMeta();
           if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
-          if (a?.avatar) {
-            avatar.style.backgroundImage = `url("${a.avatar}")`;
-            avatar.classList.add("has-img");
-          }
         } catch {}
       })();
 
