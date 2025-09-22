@@ -2162,21 +2162,12 @@ function goMineAfterShare(label = getLabel()) {
 
       // 트림+패딩(+정사각). 원본이 너무 크면 1024~2048 사이에서 적당히.
       const target = Math.max(1024, Math.min(2048, Math.max(c.width, c.height)));
-let out = document.createElement('canvas');
-if (c.width >= c.height) {
-  out.width = target;
-  out.height = Math.round(c.height * (target / c.width));
-} else {
-  out.height = target;
-  out.width = Math.round(c.width * (target / c.height));
-}
-const oc = out.getContext('2d');
-oc.imageSmoothingQuality = 'high';
-oc.drawImage(c, 0, 0, out.width, out.height);
-// 캔버스 → Blob (aspect preserved)
-blob   = await SDF.Utils.canvasToBlob(out, 'image/png');
-width  = out.width;
-height = out.height;
+      const norm = SDF.Utils.letterboxToSquare(c, { size: target, bg: null });
+
+      // 캔버스 → Blob
+      blob   = await SDF.Utils.canvasToBlob(norm, 'image/png');
+      width  = norm.width;
+      height = norm.height;
     } catch (e) {
       // 실패해도 그냥 원본으로 진행
       console.warn('[upload] normalize skipped:', e);
@@ -3000,9 +2991,6 @@ height = out.height;
 
       // State
       let ar = "1:1";
-      // local overlay flag (no global side-effects)
-      function reflectOverlay(){ try{ shell.classList.toggle('ar-12', ar === "1:2"); }catch{} }
-    
       let tx = 0, ty = 0; // 팬 오프셋 (프레임 중심 기준)
       let isPanning = false, panStart = {x:0, y:0}, startTX = 0, startTY = 0;
       let viewW = 0, viewH = 0;
@@ -3052,7 +3040,6 @@ height = out.height;
         stage.appendChild(frame);
 
         applyAspect(ar);
-        reflectOverlay();
         draw();
         bindEvents();
       }
@@ -3104,7 +3091,6 @@ height = out.height;
 
       function applyAspect(next){
         ar = next;
-        reflectOverlay();
         const { fw, fh } = frameRect();
         minCover = Math.max(fw / img.naturalWidth, fh / img.naturalHeight);
         zoom = Math.max(minCover, zoom);
