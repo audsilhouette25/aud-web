@@ -78,6 +78,147 @@ const IMG_SRC = {
   portal: "./asset/portal.png",
 };
 
+/* ------------------------------------------------------------------
+ * step3 프로필 실시간 동기화 (me → labelmine)
+ * - user:updated (same-tab broadcast)
+ * - storage (cross-tab broadcast via me:profile:{ns}[:uid])
+ * ------------------------------------------------------------------ */
+(() => {
+  const NS = (() => {
+    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
+    catch { return "default"; }
+  })();
+
+  const PROFILE_KEY_PREFIX = "me:profile";
+
+  function pickLatest(a, b){
+    const rv = (o)=>Number(o?.rev ?? o?.updatedAt ?? o?.updated_at ?? o?.ts ?? 0);
+    if (!a) return b || null;
+    if (!b) return a || null;
+    return rv(a) >= rv(b) ? a : b;
+  }
+
+  function readLatestProfile(){
+    // 우선순위: ns:uid → ns → (레거시)무ns
+    const keys = (() => {
+      const uid = (() => {
+        try {
+          const me = JSON.parse(sessionStorage.getItem("auth:me") || "null") || {};
+          return me.id || me.user?.id || me.uid || me.sub || null;
+        } catch { return null; }
+      })();
+      const arr = [
+        `${PROFILE_KEY_PREFIX}:${NS}`,
+        PROFILE_KEY_PREFIX
+      ];
+      if (uid) arr.unshift(`${PROFILE_KEY_PREFIX}:${NS}:${uid}`);
+      return arr;
+    })();
+
+    let latest = null;
+    for (const k of keys) {
+      try {
+        const s = JSON.parse(sessionStorage.getItem(k) || "null");
+        const l = JSON.parse(localStorage.getItem(k)  || "null");
+        latest = pickLatest(latest, s || null);
+        latest = pickLatest(latest, l || null);
+      } catch {}
+    }
+    return latest;
+  }
+
+  function bust(url, rev){
+    if (!url) return "";
+    try {
+      const u = new URL(url, location.href);
+      if (rev) u.searchParams.set("v", String(rev));
+      return u.toString();
+    } catch { 
+      // 상대경로 등도 허용
+      const sep = url.includes("?") ? "&" : "?";
+      return rev ? `${url}${sep}v=${encodeURIComponent(String(rev))}` : url;
+    }
+  }
+
+  // API 경로 리라이트(uploads 포함)
+  const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
+  function toAPI(p){
+    try{
+      const u = new URL(p, location.href);
+      return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
+        ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
+        : u.toString();
+    }catch{ return p; }
+  }
+
+  function updateStep3View(patch={}){
+    const latest = pickLatest(readLatestProfile() || {}, patch || {});
+    const name = latest.displayName || latest.name || latest.handle || latest.email || "member";
+    let url  = latest.avatarUrl || latest.avatar || latest.picture || "";
+    url = url ? toAPI(url) : "";
+    const rev  = Number(latest.rev ?? latest.updatedAt ?? latest.updated_at ?? latest.ts ?? Date.now());
+
+    // step3 모달 내 계정 표시 영역(관용적 셀렉터)
+    const roots = [
+      document.querySelector("#labelmine-step3"),
+      document.querySelector(".lm-step3"),
+      document.querySelector("#labelmine .step3"),
+      // ✨ 실제 클래스명: .imodal (하이픈 없음)
+      document.querySelector(".imodal")
+    ].filter(Boolean);
+
+    roots.forEach(root => {
+      // 이름
+      root.querySelectorAll(".im-acct-name, [data-role='profile-name'], .name")
+        .forEach(el => { el.textContent = name; });
+
+      // 아바타 이미지
+      root.querySelectorAll(".im-acct-avatar .avatar-img, img.avatar, img.profile, .avatar-img")
+        .forEach(img => {
+          // 캐시버스팅
+          const next = bust(url, rev);
+          if (next) {
+            img.referrerPolicy = img.referrerPolicy || "no-referrer";
+            img.decoding = img.decoding || "async";
+            img.loading  = img.loading  || "lazy";
+            img.src = next;
+          }
+        });
+    });
+  }
+
+  // same-tab: me.js가 쏘는 브로드캐스트
+  window.addEventListener("user:updated", (ev) => {
+    const d = ev?.detail || {};
+    // 최신 스냅샷 합성 후 반영
+    updateStep3View(d);
+  });
+
+  // cross-tab: storage를 통해 들어오는 캐시 쓰기 감지
+  window.addEventListener("storage", (e) => {
+    if (!e?.key || !e.newValue) return;
+    if (!e.key.startsWith(PROFILE_KEY_PREFIX)) return;
+    // 키에서 ns 추출 → 현재 NS와 다르면 무시
+    try {
+      const parts = e.key.split(":");     // ["me:profile", "{ns}", "{uid?}"]
+      const nsKey = parts[1] === "profile" ? parts[2] : null; // safety
+      if (nsKey && nsKey !== NS) return;
+    } catch {}
+    // 값 반영
+    try {
+      const p = JSON.parse(e.newValue || "null") || {};
+      updateStep3View(p);
+    } catch {}
+  });
+
+  // 페이지 진입/리로드 시 1회 보정
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") updateStep3View({});
+  });
+  window.addEventListener("pageshow", () => updateStep3View({}));
+
+})();
+
 // labelmine — me 프로필 변경 즉시 반영(step3 모달 프리뷰 & 캐시)
 window.addEventListener('user:updated', (ev) => {
   const d = ev?.detail || {};
@@ -103,12 +244,18 @@ window.addEventListener('user:updated', (ev) => {
     document.querySelector('#labelmine-step3'),
     document.querySelector('.lm-step3'),
     document.querySelector('#labelmine .step3'),
+    document.querySelector('.imodal'),
   ].filter(Boolean);
 
   roots.forEach(root => {
     // 아바타 이미지 후보(관용적 셀렉터 묶음)
-    root.querySelectorAll('img.avatar, img.profile, .avatar-img, [data-role="profile-avatar"] img')
-      .forEach(img => { if (d.avatarUrl) img.src = bust(d.avatarUrl); });
+    root.querySelectorAll('img.avatar, img.profile, .avatar-img, [data-role="profile-avatar"] img, .im-acct-avatar .avatar-img')
+      .forEach(img => {
+        if (d.avatarUrl) {
+          const apiUrl = toAPI(d.avatarUrl);
+          img.src = bust(apiUrl);
+        }
+      });
 
     // 이름 갱신
     if (d.displayName) {
@@ -2445,6 +2592,7 @@ function goMineAfterShare(label = getLabel()) {
         }
         img.addEventListener('error', () => { img.src = svgAvatar(displayName); }, { once: true });
         avatar.appendChild(img);
+        updateStep3View && updateStep3View({});
       })();
 
       (async () => {
