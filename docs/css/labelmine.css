@@ -452,6 +452,14 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
 }
 
+.im-acct-avatar{
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #ddd center/cover no-repeat;
+  flex: 0 0 32px;
+}
+.im-acct-avatar.has-img{ background-color: transparent; }
+.im-acct-name{ margin-left: 10px; font-weight: 600; }
+
 /* =====================================================================
    13) CROP MODAL (step 2) — 600px
 ===================================================================== */
