@@ -197,7 +197,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 }
 
 /* 미리보기 컨테이너 */
-:is(.labelmine-body, body:has(.labelmine-body)) .im-stage{ box-sizing:border-box; overflow:hidden; }
 .labelmine-body .fc-preview{ box-sizing:border-box; overflow:hidden; }
 
 :is(.labelmine-body, body:has(.labelmine-body)) .im-row-color{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; padding:4px 0; }
@@ -393,7 +392,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .imodal{
   width:950px; height:645px; background:#fff; border-radius:25px; box-shadow:0 20px 60px rgba(0,0,0,.35);
-  display:grid; grid-template-rows:45px 1fr; overflow:hidden; isolation:isolate;
+  display:grid; grid-template-rows:45px 1fr; overflow:hidden; isolation:isolate;  --im-ar: 1 / 1;   --im-fit: contain;  
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-head{
   position:relative; display:grid; grid-template-columns:45px 1fr 45px; align-items:center; border-bottom:1px solid #e5e7eb;
@@ -422,18 +421,51 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 /* Body: 600 + 350 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-body{ display:grid; grid-template-columns:600px 350px; gap:16px 0; min-height:0; }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-left{ min-width:0; background:#fff; display:grid; place-items:center; transition:background .2s ease; }
+
+/* ★ 통합: im-stage (센터링/박스사이징/오버플로우/플렉스 정렬) */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage{
-  position:relative; width:600px !important; max-width:600px !important; height:100%; display:grid; place-items:center; background:#fff; margin:0 auto;
+  position:relative;
+  width:600px !important; max-width:600px !important;
+  height:auto;
+  aspect-ratio: var(--im-ar, auto);
+  display:flex; justify-content:center; align-items:center;
+  background:#fff; margin:0 auto; overflow:hidden;
+  border-radius:12px;
+  box-sizing:border-box;
 }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-stage img{ max-width:100%; max-height:100%; display:none; border-radius:12px; box-shadow:0 1px 0 rgba(0,0,0,0.04); }
+
+/* 이미지 사항 통합: object-fit 변수, 줌 트랜지션/기준점 */
+:is(.labelmine-body, body:has(.labelmine-body)) .im-stage img{
+  display:none;
+  width:100%; height:100%;
+  object-fit: var(--im-fit, contain);
+  border-radius:12px;
+  box-shadow:0 1px 0 rgba(0,0,0,0.04);
+  max-width:none; max-height:none;
+  transform-origin:50% 50%;
+  transition:transform 0.1s ease-out;
+}
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage.has-image img{ display:block; }
+
 :is(.labelmine-body, body:has(.labelmine-body)) .im-right{
   box-sizing:border-box; min-width:0; border-left:1px solid var(--split-border); padding:12px;
   overflow:auto; display:grid; grid-auto-rows:max-content; gap:10px; background:#fff; -webkit-overflow-scrolling:touch;
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ display:flex; align-items:center; gap:10px; }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{ width:32px; height:32px; border-radius:9999px; background:#e5e7eb; }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-name{ font-weight:600; }
+
+/* ★ 아바타 규칙 통합 + 정규화 */
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{
+  width:32px; height:32px; border-radius:50%;
+  background:#ddd center/cover no-repeat;
+  flex:0 0 32px;
+  overflow:hidden;
+}
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar.has-img{ background-color:transparent; }
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar img{
+  width:100%; height:100%; display:block; object-fit:cover; border-radius:50%;
+}
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-name{ margin-left:10px; font-weight:600; }
+
 :is(.labelmine-body, body:has(.labelmine-body)) .im-caption{
   box-sizing:border-box; width:100%; min-height:120px; resize:vertical; padding:12px 12px;
   border:1px solid #e6e6e6; border-radius:10px; outline:none;
@@ -451,14 +483,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 :is(.labelmine-body, body:has(.labelmine-body)) .feedc__file{
   position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
 }
-
-.im-acct-avatar{
-  width: 32px; height: 32px; border-radius: 50%;
-  background: #ddd center/cover no-repeat;
-  flex: 0 0 32px;
-}
-.im-acct-avatar.has-img{ background-color: transparent; }
-.im-acct-name{ margin-left: 10px; font-weight: 600; }
 
 /* =====================================================================
    13) CROP MODAL (step 2) — 600px
@@ -523,7 +547,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 
 /* 버튼 앵커 래퍼(좌측 기준) */
 .crop-tools{
-  position:static;            /* ← 이 한 줄로 고정 배치 해제 */
+  position:relative;
   display:flex; align-items:center; gap:12px;
   z-index:5600;
 }
@@ -547,7 +571,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 }
 .crop-btn.is-active{
   background:#fff; color:#111;
-  box-shadow:0 1px 2px rgba(0,0,0,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,0.08);
 }
 
 /* ← 상대 버튼을 흐리게(회색/채도↓/살짝 블러) */
@@ -566,13 +590,11 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 /* === 팝오버 공통(버튼 '위'에 뜸) === */
 .crop-pop{
   position:absolute;
-  bottom:72px;                 /* 버튼에서 위로 72px */
+  bottom:72px;
   background:#fff; color:#111;
   border:1px solid #e5e7eb; border-radius:12px;
   box-shadow:0 12px 24px rgba(0,0,0,.18);
   padding:10px; z-index:5610;
-
-  /* 위로-펼침 애니메이션 */
   transform-origin:bottom center;
   transform:translateY(6px) scale(.98);
   opacity:0; pointer-events:none;
@@ -638,44 +660,3 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   touch-action:none; image-rendering:auto;
 }
 
-/* =====================================================================
-   Zoom behavior modification
-===================================================================== */
-/* 줌 효과가 적용되는 실제 이미지 또는 컨테이너의 선택자로 변경해주세요. */
-.your-zoom-target-element {
-  transform-origin: 50% 50%; /* 줌의 중심을 정중앙으로 설정 */
-  transition: transform 0.1s ease-out; /* 줌 효과를 부드럽게 */
-}
-
-/* =====================================================================
-   줌 동작 중앙 정렬 (수정)
-===================================================================== */
-
-/* 1. 이미지를 담는 컨테이너를 Flexbox로 만들어서 내부 아이템(이미지)을 중앙 정렬합니다. */
-.im-stage {
-  display: flex;
-  justify-content: center; /* 가로 중앙 정렬 */
-  align-items: center;    /* 세로 중앙 정렬 */
-  overflow: hidden;         /* 줌 했을 때 이미지가 컨테이너 밖으로 삐져나가지 않도록 함 */
-}
-
-/* 2. 이미지 자체의 스타일 (기존 + object-fit 추가) */
-.im-stage > img {
-  transform-origin: 50% 50%; /* 줌 기준점 (이건 올바르게 되어 있었습니다) */
-  transition: transform 0.1s ease-out;
-  object-fit: contain; /* 이미지가 컨테이너 안에서 비율을 유지하며 꽉 차게 보이도록 함 */
-  max-width: 100%;     /* 이미지가 컨테이너보다 커지는 것을 방지 */
-  max-height: 100%;    /* 이미지가 컨테이너보다 커지는 것을 방지 */
-}
-
-/* === Avatar normalization (labelmine) — 2025-09-22 === */
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{
-  overflow: hidden;
-}
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  border-radius: 50%;
-}

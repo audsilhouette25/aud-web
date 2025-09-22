@@ -981,8 +981,13 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     async function addToGalleryFromCanvas(canvas, label){
       const id = `g_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
 
-      // ✅ 트림 금지. 구도 그대로 정사각화(레터박스)
-      const norm = letterboxToSquare(canvas, { size: 1024, bg: null });
+      // 1:2 Tall(세로)면 레터박스 금지 → 원본 비율 그대로 보존
+      const w = canvas.width, h = canvas.height;
+      const isTall12 = (h > 0 && w > 0) && (h / w >= 1.9);   // 관용 오차 포함
+
+      const norm = isTall12
+        ? canvas
+        : letterboxToSquare(canvas, { size: 1024, bg: null });
 
       const dataURL = norm.toDataURL("image/png");
       const thumbDataURL = await SDF.Utils.makeThumbnail(dataURL, 320, 240);
@@ -2154,22 +2159,23 @@ function goMineAfterShare(label = getLabel()) {
 
     // 🔴 업로드용 블랍을 표준화
     try {
-      // blob → Image → temp canvas
       const img = await blobToImage(blob);
       const c = document.createElement('canvas');
       c.width = img.naturalWidth; c.height = img.naturalHeight;
       c.getContext('2d').drawImage(img, 0, 0);
 
-      // 트림+패딩(+정사각). 원본이 너무 크면 1024~2048 사이에서 적당히.
-      const target = Math.max(1024, Math.min(2048, Math.max(c.width, c.height)));
-      const norm = SDF.Utils.letterboxToSquare(c, { size: target, bg: null });
+      const isTall12Up = (c.height / c.width) >= 1.9;
 
-      // 캔버스 → Blob
+      let norm = c;
+      if (!isTall12Up) {
+        const target = Math.max(1024, Math.min(2048, Math.max(c.width, c.height)));
+        norm = SDF.Utils.letterboxToSquare(c, { size: target, bg: null });
+      }
+
       blob   = await SDF.Utils.canvasToBlob(norm, 'image/png');
       width  = norm.width;
       height = norm.height;
     } catch (e) {
-      // 실패해도 그냥 원본으로 진행
       console.warn('[upload] normalize skipped:', e);
     }
 
@@ -2529,6 +2535,14 @@ function goMineAfterShare(label = getLabel()) {
       back.className  = "imodal-backdrop";
       const shell = document.createElement("div");
       shell.className = "imodal";
+
+      const isTall12 = (h / w) >= 1.9;              // 1:2(세로형) 판정
+      shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
+
+      shell.style.setProperty("--im-ar",  isTall12 ? "1 / 2" : "auto");
+      shell.style.setProperty("--im-fit", isTall12 ? "cover"   : "contain");
+
+
 
       // Header
       const head  = document.createElement("div"); head.className = "im-head";
