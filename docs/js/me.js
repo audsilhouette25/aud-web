@@ -8,6 +8,17 @@
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
 
+  // 실제 업로드 호스트로 반드시 바꿔주세요.
+  window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+
+  window.__toAPI = function (u) {
+    const s = String(u || "");
+    if (!s) return s;
+    if (/^https?:\/\//i.test(s)) return s;               // 이미 절대 URL이면 그대로
+    const base = window.API_BASE || location.origin + "/"; // 폴백: 현재 사이트
+    return new URL(s.replace(/^\/+/, ""), base).toString();
+  };
+
   const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
 
   // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
