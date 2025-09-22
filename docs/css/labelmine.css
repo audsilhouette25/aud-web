@@ -668,14 +668,9 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   max-height: 100%;    /* 이미지가 컨테이너보다 커지는 것을 방지 */
 }
 
-/* === Avatar normalization (labelmine) — 2025-09-22 === */
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{
-  overflow: hidden;
+/* === UX tweak: tighter avatar–name spacing on labelmine ( 2025-09-22 ) === */
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ gap:6px; }
+@container (min-width: 640px){
+  :is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ gap:8px; }
 }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  border-radius: 50%;
-}
+
