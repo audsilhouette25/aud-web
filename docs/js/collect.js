@@ -94,21 +94,57 @@
   }
 
   // 초기 예시 매핑이 있었다면 보존/주입(필요 시 사용자 입맛대로 수정)
-  (function ensureSeedMap(){
-    const map = loadNfcMap();
-    const K1 = normalizeUid("045D830A751D90");
-    const K2 = normalizeUid("044A840A751D90");
-    const K3 = normalizeUid("0429830A751D90");
-    const K4 = normalizeUid("0448830A751D90");
-    const K5 = normalizeUid("04A0350A751D90");
-    const K6 = normalizeUid("0408840A751D90");
-    if (!map[K1]) map[K1] = "whee";
-    if (!map[K2]) map[K2] = "thump";
-    if (!map[K3]) map[K3] = "miro";
-    if (!map[K4]) map[K4] = "echo";
-    if (!map[K5]) map[K5] = "track";
-    if (!map[K6]) map[K6] = "portal";
+  (function ensureSeedMap() {
+    const map = loadNfcMap() || {};
+
+    // 1) 라벨별 UID 목록을 한 곳에서 관리
+    const LABEL_UIDS = {
+      whee:  ["0460830A751D90", "045D830A751D91"],
+      thump: ["042B830A751D90", "044A840A751D91"],
+      miro:  ["0425830A751D90", "0429830A751D91"],
+      echo:  ["040E830A751D90", "0448830A751D91"],
+      track: ["045B580A751D90", "04A0350A751D91"],
+      portal:["040A840A751D90", "0408840A751D91"],
+    };
+
+    // 2) 정규화 + 유효성 체크 유틸
+    const norm = (u) => normalizeUid(String(u || "").trim());
+    const asSet = new Set(); // 동일 UID 중복 방지
+
+    // 3) 전개하며 map( uid → label ) 채우기
+    for (const [label, uids] of Object.entries(LABEL_UIDS)) {
+      if (!Array.isArray(uids) || uids.length === 0) continue;
+
+      for (const raw of uids) {
+        if (!raw) continue;                 // 빈 자리(두 번째 UID 미지정) 허용
+        const uid = norm(raw);
+        if (!uid) continue;
+
+        if (asSet.has(uid)) {
+          console.warn("[nfc] duplicated UID in config:", uid, "label:", label);
+          continue;
+        }
+        asSet.add(uid);
+
+        // 이미 다른 라벨로 배정되어 있으면 경고
+        if (map[uid] && map[uid] !== label) {
+          console.warn("[nfc] UID already mapped to different label:", { uid, existing: map[uid], incoming: label });
+          continue; // 안전하게 덮어쓰지 않음
+        }
+
+        // 없거나 동일하면 배정
+        if (!map[uid]) map[uid] = label;
+      }
+    }
+
     saveNfcMap(map);
+
+    // 선택: 역인덱스(label → [uids])를 캐시로 만들고 싶다면 아래 활성화
+    // const reverse = Object.entries(map).reduce((acc,[uid, label])=>{
+    //   (acc[label] ||= []).push(uid);
+    //   return acc;
+    // }, {});
+    // try { localStorage.setItem("nfc:label-index", JSON.stringify(reverse)); } catch {}
   })();
 
   /* ─────────────────────────────
