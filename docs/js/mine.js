@@ -48,6 +48,25 @@
   const $btnMore    = () => $("#feed-more");
   const $sentinel   = () => $("#feed-sentinel");
   const $feedScroll = () => document.querySelector("[data-feed-scroll]"); // optional container
+  // === Tall(1:2) 마킹 유틸 ===
+  const TALL_THRESHOLD = 0.55; // 1:2 = 0.5, 관용치 포함
+  function markTallByImage(card, img){
+    try{
+      if (!card || !img) return;
+      // 이미 1:2로 마킹되었으면 스킵
+      if (card.dataset && card.dataset.ar === "1:2") return;
+
+      const nw = Number(img.naturalWidth || 0);
+      const nh = Number(img.naturalHeight || 0);
+      if (nw > 0 && nh > 0){
+        const r = nw / nh;               // 1:2면 0.5 근처
+        if (r > 0 && r <= TALL_THRESHOLD){
+          card.setAttribute("data-ar","1:2");
+        }
+      }
+    }catch(e){}
+  }
+
 
 
   // ── NS helper (계정별 namespace)
@@ -1178,7 +1197,16 @@
           const m = card.querySelector(".media");
           if (m) m.classList.add("broken");
           img.remove();
-        }, { once: true });
+        
+        // 1:2 Tall 마킹: 이미지 로드 시 naturalWidth/Height 기준으로 판정
+        if (img.complete) {
+          markTallByImage(card, img);
+        } else {
+          img.addEventListener("load", () => markTallByImage(card, img), { once: true });
+          img.addEventListener("error", () => markTallByImage(card, img), { once: true });
+        }
+
+      }, { once: true });
       }
 
       // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)

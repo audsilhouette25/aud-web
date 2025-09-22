@@ -849,3 +849,12 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   .post-modal--split .pm-right-head .account{ gap: 8px; } /* 큰 화면에서 8px로 살짝 여유 */
 }
 
+/* === Tall(1:2) 카드 전용 규칙 === */
+.feed-card[data-ar="1:2"] .media{
+  aspect-ratio: 1 / 2;
+}
+.feed-card[data-ar="1:2"] .media img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
