@@ -1003,8 +1003,6 @@
 
   // === Like endpoint resolver (gallery 우선, 실패 시 items로 1회 폴백; 메서드 폴백은 POST {like}) ===
 
-
-  const nsOf = (item) => String(item?.ns ?? "default").trim().toLowerCase();
   const blobURL = (item) => toAPI(`/api/gallery/${encodeURIComponent(item.id)}/blob`);
   const fmtDate = (ts) => {
     try {
@@ -1069,7 +1067,7 @@
     const mine = isMine(item);
 
     return `
-    <article class="feed-card" data-id="${it.id}" data-ns="${nsOf(it)}" data-owner="${mine ? 'me' : 'other'}">
+    <article class="feed-card" data-id="${item.id}" data-ns="${nsOf(item)}" data-owner="${mine ? 'me' : 'other'}">
       <div class="media">
         <img src="${blobURL(item)}" alt="${safeLabel || 'item'}" loading="lazy" />
         <div class="hover-ui" role="group" aria-label="Post actions">
@@ -3670,5 +3668,52 @@
       }
     })();
   })();
+  /* [PATCH][ADD-ONLY] ensure push subscription (mine page) */
+  (() => {
+    const toAPI = (p) => {
+      try { return new URL(p, window.API_BASE || location.origin).toString(); }
+      catch { return p; }
+    };
+    const b64uToU8 = (s) => {
+      const pad = '='.repeat((4 - (s.length % 4)) % 4);
+      const b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(b64);
+      const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    };
+
+    async function ensureSubscribedUpsert() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      if (Notification.permission !== 'granted') {
+        const p = await Notification.requestPermission();
+        if (p !== 'granted') return;
+      }
+      const reg = await (navigator.serviceWorker.getRegistration('./') ||
+                        navigator.serviceWorker.register('./sw.js', { scope: './' }));
+      if (!reg.active) await navigator.serviceWorker.ready;
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const { vapidPublicKey } = await fetch(toAPI('/api/push/public-key'), { credentials:'include' }).then(r=>r.json());
+        if (!vapidPublicKey) return;
+        sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64uToU8(vapidPublicKey) });
+      }
+
+      const ns = (localStorage.getItem('auth:userns') || 'default').trim().toLowerCase();
+      await fetch(toAPI('/api/push/subscribe'), {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ns, subscription: sub })
+      }).catch(()=>{});
+      console.log('[mine:push] ready', { ns, endpoint: sub.endpoint });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { ensureSubscribedUpsert(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') ensureSubscribedUpsert();
+    });
+  })();
+
 
 })();
