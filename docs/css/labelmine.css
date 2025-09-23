@@ -648,7 +648,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 }
 .crop-overlay.is-active{ opacity:1; }
 .crop-frame{
-  position:absolute; border:1.4px solid #fff; border-radius:6px;
+  position:absolute; border:0; border-radius:0;
   pointer-events:none; background:transparent; box-shadow:none;
 }
 
