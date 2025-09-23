@@ -23,10 +23,10 @@
   --pm-lock-h: 350px;
 
   /* === Sheet geometry === */
-  --sheet-w-max: 1280px;       /* 시트 가로 상한 */
-  --sheet-ar-num: 16;          /* 단계A 비율 (16:9 근사) */
+  --sheet-w-max: 1280px;       /* 시트 가로 상한 (좌측 최대치 키우려면 ↑) */
+  --sheet-ar-num: 16;          /* 단계A 비율 (16:9 ~= 1.78, 600+350+gutter : 600 ≈ 1.77) */
   --sheet-ar-den: 9;
-  --pm-fixed-h: 92dvh;         /* 단계B 고정 높이 */
+  --pm-fixed-h: 92dvh;         /* 단계B 고정 높이 (필요하면 88dvh~96dvh로 조절) */
 }
 
 html, body { height: 100%; }
@@ -72,6 +72,7 @@ header.nav {
 
 /* =====================================================================
    2.1) Title Hover Swap — aud:(#111111) → audor(e)(#FF884D)
+   - 링크는 audor(e) 앵커에만
 ===================================================================== */
 .title .title-swap{
   display: inline-grid;
@@ -85,14 +86,44 @@ header.nav {
   transition: opacity .1s ease, transform .1s ease;
   will-change: opacity, transform;
 }
-.title .title-swap .t-base{ opacity: 1; transform: translateY(0); color: #111111; pointer-events: none; }
-.title .title-swap .t-hover{ opacity: 0; transform: translateY(0); color: #FF884D; text-decoration: none; pointer-events: none; }
+
+/* 기본 보임: aud: (링크 아님) */
+.title .title-swap .t-base{
+  opacity: 1; transform: translateY(0%);
+  color: #111111;
+  pointer-events: none; /* 클릭 불가 */
+}
+
+/* 숨김 시작: audor(e) (링크) */
+.title .title-swap .t-hover{
+  opacity: 0; transform: translateY(0%);
+  color: #FF884D;
+  text-decoration: none;
+  pointer-events: none; /* 보일 때만 클릭 가능하게 */
+}
+
+/* 마우스 호버 또는 키보드 포커스 시 전환 */
 .title .title-swap:hover .t-base,
-.title .title-swap:has(.title-link:focus-visible) .t-base{ opacity: 0; }
+.title .title-swap:has(.title-link:focus-visible) .t-base{
+  opacity: 0; transform: translateY(0%);
+}
 .title .title-swap:hover .t-hover,
-.title .title-swap:has(.title-link:focus-visible) .t-hover{ opacity: 1; pointer-events: auto; }
-.title .title-link:focus-visible{ outline: 2px solid currentColor; outline-offset: 4px; border-radius: 6px; }
-@media (prefers-reduced-motion: reduce){ .title .title-swap .t{ transition: none; } }
+.title .title-swap:has(.title-link:focus-visible) .t-hover{
+  opacity: 1; transform: translateY(0);
+  pointer-events: auto; /* 이때만 링크 활성화 */
+}
+
+/* 포커스 링은 audor(e) 앵커에 적용 */
+.title .title-link:focus-visible{
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* 모션 민감 사용자 배려 */
+@media (prefers-reduced-motion: reduce){
+  .title .title-swap .t{ transition: none; }
+}
 
 /* =====================================================================
    3) Hero Animation
@@ -155,7 +186,10 @@ header.nav {
   background: rgba(255,255,255,.25); backdrop-filter: blur(6px);
   border-radius: 16px;
 }
-@media (max-width: 624px){}
+
+@media (max-width: 624px){
+
+}
 
 /* =====================================================================
    9) Avatar Customizer
@@ -170,7 +204,9 @@ header.nav {
   position: relative; width: min(520px, 80vw); aspect-ratio: 1 / 1;
   border-radius: 24px; background: transparent; overflow: hidden;
 }
-.avatar-canvas .layer{ position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.avatar-canvas .layer{
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+}
 .avatar-canvas .layer :is(video,img){ width: 100%; height: 100%; object-fit: contain; }
 .avatar-canvas .layer-label :is(video,img){ width: 72%; height: 72%; }
 .avatar-canvas .layer-jib{ width: 100%; height: 100%; }
@@ -209,25 +245,61 @@ header.nav {
   --avatar-md: 40px;
   --avatar-lg: 56px;
 }
+
+/* 전역 아바타 룰 */
 img.avatar{
-  width: var(--avatar-md); height: var(--avatar-md); aspect-ratio: 1 / 1;
-  border-radius: 9999px; object-fit: cover; background: #EDEFF3; display: block; flex: 0 0 auto;
+  width: var(--avatar-md);
+  height: var(--avatar-md);
+  aspect-ratio: 1 / 1;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: #EDEFF3;
+  display: block;
+  flex: 0 0 auto;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
 }
 img.avatar.avatar--xs{ width: var(--avatar-xs); height: var(--avatar-xs); }
 img.avatar.avatar--sm{ width: var(--avatar-sm); height: var(--avatar-sm); }
 img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
-.account{ display: flex; align-items: center; gap: 10px; min-width: 0; }
-.account .name{ font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account .meta{ font-size: 12px; color: var(--muted); }
-.post-modal--split .pm-right-head .avatar{ width: 44px; height: 44px; }
-.feed-card[data-owner="me"] .avatar{ box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* 공통 계정 라인업(어디서든 사용 가능) */
+.account{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;               /* 말줄임 가능 */
+}
+.account .name{
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account .meta{
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 모달 헤더에서는 살짝 크게 (기존 규칙 유지) */
+.post-modal--split .pm-right-head .avatar{
+  width: 44px; height: 44px;
+}
+
+/* 내 카드만 링 강조(기존 룰 유지) — 타 계정도 동일 룩(원형+cover)은 그대로 */
+.feed-card[data-owner="me"] .avatar{
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
 
 /* =====================================================================
    10) Feed
 ===================================================================== */
 .feed { width: 100%; max-width: 900px; }
-.feed-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; }
+.feed-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+}
 @media (max-width: 480px){ .feed-grid{ --feed-col: 200px; } }
 .feed{ width: 100%; margin-top: var(--feed-top-gap); margin-bottom: var(--feed-bottom-gap); }
 
@@ -235,7 +307,8 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
    11) Feed Card
 ===================================================================== */
 .feed-card{
-  position: relative; overflow: hidden; background: #f6f6f6;
+  position: relative; overflow: hidden;
+  background: #f6f6f6;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 .feed-card .media{
@@ -253,7 +326,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .feed-card .comments{ padding: 0 10px 10px; }
 .feed-card .media.broken{ background: repeating-linear-gradient(45deg, #eceef2 0 8px, #f6f7f9 8px 16px); }
 .feed-card > .meta, .feed-card > .actions { display: none; }
-.feed-card::after{ content: none; }
+.feed-card::after{ content: none !important; }
 
 .feed-card .hover-ui{
   position: absolute; inset: 0; z-index: 2; display: grid; place-items: center;
@@ -277,37 +350,99 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .feed-card .btn-del-thumb{
   --ico: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox=%220 0 24 24%22><path d=%22m16.5,13.5c0,.553-.447,1-1,1h-2.5v2.5c0,.553-.447,1-1,1s-1-.447-1-1v-2.5h-2.5c-.553,0-1-.447-1-1s.447-1,1-1h2.5v-2.5c0-.553.447-1,1-1s1,.447,1,1v2.5h2.5c.553,0,1,.447,1,1Zm6.5-8.5c0,.553-.447,1-1,1h-.886l-1.277,13.472c-.244,2.581-2.384,4.528-4.977,4.528h-5.728c-2.59,0-4.729-1.943-4.977-4.521l-1.296-13.479h-.861c-.553,0-1-.447-1-1s.447-1,1-1h4.101c.465-2.279,2.485-4,4.899-4h2c2.414,0,4.435,1.721,4.899,4h4.101c.553,0,1,.447,1,1Zm-14.828-1h7.656c-.413-1.164-1.524-2-2.828-2h-2c-1.304,0-2.415.836-2.828,2Zm10.934,2H4.87l1.277,13.287c.149,1.547,1.433,2.713,2.986,2.713h5.728c1.556,0,2.839-1.168,2.986-2.717l1.259-13.283Z%22/></svg>');
   position: absolute; top: 8px; right: 8px; z-index: 3;
-  all: unset; display: inline-flex; align-items: center; gap: 8px;
-  font-weight: 700; font-size: 22px; line-height: 1; color: #fff; cursor: pointer; padding: 0;
+  /* 하트(.stat)와 동일한 텍스트/아이콘 룩 */
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 22px;      /* .hover-ui .stat 와 동일 */
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+
+  /* 패딩/배경/보더 제거(하트처럼 네이키드) */
+  padding: 0;
 }
+
+/* 아이콘 크기: 하트 아이콘(24px)과 동일 */
 .feed-card .btn-del-thumb::before{
-  content: ""; width: 24px; height: 24px; background: currentColor;
+  content: "";
+  width: 24px; height: 24px;
+  background: currentColor;
   -webkit-mask: var(--ico-trash, var(--ico)) no-repeat center / 100% 100%;
           mask: var(--ico-trash, var(--ico)) no-repeat center / 100% 100%;
 }
+
+/* 호버/포커스 인터랙션: 하트 느낌으로 색만 변경 */
 .feed-card .btn-del-thumb:hover,
-.feed-card .btn-del-thumb:focus-visible{ color: var(--heart-red); }
-@media (hover: none) and (pointer: coarse){ .feed-card .btn-del-thumb{ opacity: 1; } }
-.feed-card .hover-ui .actions .btn-del-thumb{ position: static; }
-.feed-card .btn-del-thumb{ display:none; }
-.feed-card[data-owner="me"] .btn-del-thumb{ display:inline-flex; }
+.feed-card .btn-del-thumb:focus-visible{
+  color: var(--heart-red);   /* 이미 토큰 정의되어 있음 */
+}
+
+/* 터치 기기에서도 보이도록(선택) */
+@media (hover: none) and (pointer: coarse){
+  .feed-card .btn-del-thumb{ opacity: 1; }
+}
+
+/* 만약 .hover-ui 중앙 액션 줄에 넣을 거라면 위치 해제 */
+.feed-card .hover-ui .actions .btn-del-thumb{
+  position: static;
+}
+
+.feed-card .btn-del-thumb{ display:none !important; }
+.feed-card[data-owner="me"] .btn-del-thumb{ display:inline-flex !important; }
 
 /***** Mine-only toolbar *****/
 #feed-root { position: relative; }
+
 .feed-toolbar{
-  position: sticky; top: 12px; z-index: 30; display: flex; justify-content: flex-end;
-  gap: 8px; margin: 12px 0 18px; padding: 0; background: transparent;
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 12px 0 18px;
+  padding: 0;
+  background: transparent;
 }
+
 .feed-toolbar .btn{
-  appearance: none; border: 1px solid #D0D5DD; border-radius: 9999px; padding: 7px 12px;
-  background: #fff; color: #111; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
-  box-shadow: 0 1px 2px rgba(16,24,40,.06); transition: transform .06s ease, filter .12s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #D0D5DD;
+  border-radius: 9999px;
+  padding: 7px 12px;
+  background: #fff;
+  color: #111;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16,24,40,.06);
+  transition: transform .06s ease, filter .12s ease;
 }
+
 .feed-toolbar .btn:hover{ filter: brightness(0.98); }
 .feed-toolbar .btn:active{ transform: translateY(1px); }
-.feed-toolbar .btn[aria-pressed="true"]{ background: #111111; border-color: #111111; color: #fff; }
-.feed-toolbar .btn:focus-visible{ outline: 2px solid #111111; outline-offset: 2px; box-shadow: 0 0 0 2px rgba(42,95,95,.15); }
-[data-feed-grid][data-filter-mine="1"] .feed-card[data-owner="other"]{ display: none; }
+
+.feed-toolbar .btn[aria-pressed="true"]{
+  background: #111111;
+  border-color: #111111;
+  color: #fff;
+}
+
+.feed-toolbar .btn:focus-visible{
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(42,95,95,.15);
+}
+
+/* (보강) 토글이 켜지면 내 카드만 보이도록 — JS가 hidden도 설정하지만 CSS로 한 번 더 */
+[data-feed-grid][data-filter-mine="1"] .feed-card[data-owner="other"]{
+  display: none !important;
+}
 
 /* =====================================================================
    12) Post Modal — 공통 레이아웃 (3단계 전환)
@@ -320,26 +455,55 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .ico-comment{ --ico: url('data:image/svg+xml;utf8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill-rule="evenodd" clip-rule="evenodd" d="M3 5.983C3 4.888 3.895 4 5 4h14c1.105 0 2 .888 2 1.983v8.923a1.992 1.992 0 0 1-2 1.983h-6.6l-2.867 2.7c-.955.899-2.533.228-2.533-1.08v-1.62H5c-1.105 0-2-.888-2-1.983V5.983Zm5.706 3.809a1 1 0 1 0-1.412 1.417 1 1 0 1 0 1.412-1.417Zm2.585.002a1 1 0 1 1 .003 1.414 1 1 0 0 1-.003-1.414Zm5.415-.002a1 1 0 1 0-1.412 1.417 1 1 0 1 0 1.412-1.417Z"/%3E%3C/svg%3E'); }
 
 /* 투표 */
-.post-modal--split .pm-vote{ padding:14px; border-bottom:1px solid #f1f1f1; display:grid; gap:10px; }
-.post-modal--split .pm-vote .vote-list{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
-@container (min-width: 700px){ .post-modal--split .pm-vote .vote-list{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
-.post-modal--split .pm-vote .vote-opt{
-  appearance:none; border:1px solid #e6e6eb; background:#fff; color:#111; border-radius:9999px;
-  padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; cursor:pointer;
+.post-modal--split .pm-vote{
+  padding:14px; border-bottom:1px solid #f1f1f1; display:grid; gap:10px;
 }
-.post-modal--split .pm-vote .vote-opt .label{ font-weight:700; }
-.post-modal--split .pm-vote .vote-opt .count{ font-variant-numeric: tabular-nums; opacity:.8; }
-.post-modal--split .pm-vote .vote-opt:hover{ background:#f7f7f9; }
-.post-modal--split .pm-vote .vote-opt:focus{ outline:none; box-shadow:0 0 0 3px rgba(255,167,101,.25); }
-.post-modal--split .pm-vote .vote-opt[aria-pressed="true"]{ background:#111; color:#fff; border-color:#111; }
-.post-modal--split .pm-vote .vote-meta{ font-size:12px; color:#666; }
-.post-modal--split .pm-vote .vote-hint{ font-size:12px; color:#888; }
+.post-modal--split .pm-vote .vote-list{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;
+}
 
-/* === Post Modal: Unified Layout =================================== */
+@container (min-width: 700px){
+  .post-modal--split .pm-vote .vote-list{
+    grid-template-columns:repeat(3, minmax(0,1fr));
+  } }
+  .post-modal--split .pm-vote .vote-opt{
+    appearance:none; border:1px solid #e6e6eb; background:#fff; color:#111; border-radius:9999px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; cursor:pointer;
+  }
+  .post-modal--split .pm-vote .vote-opt .label{
+    font-weight:700;
+  }
+  .post-modal--split .pm-vote .vote-opt .count{
+    font-variant-numeric: tabular-nums; opacity:.8;
+  }
+  .post-modal--split .pm-vote .vote-opt:hover{
+    background:#f7f7f9;
+  }
+  .post-modal--split .pm-vote .vote-opt:focus{
+    outline:none; box-shadow:0 0 0 3px rgba(255,167,101,.25);
+  }
+  .post-modal--split .pm-vote .vote-opt[aria-pressed="true"]{
+    background:#111; color:#fff; border-color:#111;
+  }
+  .post-modal--split .pm-vote .vote-meta{
+    font-size:12px; color:#666;
+  }
+  .post-modal--split .pm-vote .vote-hint{
+    font-size:12px; color:#888;
+  }
+
+/* =========================================================
+   Post Modal — Unified (Fit-to-content, Square Left, Fixed Right)
+   1) pm-left 정사각, 가로축소/높이고정
+   2) pm-right 고정폭 + 내부 flex 채움
+   3) pm-sheet는 내부 크기에 정확히 fit
+   4) 임계 이하에서 세로 스택 전환
+========================================================= */
+
 /* 오버레이 */
-.post-modal[hidden]{ display:none; }
+.post-modal[hidden]{ display:none !important; }
 .post-modal{
-  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
   background: rgba(0,0,0,.45);
 }
 
@@ -347,27 +511,31 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .pm-sheet{
   /* ---- 토큰 ---- */
   --pm-gap: var(--pm-gutter, 14px);
-  --pm-right: 420px;          /* 우측 고정폭 */
-  --pm-min: 600px;            /* 고정 높이의 기준(=최소 변) */
-  --sheet-w-max: 1280px;
+  --pm-right: 420px;      /* 우측 고정폭 */
+  --pm-min: 600px;        /* 고정 높이(=최소 변) */
+  --sheet-w-max: 1280px;  /* 가로 상한 */
   --stack-threshold: 480px;
 
   /* ---- 고정 높이 + 가로는 화면에 따라 축소 ---- */
   --pm-fixed-h: var(--pm-min) + 100px;
   --sheet-w: min(96vw, var(--sheet-w-max));
   --side-by-width: calc(var(--sheet-w) - var(--pm-right) - var(--pm-gap));
-  /* 좌측 실제 가로폭: 화면 가로제약과 고정높이 중 작은 값, 단 최소폭 이하로는 X */
+  /* 좌측 실제 가로폭: 화면 가로제약과 고정높이 중 작은 값,
+     단 최소폭(--pm-left-min) 이하로는 떨어지지 않게 */
   --left-w: max(var(--pm-left-min, 300px), min(var(--side-by-width), var(--pm-fixed-h)));
 
-  /* 시트 크기 = 내부 레이아웃에 fit */
+  /* 시트 자체 크기 = 내부 레이아웃에 정확히 fit */
   width:  calc(var(--left-w) + var(--pm-right));
   height: var(--pm-fixed-h);
 
-  background:#fff; color:#111; border-radius:14px; overflow:hidden;
+  background:#fff; color:#111;
+  border-radius:14px; overflow:hidden;
   box-shadow:0 12px 30px rgba(0,0,0,.28);
 
-  display:grid; grid-template-rows: auto 1fr; /* 헤더 + 콘텐츠 */
-  container-type: inline-size;                /* 컨테이너 쿼리 기준 */
+  display:grid;
+  grid-template-rows: auto 1fr; /* 헤더 + 콘텐츠 */
+
+  container-type: inline-size;  /* 컨테이너 쿼리 기준 */
 }
 
 /* 헤더 */
@@ -386,7 +554,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 
 .post-modal .pm-content{ overflow:hidden; min-height:0; }
 
-/* 2열 레이아웃 */
+/* ---- 2열 레이아웃 (좌 가변폭, 우 고정폭, 고정높이) ---- */
 .pm-layout{
   height: 100%;
   display: grid;
@@ -401,7 +569,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   display:grid; place-items:center; background: var(--bg, #000);
   overflow:hidden;
 }
-/* 좌측 미디어: 기본 정사각(1:1) — 가로만 줄고 높이는 컨테이너에 의해 결정 */
+/* 좌측 미디어: 항상 정사각, 가로만 줄고 높이는 고정 컨테이너 기준 */
 .pm-left .media{
   width: min(100%, var(--pm-fixed-h));
   height: auto;
@@ -410,23 +578,36 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   background: var(--bg, #000);
   margin-inline: auto;
 }
-.pm-left .media :is(img,video){ width: 100%; height: 100%; object-fit: contain; display:block; }
+.pm-left .media :is(img,video){
+  width: 100%; height: 100%; object-fit: contain; display:block;
+}
 
-/* 우측 패널 */
+/* 우측 패널: 내부 flex로 칸 채우기 */
 .pm-right{
-  display: flex; flex-direction: column;
-  min-width: var(--pm-right); overflow: hidden; scrollbar-gutter: stable;
+  display: flex; flex-direction: column;  /* grid → flex */
+  min-width: var(--pm-right);
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }
 .pm-caption{ flex: 0 0 auto; padding:12px; border-bottom:1px solid #eee; display:grid; gap:8px; }
 .pm-caption .meta{ color:#444; display:flex; gap:6px; align-items:center; }
 .pm-caption .caption-text{ color:#222; line-height:1.45; white-space:pre-wrap; }
 .pm-caption .actions{ display:flex; gap:10px; }
 .pm-comments{
-  flex: 1 1 auto; min-height: 0; padding:12px; overflow: auto;
-  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding:12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Variant: Split (좌 정사각 / 우 정보) */
+/* =========================================================
+   Variant: Split (좌 정사각 / 우 정보)
+   - 헤더 숨김
+   - 우측 레일: head / thread / caption / foot 을 flex로
+   - 좌측 미디어 기본 cover (필요시 contain으로 교체)
+========================================================= */
 .post-modal--split .pm-head{ display:none; }
 .post-modal--split .pm-content{ height:auto; overflow:hidden; }
 .post-modal--split .pm-sheet{ grid-template-rows: 1fr; } /* 헤더 제거 */
@@ -436,18 +617,24 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   grid-auto-rows: var(--pm-fixed-h);
 }
 
-.post-modal--split .pm-left{ background:#fff; border-right:1px solid #eee; }
-.post-modal--split .pm-left .media{ aspect-ratio: 1 / 1; background:#fff; }
-.post-modal--split .pm-left .media :is(img,video){ object-fit: cover; object-position:50% 50%; }
-
-.post-modal--split .pm-right{ display:flex; flex-direction:column; }
-.post-modal--split .pm-right-head{
-  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
-  gap:10px; padding:12px 14px; border-bottom:1px solid #eee;
+.post-modal--split .pm-left{
+  background:#fff; border-right:1px solid #eee;
 }
+.post-modal--split .pm-left .media{
+  aspect-ratio: 1 / 1; background:#fff;
+}
+.post-modal--split .pm-left .media :is(img,video){
+  object-fit: cover; object-position:50% 50%;
+  /* 필요 시: object-fit: contain; */
+}
+
+/* 우측을 flex로 채우기 */
+.post-modal--split .pm-right{ display:flex; flex-direction:column; }
+.post-modal--split .pm-right-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid #eee; }
 .post-modal--split .pm-thread{
-  flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch; scrollbar-gutter: stable;
+  flex:1 1 auto; min-height:0; overflow:auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 .post-modal--split .pm-caption{ flex:0 0 auto; padding:14px; border-bottom:1px solid #f1f1f1; display:grid; gap:8px; }
 .post-modal--split .sticky-foot{ flex:0 0 auto; position:static; display:grid; gap:8px; padding:10px 0; background:#fff; border-top:none; }
@@ -456,53 +643,113 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .post-modal--split .sticky-foot .actions .btn-comments{ appearance:none; border:0; background:transparent; color:#111; padding:0; border-radius:8px; cursor:pointer; }
 .post-modal--split .sticky-foot .actions svg{ width:24px; height:24px; display:inline-block; }
 .post-modal--split .sticky-foot .actions [data-like-count],
-.post-modal--split .sticky-foot .actions [data-cmt-count]{ display:none; }
+.post-modal--split .sticky-foot .actions [data-cmt-count]{ display:none !important; }
 .post-modal--split .sticky-foot .foot-meta{ display:grid; gap:4px; }
 .post-modal--split .sticky-foot .likes-line{ font-weight:700; }
 .post-modal--split .sticky-foot .date-line{ font-size:12px; color:#666; }
 .post-modal--split .sticky-foot .actions{ padding: 0 var(--pm-gap); }
 
-/* 글씨 줄 미세 정렬 */
+/* 글씨 줄만 살짝 우측으로(2px는 시작값, 1~3px에서 조절 가능) */
 :root{ --pm-like-nudge: 2px; }
-.post-modal--split .sticky-foot .foot-meta{ padding: 0 calc(var(--pm-gap) + var(--pm-like-nudge)); }
 
-/* === HEART (CSS-only) =============================================== */
+.post-modal--split .sticky-foot .foot-meta{
+  padding: 0 calc(var(--pm-gap) + var(--pm-like-nudge));
+}
+
+/* === HEART (CSS-only) — replaces ensureHeartCSS() ===================== */
+
+/* 터치 타깃 + 포인터 */
 .sticky-foot .btn-like{
-  pointer-events:auto; cursor:pointer;
+  pointer-events:auto;
+  cursor:pointer;
   min-width:max(44px, var(--pm-heart-size, 28px));
   min-height:max(44px, var(--pm-heart-size, 28px));
-  padding:0; display:flex; align-items:center; justify-content:flex-start; text-align:left;
+  padding:0;
+  display:flex;                 /* ← 콘텐츠 박스를 flex로 */
+  align-items:center;           /* 수직 가운데 */
+  justify-content:flex-start;   /* 수평 왼쪽 정렬 */
+  text-align:left;              /* 일부 UA 기본값 보정 */
 }
-/* 필터/블렌드 이슈 무력화 */
-.post-modal .sticky-foot, .post-modal .sticky-foot *, .sticky-foot .btn-like,
-.sticky-foot .btn-like svg, .sticky-foot .btn-like svg path{
-  filter:none; -webkit-filter:none; mix-blend-mode:normal; opacity:1;
+
+/* 조상에서 필터/블렌드로 죽는 이슈 무력화 */
+.post-modal .sticky-foot,
+.post-modal .sticky-foot *,
+.sticky-foot .btn-like,
+.sticky-foot .btn-like svg,
+.sticky-foot .btn-like svg path{
+  filter:none !important;
+  -webkit-filter:none !important;
+  mix-blend-mode:normal !important;
+  opacity:1 !important;
 }
+
+/* 상태별 색(현재색 기반) */
 .sticky-foot .btn-like{ color:#777; }
-.sticky-foot .btn-like[aria-pressed="true"], .sticky-foot .btn-like.is-liked{ color: var(--heart-red); }
-.post-modal{ --pm-heart-size: 28px; }
-.sticky-foot .btn-like svg{ width:var(--pm-heart-size); height:var(--pm-heart-size); display:inline-block; }
-.sticky-foot .btn-like svg path{ transition: fill .15s, stroke .15s; stroke-linecap: round; stroke-linejoin: round; }
+.sticky-foot .btn-like[aria-pressed="true"],
+.sticky-foot .btn-like.is-liked{ color: var(--heart-red, #E53935); }
+
+/* 크기 토큰 */
+.post-modal{ --pm-heart-size: 28px; } /* 필요시 값만 바꾸면 됨 */
+.sticky-foot .btn-like svg{
+  width:var(--pm-heart-size);
+  height:var(--pm-heart-size);
+  display:inline-block;
+}
+
+/* 하트 path 룩 (스파이크 방지: round join/cap) */
+.sticky-foot .btn-like svg path{
+  transition: fill .15s, stroke .15s;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .sticky-foot .btn-like[aria-pressed="false"] svg path,
-.sticky-foot .btn-like:not([aria-pressed]) svg path{ fill:none; stroke: currentColor; stroke-width:1.5; }
+.sticky-foot .btn-like:not([aria-pressed]) svg path{
+  fill:none;
+  stroke: currentColor;      /* 기본 #777 */
+  stroke-width:1.5;
+}
 .sticky-foot .btn-like[aria-pressed="true"] svg path,
-.sticky-foot .btn-like.is-liked svg path{ fill: currentColor; stroke: currentColor; stroke-width:0; }
-/* 레거시 마스크 아이콘 동기화 */
+.sticky-foot .btn-like.is-liked svg path{
+  fill: currentColor;        /* var(--heart-red) */
+  stroke: currentColor;
+  stroke-width:0;
+}
+
+/* 로딩 힌트 */
+.sticky-foot .btn-like[aria-busy="true"]{ opacity:.65; }
+
+/* (레거시) 업그레이드 전 .ico-heart 마스크 아이콘도 상태 동기화 */
 .sticky-foot .btn-like .ico-heart{
-  display:inline-block; width:var(--pm-heart-size); height:var(--pm-heart-size); line-height:var(--pm-heart-size);
+  display:inline-block;
+  width:var(--pm-heart-size);
+  height:var(--pm-heart-size);
+  line-height:var(--pm-heart-size);
   background-size:100% 100%;
 }
-.sticky-foot .btn-like[aria-pressed="true"] .ico-heart{ color: var(--heart-red); }
+.sticky-foot .btn-like[aria-pressed="true"] .ico-heart{ color: var(--heart-red, #E53935); }
 .sticky-foot .btn-like[aria-pressed="false"] .ico-heart{ color:#777; }
+
 /* 읽기전용 하트(그리드 오버레이) — 항상 외곽선 */
-.feed-card .hover-ui .stat svg path{ fill:none; stroke: currentColor; stroke-width:1.5; stroke-linecap: round; stroke-linejoin: round; }
+.feed-card .hover-ui .stat svg path{
+  fill:none;
+  stroke: currentColor;      /* .stat { color:#fff } */
+  stroke-width:1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
-/* =====================================================================
-   Stack 전환(≤750px): 이미지 → 투표만 노출
-===================================================================== */
+/* =========================================================
+   Stack 전환(≤750px): 이미지 → 투표만 노출 (중첩 안전)
+========================================================= */
 @media (max-width: 750px) {
-  .post-modal .pm-sheet{ width: 420px; height: auto; border-radius: 12px; }
+  /* 시트 */
+  .post-modal .pm-sheet{
+    width: 420px;
+    height: auto;
+    border-radius: 12px;
+  }
 
+  /* 1열 전환 */
   .post-modal .pm-layout{
     grid-template-columns: 1fr;
     grid-auto-rows: auto;
@@ -510,7 +757,11 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
     gap: 0;
   }
 
-  .post-modal .pm-left{ border-right: none; background: var(--bg, #000); }
+  /* 위: 이미지 */
+  .post-modal .pm-left{
+    border-right: none;
+    background: var(--bg, #000);
+  }
   .post-modal .pm-left .media{
     width: 100%;
     max-width: var(--pm-fixed-h, 92dvh);
@@ -518,70 +769,121 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
     aspect-ratio: 1 / 1;
     margin-inline: auto;
   }
-  .post-modal .pm-left .media :is(img, video){ width: 100%; height: 100%; object-fit: contain; display: block; }
+  .post-modal .pm-left .media :is(img, video){
+    width: 100%; height: 100%; object-fit: contain; display: block;
+  }
 
-  .post-modal--split .pm-right{ display: block; min-height: unset; overflow: visible; }
-  .post-modal--split .pm-right > * { display: revert; }
+  /* 아래: 투표만 남기기 */
+  .post-modal--split .pm-right{
+    display: block;
+    min-height: unset;
+    overflow: visible;
+  }
+  /* 초기화 */
+  .post-modal--split .pm-right > * { display: revert !important; }
 
-  .post-modal--split .pm-right:has(.pm-vote) > *:not(.pm-vote):not(:has(.pm-vote)){ display: none; }
+  /* .pm-vote 포함하지 않는 형제 숨김 */
+  .post-modal--split .pm-right:has(.pm-vote)
+  > *:not(.pm-vote):not(:has(.pm-vote)) {
+    display: none !important;
+  }
+  /* 중첩 컨테이너 케이스 */
   .post-modal--split .pm-right .sticky-foot:has(.pm-vote) > *:not(.pm-vote),
   .post-modal--split .pm-right .pm-caption:has(.pm-vote) > *:not(.pm-vote),
-  .post-modal--split .pm-right .pm-thread:has(.pm-vote) > *:not(.pm-vote){ display: none; }
-
-  .post-modal--split .pm-vote {
-    display: block; visibility: visible; padding: 14px;
-    border-top: 1px solid #eee; border-bottom: 0;
+  .post-modal--split .pm-right .pm-thread:has(.pm-vote) > *:not(.pm-vote) {
+    display: none !important;
   }
-  .post-modal--split .pm-vote .vote-list{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .post-modal--split .pm-vote .vote-meta{ margin-top: 10px; line-height: 1.45; }
-  .post-modal--split .pm-vote .vote-hint{ margin-top: 4px; line-height: 1.45; opacity: .9; }
+
+  /* 보장 */
+  .post-modal--split .pm-vote {
+    display: block !important;
+    visibility: visible !important;
+    padding: 14px;
+    border-top: 1px solid #eee;
+    border-bottom: 0; /* 경계선 중복 방지 */
+  }
+
+  /* 투표 그리드 */
+  .post-modal--split .pm-vote .vote-list{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+    .post-modal--split .pm-vote .vote-meta{
+    margin-top: 10px;
+    line-height: 1.45;
+  }
+  .post-modal--split .pm-vote .vote-hint{
+    margin-top: 4px;
+    line-height: 1.45;
+    opacity: .9;                          /* 가독성 미세 개선 */
+  }
 }
 @media (max-width: 430px){
   .post-modal--split .pm-vote .vote-list{ grid-template-columns: 1fr; }
 }
 
-#post-modal { position: fixed; inset: 0; }
+#post-modal { position: fixed; inset: 0; /* 배경 클릭 영역 */ }
 
-/* =====================================================================
+/* =========================================================
    Fallbacks
-===================================================================== */
+========================================================= */
 @supports not (scrollbar-gutter: stable){
   .pm-comments, .post-modal--split .pm-thread { overflow-y: scroll; }
 }
-.pe-none { pointer-events: none; }
-.pm-foot-click { pointer-events: auto; z-index: 10000; }
 
-/* === UX tweak: tighter avatar–name spacing in post modal head ========= */
-.post-modal--split .pm-right-head .account{ gap: 6px; }
-@container (min-width: 640px){ .post-modal--split .pm-right-head .account{ gap: 8px; } }
+/* 클릭 차단된 오버레이를 임시 무력화할 때 붙이는 클래스 */
+.pe-none { pointer-events: none !important; }
 
-/* =====================================================================
-   Tall(1:2) — 상태 기반 레이아웃 전환 (오버라이드 없이)
-   - 동작 원리:
-     1) pm-sheet[data-ar="1:2"] 상태에서 좌측 칼럼 폭 변수를 재정의
-        → --left-w = min(side-by-width, pm-fixed-h/2) (단, 최소폭 보호)
-     2) 좌측 미디어 박스를 1:2 비율로 설정 + 폭 100%로 칼럼을 꽉 채움
-     3) 내부 컨텐츠는 contain으로 흰 여백 없이 안전하게 맞춤
-===================================================================== */
+/* 모달 하단 발판(푸터)에서 클릭을 보장 */
+.pm-foot-click { pointer-events: auto !important; z-index: 10000 !important; }
+
+/* === Avatar normalization verify — 2025-09-22 === */
+/* mine.css 전역 아바타 규칙 검증 완료. 추가 변경 없음(전역 규칙 유지). */
+
+
+/* === UX tweak: tighter avatar–name spacing in post modal head (2025-09-22) === */
+.post-modal--split .pm-right-head .account{ gap: 6px; }  /* 기존 10px → 6px */
+@container (min-width: 640px){
+  .post-modal--split .pm-right-head .account{ gap: 8px; } /* 큰 화면에서 8px로 살짝 여유 */
+}
+
+/* === Tall(1:2) in Post Modal — keep height, shrink width ================== */
+/* 1) 좌측 칼럼 폭을 고정 높이의 절반으로 (단, 최소폭 보호) */
 .post-modal .pm-sheet[data-ar="1:2"]{
   --left-w: max(var(--pm-left-min, 300px),
                min(var(--side-by-width), calc(var(--pm-fixed-h) / 2)));
 }
+
+/* 2) 좌측 미디어 박스를 세로 기준으로 맞춤: 높이를 고정, 가로는 자동 */
 .post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 2;
+  width: auto;                       /* 정사각 기본(width) → Tall에서는 height 기준 */
+  height: var(--pm-fixed-h);         /* 모달 고정 높이와 동일 */
+  aspect-ratio: 1 / 2;               /* 1:2 비율 */
 }
+
+/* 3) Tall일 때는 전체가 잘 보이도록 contain */
 .post-modal .pm-sheet[data-ar="1:2"] .pm-left .media :is(img,video){
-  width: 100%; height: 100%; object-fit: contain; object-position: center;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
-/* 모바일 스택 구간에서도 동일 정책 유지 */
+
+/* (선택) 모바일 스택 전환 구간에서도 Tall 규칙이 우선 적용되도록 보강 */
 @media (max-width: 750px){
   .post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
-    width: 100%; height: auto; aspect-ratio: 1 / 2;
+    max-width: calc(var(--pm-fixed-h, 92dvh) / 2);
+    aspect-ratio: 1 / 2;
   }
 }
 
-/* === Tall(1:2) 카드(그리드) 전용 표시 — 선택 사항 ==================== */
-.feed-card[data-ar="1:2"] .media{ aspect-ratio: 1 / 2; }
-.feed-card[data-ar="1:2"] .media img{ width: 100%; height: 100%; object-fit: cover; }
+/* === Tall(1:2) 카드 전용 규칙 === */
+.feed-card[data-ar="1:2"] .media{
+  aspect-ratio: 1 / 2;
+}
+.feed-card[data-ar="1:2"] .media img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
