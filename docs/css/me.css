@@ -397,21 +397,6 @@ progress#m-rate-bar::-webkit-progress-value{
 /* =====================================================================
    10) Notifications panel
 ===================================================================== */
-/* === Alarm panel spacing (list push-down) ===================== */
-.alarm-panel .alarm-list,
-[data-role="alarm"] .alarm-list {
-  margin-top: 10px;   /* 필요 시 8~14px 사이로 미세 조정 */
-}
-
-/* === Alarm bell size tweak ==================================== */
-.alarm-panel .alarm-btn svg,
-.alarm-panel .alarm-btn img,
-[data-role="alarm"] .alarm-btn svg,
-[data-role="alarm"] .alarm-btn img {
-  inline-size: 22px;  /* 기존 24~28px였다면 22px로 축소 */
-  block-size: 22px;
-}
-
 .panel.notify .panel-head{
   display:flex; align-items:center; justify-content:space-between;
   margin-bottom:.75rem;
