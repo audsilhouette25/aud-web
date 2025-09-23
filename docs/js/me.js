@@ -665,8 +665,8 @@
 
     // 1) OFF 상태: 화면 표시 금지, 큐에만 적재
     if (off && !silentReplay) {
+      // OFF: 화면/네이티브 표시 금지, 큐에만 적재
       try { enqueueNotice({ text, sub, tag: opt?.tag || "", data: opt?.data || null }); } catch {}
-      try { if (!opt?.silent) maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
       return;
     }
 
