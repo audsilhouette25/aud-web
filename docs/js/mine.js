@@ -1201,9 +1201,16 @@
         // 1:2 Tall 마킹: 이미지 로드 시 naturalWidth/Height 기준으로 판정
         if (img.complete) {
           markTallByImage(card, img);
+          window.layoutFeedRowwise?.();               // ★ 추가
         } else {
-          img.addEventListener("load", () => markTallByImage(card, img), { once: true });
-          img.addEventListener("error", () => markTallByImage(card, img), { once: true });
+          img.addEventListener("load", () => {        // ★ 변경
+            markTallByImage(card, img);
+            window.layoutFeedRowwise?.();             // ★ 추가
+          }, { once: true });
+          img.addEventListener("error", () => {
+            markTallByImage(card, img);
+            window.layoutFeedRowwise?.();             // ★ 추가
+          }, { once: true });
         }
 
       }, { once: true });
@@ -1237,6 +1244,7 @@
 
     // 그리드에 한 번에 붙임
     grid.appendChild(frag);
+    window.layoutFeedRowwise?.();
 
     // 새로 붙은 id들 소켓 구독 + 유휴시 서버 스냅샷 보정
     if (newIds.length) subscribeItems(newIds);
@@ -3508,5 +3516,84 @@
     // 3) NS가 바뀌면 캐시 분리 — store.js가 이벤트를 쏴줌
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
   })();
+
+  /* =========================================================
+  * Row-wise 3-column layout (1x1, 1x2 지원)
+  * - 문서 순서 그대로: 좌→우, 위→아래
+  * - 1x2는 세로 두 칸(중간 GAP 포함)
+  * ========================================================= */
+  (function(){
+    const GAP  = 1;   // mine.css --gap 과 동일
+    const COLS = 3;   // 기본 3열(요구 사항)
+
+    function layoutFeed() {
+      const root = document.querySelector("[data-feed-grid]");
+      if (!root) return;
+
+      const W = root.clientWidth;
+      const cellW = Math.floor((W - GAP * (COLS - 1)) / COLS);
+      const cellH = cellW;
+
+      const cards = Array.from(root.querySelectorAll(".feed-card"));
+      const occ = []; // occ[row][col] = boolean
+
+      let row = 0, col = 0;
+      let maxRowUsed = -1;
+
+      function fits(r, c, tall){
+        if (c >= COLS) return false;
+        occ[r] ||= [false,false,false];
+        if (occ[r][c]) return false;
+        if (!tall) return true;
+        occ[r+1] ||= [false,false,false];
+        return !occ[r+1][c];
+      }
+
+      function nextSlot(startR, startC, tall){
+        let r = startR, c = startC;
+        for(;;){
+          if (fits(r,c,tall)) return [r,c];
+          c++;
+          if (c >= COLS){ c = 0; r++; }
+        }
+      }
+
+      cards.forEach(card => {
+        const tall = (card.dataset.ar === "1:2");
+        const [r, c] = nextSlot(row, col, tall);
+
+        const x = c * (cellW + GAP);
+        const y = r * (cellH + GAP);
+        const h = tall ? (cellH * 2 + GAP) : cellH;
+
+        card.style.transform = `translate(${x}px, ${y}px)`;
+        card.style.width  = `${cellW}px`;
+        card.style.height = `${h}px`;
+
+        occ[r] ||= [false,false,false];
+        occ[r][c] = true;
+        if (tall) {
+          occ[r+1] ||= [false,false,false];
+          occ[r+1][c] = true;
+          maxRowUsed = Math.max(maxRowUsed, r+1);
+        } else {
+          maxRowUsed = Math.max(maxRowUsed, r);
+        }
+
+        const ncol = c + 1;
+        if (ncol >= COLS){ row = r + 1; col = 0; }
+        else { row = r; col = ncol; }
+      });
+
+      const rows = maxRowUsed + 1;
+      const totalH = rows * cellH + Math.max(0, rows - 1) * GAP;
+      root.style.height = `${Math.max(0, totalH)}px`;
+    }
+
+    window.addEventListener("resize", () => queueMicrotask(layoutFeed));
+    try { window.layoutFeedRowwise = layoutFeed; } catch {}
+    requestAnimationFrame(layoutFeed);
+  })();
+
 
 })();

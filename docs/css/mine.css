@@ -306,30 +306,29 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   grid-template-columns: unset !important;
   grid-auto-rows: unset !important;
   place-items: unset !important;
+  position: relative !important;
+  display: block !important;
+  width: 100%;
+  max-width: 100%;
+  --cols: 3;
+  --gap: 1px; /* 기존 간격 그대로 */
+  height: auto; /* JS가 실제 높이 계산해서 설정 */
 }
-
-/* ✅ 멀티컬럼 Masonry: 3열 고정 + 빈칸 없이 스택 */
-.feed-grid{
-  column-count: 3;                     /* 3개 열(=사용자 표현의 '3줄') 고정 */
-  column-gap: 1px;                     /* 기존 gap 유지 */
-  column-fill: balance;                /* Safari/Firefox 균형 채움 */
-}
-
 
 /* =====================================================================
    11) Feed Card
 ===================================================================== */
 /* 카드가 열 안에서 쪼개지지 않도록(브라우저 호환 보강) */
+/* 절대배치 타일: 좌표/크기는 JS가 계산 */
 .feed-card{
-  position: relative; overflow: hidden;
+  position: absolute !important;
+  overflow: hidden;
   background: #f6f6f6;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
-  break-inside: avoid;
-  break-inside: avoid-column;
-  page-break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  margin: 0 0 1px;                     /* 아래쪽 간격만 */
-  width: 100%;
+  will-change: transform, height;
+  margin: 0 !important;
+  width: calc((100% - (var(--gap) * (var(--cols) - 1))) / var(--cols));
+  /* height는 JS에서 셀 높이 기준으로 설정 (1x1=1칸, 1x2=2칸+gap) */
 }
 .feed-card .media{
   position: relative; width: 100%; aspect-ratio: 1 / 1;
