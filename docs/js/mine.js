@@ -1631,6 +1631,22 @@
         // 서버 스냅샷은 의도 보존 병합(내가 막 클릭한 의도를 덮지 않도록)
         if (typeof r.liked === "boolean" || typeof r.likes === "number") {
           window.setLikeFromServer?.(id, r.liked, r.likes);
+          // [ADD] Web Push: like action notification (server ok 이후에만)
+          try {
+            const ownerNS = (card?.getAttribute('data-ns') || ns || 'default')
+                              .toString().trim().toLowerCase();
+            await fetch(toAPI('/api/push/test'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ns:   ownerNS,
+                title:'새 좋아요',
+                body: `카드 ${id}에 좋아요가 추가되었습니다.`,
+                data: { url: '/mine.html' },
+                tag:  `like:${id}`
+              })
+            }).catch(()=>{});
+          } catch {}
         }
       }
     } finally {
@@ -2222,14 +2238,15 @@
       const art = document.querySelector(sel);
       const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || getNS() || 'default')
                         .toString().trim().toLowerCase();
-      fetch(toAPI('/api/push/emit'), {
-        method: 'POST', credentials:'include',
+      fetch(toAPI('/api/push/test'), {
+        method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ns: ownerNS,
           title: '투표가 업데이트되었습니다',
           body:  '내 게시물에 새 투표가 기록되었습니다.',
-          url:   '/mine.html',
+          data:  { url: '/mine.html' },
           tag:   `vote:${pid}`
         })
       }).catch(()=>{});
