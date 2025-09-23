@@ -103,6 +103,51 @@
     } catch {}
   })();
 
+  /* [PATCH][ADD-ONLY] Prefer username as NS (fallback: email → id)
+   - me 페이지가 사용자 정보를 브로드캐스트/렌더링할 때 username을 auth:userns에 주입
+   - 기존 값이 'default' 이거나 비어있을 때 우선 셋업, 값이 다르면 업데이트
+  */
+  (() => {
+    function pickNSFrom(detail) {
+      // 가능한 후보들 중 우선순위: username > email > id
+      const username = (detail?.username ?? detail?.user?.username ?? "").toString().trim();
+      const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim();
+      const id       = (detail?.id       ?? detail?.user?.id       ?? "").toString().trim();
+      const cand = (username || email || id || "").toLowerCase();
+      return cand || null;
+    }
+
+    // 1) 부팅 직후, 캐시/현재 유저 스냅에서 한 번 시도
+    (async () => {
+      try {
+        const cached = (typeof window.readProfileCache === "function") ? window.readProfileCache() : null;
+        let ns = pickNSFrom(cached);
+        if (!ns && window.auth?.getUser) {
+          const me = await window.auth.getUser().catch(() => null);
+          ns = pickNSFrom(me);
+        }
+        const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+        if (ns && (!prev || prev === "default" || prev !== ns)) {
+          localStorage.setItem("auth:userns", ns);
+          // 다른 모듈들이 즉시 인지하도록 이벤트도 발사
+          try { window.dispatchEvent(new CustomEvent("user:updated", { detail: { username: ns, email: ns, id: ns } })); } catch {}
+        }
+      } catch {}
+    })();
+
+    // 2) 이후 프로필이 갱신될 때마다 username을 다시 주입
+    window.addEventListener("user:updated", (ev) => {
+      try {
+        const ns = pickNSFrom(ev?.detail || {});
+        if (!ns) return;
+        const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+        if (!prev || prev === "default" || prev !== ns) {
+          localStorage.setItem("auth:userns", ns);
+        }
+      } catch {}
+    });
+  })();
+
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // External knobs / keys (backward compatible)
