@@ -420,14 +420,14 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 :is(.labelmine-body, body:has(.labelmine-body)) .im-head-share[disabled]{ opacity:.45; cursor:default; }
 /* Body: 600 + 350 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-body{ display:grid; grid-template-columns:600px 350px; gap:16px 0; min-height:0; }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-left{ min-width:0; background:#fff; display:grid; place-items:center; transition:background .2s ease; }
+:is(.labelmine-body, body:has(.labelmine-body)) .im-left{ min-width:0; background:#fff; display:grid; align-items: stretch; justify-items: center; transition:background .2s ease; }
 
 /* ★ 통합: im-stage (센터링/박스사이징/오버플로우/플렉스 정렬) */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage{
   position:relative;
   width:600px !important; max-width:600px !important;
-  height:auto;
-  aspect-ratio: var(--im-ar, auto);
+  height: 100%;
+  aspect-ratio: auto;
   display:flex; justify-content:center; align-items:center;
   background:#fff; margin:0 auto; overflow:hidden;
   border-radius:12px;
@@ -437,7 +437,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 /* 이미지 사항 통합: object-fit 변수, 줌 트랜지션/기준점 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage img{
   display:none;
-  width:100%; height:100%;
+  width: auto; height:100%;
   object-fit: var(--im-fit, contain);
   border-radius:12px;
   box-shadow:0 1px 0 rgba(0,0,0,0.04);

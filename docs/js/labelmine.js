@@ -2537,6 +2537,7 @@ function goMineAfterShare(label = getLabel()) {
 
       const shell = document.createElement("div");
       shell.className = "imodal";
+      shell.setAttribute("data-fit", "height");
 
       // ── 헤더
       const head = document.createElement("div");
@@ -2729,6 +2730,7 @@ function goMineAfterShare(label = getLabel()) {
 
     const back  = document.createElement("div"); back.className  = "imodal-backdrop";
     const shell = document.createElement("div"); shell.className = "imodal";
+    shell.setAttribute("data-fit", "height");    // ← 세로 맞춤 모드 ON
 
     // Header
     const head  = document.createElement("div"); head.className = "im-head";
