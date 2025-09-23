@@ -918,7 +918,7 @@
         if (!p || !p.id) return;
         const mineOrWatched = isMineOrWatchedFromPayload(p);
         if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
-        if (MY_UID && String(p.by) === String(MY_UID)) return;
+        if (MY_UID && (String(p.by) === String(MY_UID) || String(p.actor) === String(MY_UID))) return;
         if (p.liked) {
           const likes = Number(p.likes || 0);
           pushNotice("My post got liked", `Total ${qty(likes, "like")}`, { tag: `like:${p.id}`, data: { id: String(p.id) } });
@@ -1757,19 +1757,19 @@
       } catch {}
     })();
 
-    // 9) 알림 UI(토글) 준비 — change 시에만 권한/플러시 수행
-    setupNotifyUI();
-
     // 9-1) ★ 내 아이템 방 구독을 먼저 준비(초기 이벤트 손실 방지)
     if (quick.authed) { await __primeMyItemRoomsEarly({ maxPages: 6, pageSize: 60 }); }
 
     // 9-2) 소켓 연결 및 리스너 바인딩
     ensureSocket();
 
-    // 9-3) 부팅 직후 스냅샷 보정(알림 발생 없이 최신치만 저장)
+    // 9-3) 알림 UI(토글) 준비 — change 시에만 권한/플러시 수행
+    setupNotifyUI();
+
+    // 9-4) 부팅 직후 스냅샷 보정(알림 발생 없이 최신치만 저장)
     try { if (quick.authed) await refreshSnapshotsWithoutEmit({ maxItems: 100, concurrency: 4 }); } catch {}
 
-    // 9-4) BroadcastChannel 경로(다른 탭 mine → me) 연결
+    // 9-5) BroadcastChannel 경로(다른 탭 mine → me) 연결
     try {
       const ns = getNS();
       const bc = new BroadcastChannel(`aud:sync:${ns}`);
@@ -1805,7 +1805,7 @@
       });
     } catch {}
 
-    // 9-5) 네이티브 권한 보강(이미 ON이고 wantsNative일 때만)
+    // 9-6) 네이티브 권한 보강(이미 ON이고 wantsNative일 때만)
     if (isNotifyOn() && wantsNative() && hasNativeAPI() && Notification.permission === "default") {
       ensureNativePermission();
     }
