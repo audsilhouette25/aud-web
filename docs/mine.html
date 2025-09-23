@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
-<meta name="vapid-public-key" content="https://finelee03.github.io/aud-web/mine.html">
+<meta name="vapid-public-key" content="REPLACE_WITH_VAPID_PUBLIC_KEY">
 <head>
   <script src="./js/config.js"></script>
   <meta charset="UTF-8" />
@@ -75,15 +75,13 @@
   </section>
 <!-- 소켓 (선택) -->
 
-  <script>
-  (function(){
-    if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
-      .then(() => navigator.serviceWorker.ready)
-      .then(() => console.log('[sw] registered with relative scope (mine.html)'))
-      .catch(e => console.log('[sw] register failed:', e));
-  })();
-  </script>
+  <script>(function(){
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js', { scope: './' })
+    .then(()=>navigator.serviceWorker.ready)
+    .then(()=>console.log('[sw] registered at subpath'))
+    .catch(e=>console.log('[sw] register failed:', e));
+})();</script>
 
   <script>window.PROFILE_ENDPOINTS = ['/api/users/:id/public'];</script>
 
@@ -108,5 +106,23 @@
 
   <!-- 7) 페이지 전용 스크립트 -->
   <script type="module" src="./js/mine.js"></script>
+
+<script>
+// 최초 카드가 DOM에 나타나면 단 한 번만 초기 동기화 완료 마크
+(function(){
+  var grid = document.querySelector('[data-feed-grid]');
+  if (!grid || !('MutationObserver' in window)) return;
+  var done = false;
+  var mo = new MutationObserver(function(){
+    if (!done && grid.children.length > 0) {
+      done = true; mo.disconnect();
+      if (window.__mineMarkInitialDone) window.__mineMarkInitialDone();
+      console.log('[mine] initial render detected -> mark done');
+    }
+  });
+  mo.observe(grid, { childList:true });
+})();
+</script>
+
 </body>
 </html>
