@@ -1621,14 +1621,25 @@
     });
   });
 
-  /* ─────────────────────────────────────────────────────────────────────────────
-   * 10) Boot
-   * ──────────────────────────────────────────────────────────────────────────── */
+  // ──────────────────────────────────────────────────────────────────────────────
+  // 10) Boot  — REORDERED for early room subscription + predictable notifications
+  // ──────────────────────────────────────────────────────────────────────────────
   async function boot() {
+    // ── 로컬 상태
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
 
-    // 0) Warm from cache
+    // ★ (내 아이템 방 구독 선행) 헬퍼 — boot 범위 로컬 함수
+    async function __primeMyItemRoomsEarly({ maxPages = 6, pageSize = 60 } = {}) {
+      if (!sessionAuthed()) return;
+      try {
+        const mine = await fetchAllMyItems(maxPages, pageSize);
+        const ids  = Array.isArray(mine) ? mine.map(it => String(it.id)).filter(Boolean) : [];
+        updateMyItemRooms(ids); // socket.connect 시 subscribe payload가 즉시 유효
+      } catch {}
+    }
+
+    // 0) Warm from cache (빠른 초기 렌더)
     const cached = readProfileCache();
     if (cached) {
       me.displayName = cached.displayName || me.displayName;
@@ -1636,7 +1647,7 @@
       me.avatarUrl   = cached.avatarUrl || "";
     }
 
-    // 1) Server /auth/me → cleanse session residues if needed
+    // 1) /auth/me 로 실사용자 파악 + 세션 잔여물 정리
     const meResp = await fetchMe();
     if (meResp && typeof meResp === "object") {
       purgeCollectionsIfUserChanged(cached, meResp);
@@ -1649,7 +1660,7 @@
       quick.authed = true;
     }
 
-    // 2) Initial counts (server-first)
+    // 2) 초기 카운트(server-first → fallback)
     try {
       const c = await getQuickCounts();
       quick.labels = c.labels || 0;
@@ -1659,28 +1670,22 @@
       quick.jibs   = readJibs().length;
     }
 
-    // 3) Render
+    // 3) 1차 렌더(프로필/카운트) + 프로필 브로드캐스트
     renderProfile(me);
     await broadcastMyProfile({});
     renderQuick(quick);
 
-    try {
-      __LIKES_PREV = (window.readLikesMap && window.readLikesMap()) ? window.readLikesMap() : {};
-    } catch { __LIKES_PREV = {}; }
+    // 4) 로컬 스냅샷 준비(좋아요/투표 이전 상태)
+    try { __LIKES_PREV = (window.readLikesMap   && window.readLikesMap())   ? window.readLikesMap()   : {}; } catch { __LIKES_PREV = {}; }
+    try { __VOTES_PREV = (window.readLabelVotes && window.readLabelVotes()) ? window.readLabelVotes() : {}; } catch { __VOTES_PREV = {}; }
 
-    try {
-      __VOTES_PREV = (window.readLabelVotes && window.readLabelVotes()) ? window.readLabelVotes() : {};
-    } catch { __VOTES_PREV = {}; }
-
-    // 4) snapshot store → session once
+    // 5) store 안정화되면 세션 한 번 동기화 + 카운트 보정 타이머
     syncSessionFromStoreIfReady();
-
-    // 5) periodic refreshes
     refreshQuickCounts();
     setTimeout(() => { syncSessionFromStoreIfReady(); refreshQuickCounts(); }, 300);
     setTimeout(() => { syncSessionFromStoreIfReady(); refreshQuickCounts(); }, 1500);
 
-    // 6) event subscriptions → refresh counts
+    // 6) 이벤트 연결(라벨/집 수집 변화, 스토리지 변화, 인증 변화)
     window.addEventListener(EVT_LABEL, refreshQuickCounts);
     window.addEventListener(EVT_JIB,   refreshQuickCounts);
 
@@ -1698,13 +1703,16 @@
           try { renderProfile(parseJSON(e.newValue, {})); } catch {}
         }
       }
-      // 원격(다른 사람이 한) 액션 알림 폴백
+
+      // 원격 폴백 알림(소켓 미연결 대비) — 기존 로직 그대로 유지
       if (e.key.startsWith("notify:remote:") && e.newValue) {
         try {
           const p = parseJSON(e.newValue, null);
           const t = String(p?.type || "");
           const d = p?.data || {};
-          if (!isMineOrWatchedFromPayload(d)) return; // ★ Watched NS 기반 필터
+          if (!isMineOrWatchedFromPayload(d)) return;
+          if (MY_UID && (String(d?.by) === String(MY_UID) || String(d?.actor) === String(MY_UID))) return;
+
           if (t === "item:like" && d?.liked) {
             const _l = Number(d.likes || 0);
             pushNotice("My post got liked", `Total ${_l} ${_l === 1 ? "like" : "likes"}`, { tag:`like:${d.id}`, data:{ id:String(d.id||"") } });
@@ -1723,49 +1731,45 @@
           }
         } catch {}
       }
-
     }, { capture: true });
 
-    window.addEventListener("auth:state", refreshQuickCounts);
-    window.addEventListener("store:ns-changed", refreshQuickCounts);
+    window.addEventListener("auth:state",        refreshQuickCounts);
+    window.addEventListener("store:ns-changed",  refreshQuickCounts);
 
-    // === store.js 변화 이벤트 → 알림 ===
-
-    // 좋아요 스냅샷 맵 변경
-    window.addEventListener("itemLikes:changed", (ev) => {
-    });
-
-    // 라벨별 투표 총합 변경
-    window.addEventListener("label:votes-changed", () => {
-      // no-op: 소켓/브로드캐스트/폴백(reconcile)에서 아이템별로만 알림 처리
-    });
-
-    // 7) UI handlers
+    // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
 
-    // 8) notifications & sockets
-    // 부팅 시 저장된 알림 복원(오래된→최신 순으로 렌더, 재기록 금지)
+    // 8) 알림 로그 시드(화면 목록만 복원; 토스트/네이티브 미발사)
     (function seedNoticesFromLog(){
       try {
-        const arr = readLog().slice(-LOG_MAX); // 안전차단
-        // 오래된 순으로 그려야 화면에는 최신이 위로(prepend) 쌓임
+        const arr = readLog().slice(-LOG_MAX);
         __replayMode = true;
         for (const it of arr) {
           pushNotice(it.text, it.sub, {
-            tag:   it.tag || `log:${it.ts}`,
-            data:  it.data,
-            persist: false,   // 재기록 금지
-            silent:  true     // 토스트/네이티브 금지
+            tag:    it.tag || `log:${it.ts}`,
+            data:   it.data,
+            persist:false,   // 재기록 금지
+            silent: true     // 토스트/네이티브 금지
           });
         }
         __replayMode = false;
-          } catch {}
-        })();
+      } catch {}
+    })();
 
+    // 9) 알림 UI(토글) 준비 — change 시에만 권한/플러시 수행
     setupNotifyUI();
+
+    // 9-1) ★ 내 아이템 방 구독을 먼저 준비(초기 이벤트 손실 방지)
+    if (quick.authed) { await __primeMyItemRoomsEarly({ maxPages: 6, pageSize: 60 }); }
+
+    // 9-2) 소켓 연결 및 리스너 바인딩
     ensureSocket();
+
+    // 9-3) 부팅 직후 스냅샷 보정(알림 발생 없이 최신치만 저장)
     try { if (quick.authed) await refreshSnapshotsWithoutEmit({ maxItems: 100, concurrency: 4 }); } catch {}
+
+    // 9-4) BroadcastChannel 경로(다른 탭 mine → me) 연결
     try {
       const ns = getNS();
       const bc = new BroadcastChannel(`aud:sync:${ns}`);
@@ -1774,8 +1778,7 @@
         const { type, data } = m.payload || {};
         if (!type) return;
 
-        // 2) 원격(다른 사람이 한) 행동 → 알림 (소켓 미연결/다른 탭만 mine 열려 있을 때 대비)
-        //    mine.js 쪽에서 1차 필터링하지만, 여기서도 내 게시물인지 2차 방어
+        // mine 쪽 1차 필터 외, 여기서도 2차 방어
         if (!isMineOrWatchedFromPayload(data)) return;
         if (MY_UID && (String(data?.by) === String(MY_UID) || String(data?.actor) === String(MY_UID))) return;
 
@@ -1801,13 +1804,15 @@
         }
       });
     } catch {}
+
+    // 9-5) 네이티브 권한 보강(이미 ON이고 wantsNative일 때만)
     if (isNotifyOn() && wantsNative() && hasNativeAPI() && Notification.permission === "default") {
       ensureNativePermission();
     }
 
-    // 9) insights or redirect
+    // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) {
-      computeAndRenderInsights().catch(() => { /* silent */ });
+      computeAndRenderInsights().catch(() => {});
     }
   }
 
