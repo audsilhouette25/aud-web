@@ -74,6 +74,35 @@
     catch { return "default"; }
   };
 
+  /* [PATCH][ADD-ONLY] Ensure user-namespace (NS) before push subscribe on me page */
+  (() => {
+    function deriveNSFromProfile(snap) {
+      if (!snap || typeof snap !== "object") return null;
+      const id = (snap.id ?? snap.user?.id ?? "").toString().trim();
+      const username = (snap.username ?? snap.user?.username ?? "").toString().trim();
+      const email = (snap.email ?? snap.user?.email ?? "").toString().trim().toLowerCase();
+      return (id || username || email || "").toLowerCase() || null;
+    }
+
+    let ns = null;
+    try {
+      ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
+      if (!ns && typeof window.readProfileCache === "function") {
+        const snap = window.readProfileCache();
+        ns = deriveNSFromProfile(snap);
+      }
+    } catch {}
+
+    try {
+      if (ns) {
+        localStorage.setItem("auth:userns", ns);
+        window.dispatchEvent(new CustomEvent("user:updated", {
+          detail: { id: ns, username: ns, email: ns }
+        }));
+      }
+    } catch {}
+  })();
+
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // External knobs / keys (backward compatible)
