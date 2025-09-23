@@ -2759,6 +2759,56 @@ function goMineAfterShare(label = getLabel()) {
     const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
     acct.append(avatar, name);
 
+    // --- [프로필 즉시 주입: labelmine_avatar와 동일 전략] -----------------
+
+    // ② 이니셜 SVG 생성(네트워크 요청 없음)
+    function initialsOf(name='member'){
+      const parts = String(name).trim().split(/\s+/).filter(Boolean);
+      const init  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+      return (init || (name[0] || 'U')).toUpperCase().slice(0, 2);
+    }
+    function svgAvatar(name='member'){
+      let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0;
+      const hue = Math.abs(h)%360;
+      const bg  = `hsl(${hue},75%,85%)`, fg=`hsl(${hue},60%,28%)`, txt=initialsOf(name);
+      return 'data:image/svg+xml;utf8,'+encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+          <rect width="80" height="80" rx="40" fill="${bg}"/>
+          <text x="50%" y="54%" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
+                font-size="32" font-weight="600" fill="${fg}" text-anchor="middle">${txt}</text>
+        </svg>`);
+    }
+
+    // ③ 현재 사용자 정보로 아바타/이름 결정 (동기화 전에 1차 즉시 주입)
+    (async () => {
+      const me = await (window.auth?.getUser?.().catch(()=>null)) || {};
+      const displayName = me.displayName || me.name || me.email || 'member';
+      name.textContent = displayName;
+
+      const rawUrl = me.avatarUrl || me.avatar || me.picture || '';
+      const img = document.createElement('img');
+      img.className = 'avatar-img';
+      img.alt = '';
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.referrerPolicy = 'no-referrer';
+
+      if (rawUrl) {
+        const apiUrl = (typeof window.toAPI === 'function') ? window.toAPI(rawUrl) : rawUrl;
+        img.src = apiUrl;
+        avatar.append(img);
+        avatar.classList.add('has-img');
+      } else {
+        img.src = svgAvatar(displayName);
+        avatar.append(img);
+      }
+
+      // 이미 전역 동기화 유틸이 있으므로, 초기 스냅샷으로 한 번 더 보정
+      if (typeof window.updateStep3View === 'function') {
+        window.updateStep3View({});
+      }
+    })();
+
     const caption = document.createElement("textarea"); caption.className = "im-caption"; caption.placeholder = "문구 입력..."; caption.maxLength = 300;
     const meta = document.createElement("div"); meta.className = "im-cap-meta";
     const mR = document.createElement("span"); mR.textContent = "0 / 300";

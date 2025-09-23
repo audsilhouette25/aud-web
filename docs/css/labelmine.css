@@ -439,7 +439,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   display:none;
   width: auto; height:100%;
   object-fit: var(--im-fit, contain);
-  border-radius:12px;
   box-shadow:0 1px 0 rgba(0,0,0,0.04);
   max-width:none; max-height:none;
   transform-origin:50% 50%;
@@ -681,7 +680,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 /* === Feed modal: 1:2 세로 이미지일 때 좌우 25% 회색 오버레이 === */
 /* 조건: .im-stage에 .is-ratio-12 클래스가 붙으면 활성화 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage.is-ratio-12{
-  position: relative;
+  position: relative; border-radius: 0;  
   /* 세로 맞춤 + 중앙정렬은 기존 im-stage 규칙( flex center )로 이미 충족 */
 }
 
@@ -703,6 +702,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   object-fit: contain;
   height: 100%;
   width: auto;                                  /* 세로 기준 맞춤 → 좌우 레터박스 공간 발생 */
+  border-radius: 0; 
 }
 
 
