@@ -397,6 +397,21 @@ progress#m-rate-bar::-webkit-progress-value{
 /* =====================================================================
    10) Notifications panel
 ===================================================================== */
+/* === Alarm panel spacing (list push-down) ===================== */
+.alarm-panel .alarm-list,
+[data-role="alarm"] .alarm-list {
+  margin-top: 10px;   /* 필요 시 8~14px 사이로 미세 조정 */
+}
+
+/* === Alarm bell size tweak ==================================== */
+.alarm-panel .alarm-btn svg,
+.alarm-panel .alarm-btn img,
+[data-role="alarm"] .alarm-btn svg,
+[data-role="alarm"] .alarm-btn img {
+  inline-size: 22px;  /* 기존 24~28px였다면 22px로 축소 */
+  block-size: 22px;
+}
+
 .panel.notify .panel-head{
   display:flex; align-items:center; justify-content:space-between;
   margin-bottom:.75rem;
@@ -473,8 +488,8 @@ progress#m-rate-bar::-webkit-progress-value{
 .notify-list{
   list-style:none; margin:0; padding:0;
   display:flex; flex-direction:column; gap:.5rem;
-  /* 1.5개 보이게 + 스크롤 */
-  max-block-size: calc(var(--notice-h) * 2.5 + var(--notice-gap));
+  /* 3.5개 보이게 + 스크롤 */
+  max-block-size: calc(var(--notice-h) * 3.5 + var(--notice-gap));
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
 }
