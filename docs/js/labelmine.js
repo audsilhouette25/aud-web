@@ -161,10 +161,10 @@ const IMG_SRC = {
 
     // step3 모달 내 계정 표시 영역(관용적 셀렉터)
     const roots = [
+      document, // ← 문서 전역을 반드시 포함
       document.querySelector("#labelmine-step3"),
       document.querySelector(".lm-step3"),
       document.querySelector("#labelmine .step3"),
-      // ✨ 실제 클래스명: .imodal (하이픈 없음)
       document.querySelector(".imodal")
     ].filter(Boolean);
 
