@@ -295,20 +295,11 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
    10) Feed
 ===================================================================== */
 .feed { width: 100%; max-width: 900px; }
-/* Masonry layout: 빈칸 없이 세로 스택 */
 .feed-grid{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
 }
-/* 컬럼 내부에서 카드가 쪼개지지 않게 + 아래 여백으로 간격 확보 */
-.feed-card{
-  break-inside: avoid;
-  display: inline-block;
-  width: 100%;
-  margin: 0 0 14px;
-}
-
 @media (max-width: 480px){ .feed-grid{ --feed-col: 200px; } }
 .feed{ width: 100%; margin-top: var(--feed-top-gap); margin-bottom: var(--feed-bottom-gap); }
 
