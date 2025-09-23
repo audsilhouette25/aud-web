@@ -660,11 +660,19 @@
   const __recentNotify = new Map(); // tag -> timestamp(ms)
   const __RECENT_TTL = 4000; // 4초 내 동일 tag 차단 (원하면 2~5초로 조절)
   function pushNotice(text, sub = "", opt = {}) {
-    if (!__replayMode && !isNotifyOn()) {
-      // 🔒 OFF: 화면에는 표시하지 않고 큐(로그)에만 적재
-      try { appendLog({ text, sub, tag: opt?.tag || "", data: opt?.data || null, ts: Date.now() }); } catch {}
-      // 선택: 백그라운드 탭이라면 네이티브 알림은 허용
+    const off = !isNotifyOn();
+    const silentReplay = __replayMode && (opt?.silent === true);
+
+    // 1) OFF 상태: 화면 표시 금지, 큐에만 적재
+    if (off && !silentReplay) {
+      try { enqueueNotice({ text, sub, tag: opt?.tag || "", data: opt?.data || null }); } catch {}
       try { if (!opt?.silent) maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
+      return;
+    }
+
+    // 2) 리플레이(시드)인데 OFF인 경우: 완전 무시 (패널도 그리지 않음)
+    if (off && silentReplay) {
+      // 과거 로그 재도색은 토글 ON에서 flushQueuedNotices로 처리
       return;
     }
 
