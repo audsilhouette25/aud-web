@@ -83,7 +83,14 @@
     }catch(e){}
   }
 
-
+  // [ADD] NS helpers
+  const safeLower = v => (v ?? '').toString().trim().toLowerCase();
+  const nsOf = (item) => {
+    const u = item && item.user ? item.user : null;
+    // 우선순위: user.email → user.id(이게 이메일일 수도 있음) → item.ns → 'default'
+    const emailLike = safeLower(u?.email || u?.id);
+    return emailLike || safeLower(item?.ns) || 'default';
+  };
 
   // ── NS helper (계정별 namespace)
   const getNS = () => {
