@@ -660,17 +660,10 @@
   const __recentNotify = new Map(); // tag -> timestamp(ms)
   const __RECENT_TTL = 4000; // 4초 내 동일 tag 차단 (원하면 2~5초로 조절)
   function pushNotice(text, sub = "", opt = {}) {
-    // OFF 상태일 때: 큐에만 적재(표시는 하지 않음), 네이티브는 조건 충족 시만
     if (!__replayMode && !isNotifyOn()) {
-      try {
-        enqueueNotice({
-          text: String(text || ""),
-          sub: String(sub || ""),
-          tag: opt?.tag || "",
-          data: opt?.data || null,
-          ts: Date.now(),
-        });
-      } catch {}
+      // 🔒 OFF: 화면에는 표시하지 않고 큐(로그)에만 적재
+      try { appendLog({ text, sub, tag: opt?.tag || "", data: opt?.data || null, ts: Date.now() }); } catch {}
+      // 선택: 백그라운드 탭이라면 네이티브 알림은 허용
       try { if (!opt?.silent) maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
       return;
     }
@@ -887,11 +880,6 @@
 
     // 2) 실시간 소켓은 준비해 두되, 실제 발사는 isNotifyOn()이 true일 때만
     ensureSocket();
-
-    // 3) 이미 ON 상태였다면 진입 시 큐 1회 플러시
-    if (lastOn) {
-      try { flushQueuedNotices(); } catch {}
-    }
   }
 
   function ensureSocket() {
@@ -919,7 +907,7 @@
 
       // ── 알림 리스너들
       socket.on("item:like", (p) => {
-        if (!isNotifyOn() || !p || !p.id) return;
+        if (!p || !p.id) return;
         const mineOrWatched = isMineOrWatchedFromPayload(p);
         if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
         if (MY_UID && String(p.by) === String(MY_UID)) return;
@@ -929,9 +917,8 @@
         }
       });
 
-
       socket.on("vote:update", (p) => {
-        if (!isNotifyOn() || !p || !p.id) return;
+        if (!p || !p.id) return;
         const mineOrWatched = isMineOrWatchedFromPayload(p);
         if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
 
