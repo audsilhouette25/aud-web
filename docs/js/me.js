@@ -661,7 +661,7 @@
   const __RECENT_TTL = 4000; // 4초 내 동일 tag 차단 (원하면 2~5초로 조절)
   function pushNotice(text, sub = "", opt = {}) {
     if (!__replayMode && !isNotifyOn()) {
-      try { enqueueNotice({ text, sub, tag: opt?.tag || "", data: opt?.data || null }); } catch {}
+      try { if (!opt?.silent) maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
       return;
     }
 
@@ -849,6 +849,7 @@
     // 1) 저장된 상태만 복원 (자동 ON 금지)
     const lastOn  = isNotifyOn();
     const tgl     = document.querySelector('#notify-toggle');
+
     if (tgl && !tgl.__bound) {
       tgl.checked = !!lastOn;
       tgl.__bound = true;
@@ -859,40 +860,24 @@
         setNotifyOn(nowOn);
 
         if (nowOn) {
-          // 네이티브 알림을 선호(wantsNative)하고 아직 권한이 없다면 이때만 요청
           if (wantsNative() && (typeof Notification !== "undefined") && Notification.permission !== "granted") {
             try { await ensureNativePermission(); } catch {}
           }
-          // 실시간 이벤트 수신 채널 준비
           ensureSocket();
-          // OFF 동안 쌓였던 큐를 이때 한 번에 플러시
           try { await flushQueuedNotices(); } catch {}
-        } else {
-          // OFF 전환: 이후 들어오는 알림은 큐에만 쌓임 (별 처리 불필요)
         }
+        // OFF로 바꾸면 이후 알림은 enqueueNotice()로 큐에만 적재됨
       });
     } else if (tgl && tgl.__bound) {
-      // 이미 바인딩 되어 있다면 표시만 동기화
       tgl.checked = !!lastOn;
     }
 
-    // 2) 실시간 이벤트 수신은 항상 준비하되, 실제 토스트 출력은 isNotifyOn()이 true일 때만 발생
+    // 2) 실시간 소켓은 준비해 두되, 실제 발사는 isNotifyOn()이 true일 때만
     ensureSocket();
 
-    // 3) 이미 ON 상태였다면 진입 시 한 번만 큐 플러시 (OFF면 조용히 적재)
+    // 3) 이미 ON 상태였다면 진입 시 큐 1회 플러시
     if (lastOn) {
       try { flushQueuedNotices(); } catch {}
-    }
-
-    // 4) 커스텀 이벤트 바인딩(중복 방지)
-    if (!window.__meNotifyEvtBound) {
-      window.addEventListener("notify:toggle", async () => {
-        try { if (isNotifyOn()) await flushQueuedNotices(); } catch {}
-      });
-      window.addEventListener("notify:flush", async () => {
-        try { await flushQueuedNotices(); } catch {}
-      });
-      window.__meNotifyEvtBound = true;
     }
   }
 
@@ -1757,11 +1742,18 @@
       try {
         const arr = readLog().slice(-LOG_MAX); // 안전차단
         // 오래된 순으로 그려야 화면에는 최신이 위로(prepend) 쌓임
+        __replayMode = true;
         for (const it of arr) {
-          pushNotice(it.text, it.sub, { tag: it.tag || `log:${it.ts}`, data: it.data, persist: false });
+          pushNotice(it.text, it.sub, {
+            tag:   it.tag || `log:${it.ts}`,
+            data:  it.data,
+            persist: false,   // 재기록 금지
+            silent:  true     // 토스트/네이티브 금지
+          });
         }
-      } catch {}
-    })();
+        __replayMode = false;
+          } catch {}
+        })();
 
     setupNotifyUI();
     ensureSocket();
@@ -1777,6 +1769,7 @@
         // 2) 원격(다른 사람이 한) 행동 → 알림 (소켓 미연결/다른 탭만 mine 열려 있을 때 대비)
         //    mine.js 쪽에서 1차 필터링하지만, 여기서도 내 게시물인지 2차 방어
         if (!isMineOrWatchedFromPayload(data)) return;
+        if (MY_UID && (String(data?.by) === String(MY_UID) || String(data?.actor) === String(MY_UID))) return;
 
         if (type === "item:like" && data?.liked) {
           const likes = Number(data.likes || 0);

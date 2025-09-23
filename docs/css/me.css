@@ -477,6 +477,7 @@ progress#m-rate-bar::-webkit-progress-value{
   max-block-size: calc(var(--notice-h) * 2.5 + var(--notice-gap));
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
+  margin-top : 6px;
 }
 .notice{
   padding:.75rem .9rem;
