@@ -845,7 +845,6 @@
     return { scanned: ids.length };
   }
 
-
   function setupNotifyUI() {
     // 1) 저장된 상태만 복원 (자동 ON 금지)
     const lastOn  = isNotifyOn();
