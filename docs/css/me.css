@@ -474,7 +474,7 @@ progress#m-rate-bar::-webkit-progress-value{
   list-style:none; margin:0; padding:0;
   display:flex; flex-direction:column; gap:.5rem;
   /* 1.5개 보이게 + 스크롤 */
-  max-block-size: calc(var(--notice-h) * 1.5 + var(--notice-gap));
+  max-block-size: calc(var(--notice-h) * 2.5 + var(--notice-gap));
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
 }
