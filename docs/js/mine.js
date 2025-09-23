@@ -149,6 +149,13 @@
 
     return it;
   }
+  // 작성자 NS 추출: email(소문자) 우선, 없으면 기존 ns/owner_ns/uid 순서로 폴백
+  function nsOf(it) {
+    const email = it?.user?.email ? String(it.user.email).trim().toLowerCase() : "";
+    if (email) return email;
+    const legacy = it?.owner_ns || it?.ns || it?.user?.id || it?.user_id || it?.owner_id || "default";
+    return String(legacy).trim().toLowerCase();
+  }
 
   // Socket.IO 핸들러에서 BC로 중계할 때 접근할 수 있도록 참조 저장
   let __bcFeed = null;
@@ -1055,7 +1062,7 @@
     const mine = isMine(item);
 
     return `
-    <article class="feed-card" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}" data-owner="${mine ? 'me' : 'other'}">
+    <article class="feed-card" data-id="${it.id}" data-ns="${nsOf(it)}" data-owner="${mine ? 'me' : 'other'}">
       <div class="media">
         <img src="${blobURL(item)}" alt="${safeLabel || 'item'}" loading="lazy" />
         <div class="hover-ui" role="group" aria-label="Post actions">
@@ -1637,13 +1644,13 @@
                               .toString().trim().toLowerCase();
             await fetch(toAPI('/api/push/test'), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {'Content-Type':'application/json'},
               body: JSON.stringify({
-                ns:   ownerNS,
-                title:'새 좋아요',
-                body: `카드 ${id}에 좋아요가 추가되었습니다.`,
-                data: { url: '/mine.html' },
-                tag:  `like:${id}`
+                ns: ownerNS,                    // ← 카드 소유자 NS (nsOf(it)와 일치)
+                title: 'CARD TEST',
+                body: `card ${pid}`,
+                data: { url: '/mine.html' },    // ← 꼭 data 안쪽에 url
+                tag: `card:${pid}`
               })
             }).catch(()=>{});
           } catch {}
