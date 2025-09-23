@@ -659,6 +659,25 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   display:block; margin:0 auto; max-width:100%; max-height:100%; height:auto;
   touch-action:none; image-rendering:auto;
 }
+
+/* === Crop modal: 1:2 비율일 때 좌우 25% 회색 오버레이 === */
+:is(.labelmine-body, body:has(.labelmine-body)) .cm-stage.is-ratio-12{
+  position: relative;  /* 안전하게 지정 */
+}
+
+/* 양쪽 오버레이 패널 */
+:is(.labelmine-body, body:has(.labelmine-body)) .cm-stage.is-ratio-12::before,
+:is(.labelmine-body, body:has(.labelmine-body)) .cm-stage.is-ratio-12::after{
+  content:"";
+  position:absolute; inset:0 auto 0 0;  /* left panel */
+  width:25%;                             /* 스테이지 폭의 25% = 1:2 프레임의 여백과 일치 */
+  background:#f3f4f6;                    /* 필요시 rgba(0,0,0,.06) 등으로 톤 조절 */
+  pointer-events:none;
+}
+:is(.labelmine-body, body:has(.labelmine-body)) .cm-stage.is-ratio-12::after{
+  left:auto; right:0;                     /* right panel */
+}
+
 /* === Feed modal: 1:2 세로 이미지일 때 좌우 25% 회색 오버레이 === */
 /* 조건: .im-stage에 .is-ratio-12 클래스가 붙으면 활성화 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-stage.is-ratio-12{

@@ -3020,6 +3020,13 @@ function goMineAfterShare(label = getLabel()) {
 
       tools.append(ratioBtn, ratioMenu, zoomBtn, zoomWrap);
 
+      ratioMenu.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button[data-ar]");
+        if (!btn) return;
+        const ar = btn.dataset.ar;          // "1:1" 또는 "1:2"
+        stage.classList.toggle("is-ratio-12", ar === "1:2");
+      });
+
       const globalClose = document.createElement("button");
       globalClose.className = "im-head-close";
       globalClose.type = "button";
