@@ -822,15 +822,70 @@
     return { scanned: ids.length, liked: likeHits, voted: voteHits };
   }
 
+  async function refreshSnapshotsWithoutEmit({ maxItems = 100, concurrency = 4 } = {}) {
+    // 내 게시물 목록
+    const myItems = await fetchAllMyItems(Math.ceil(maxItems / 60), 60);
+    if (!Array.isArray(myItems) || !myItems.length) return { scanned: 0 };
+
+    const ids = myItems.map(it => String(it?.id)).filter(Boolean).slice(0, maxItems);
+
+    const prevL = __readSnap(SNAP_L_KEY(), {});
+    const prevV = __readSnap(SNAP_V_KEY(), {});
+    const nextL = { ...prevL };
+    const nextV = { ...prevV };
+
+    await mapLimit(ids, concurrency, async (id) => {
+      const [lc, vt] = await Promise.all([ __fetchLikeCount(id), __fetchVoteTotal(id) ]);
+      if (typeof lc === "number") nextL[id] = lc;
+      if (typeof vt === "number") nextV[id] = vt;
+    });
+
+    __writeSnap(SNAP_L_KEY(), nextL);
+    __writeSnap(SNAP_V_KEY(), nextV);
+    return { scanned: ids.length };
+  }
+
 
   function setupNotifyUI() {
-    // 1) 로그인 여부 무관 기본 ON (게스트 포함) —— 토글 유무와 상관없이 먼저 실행
-    setNotifyOn(true);
-    setWantsNative(true);
-    // 권한 요청 실패해도 in-page 알림은 계속 동작하므로 await 불필요
-    ensureNativePermission();
+    // 1) 저장된 상태만 복원 (자동 ON 금지)
+    const lastOn  = isNotifyOn();
+    const tgl     = document.querySelector('#notify-toggle');
+    if (tgl && !tgl.__bound) {
+      tgl.checked = !!lastOn;
+      tgl.__bound = true;
+
+      // 토글 변경 시점에만 권한 확인/플러시
+      tgl.addEventListener("change", async () => {
+        const nowOn = !!tgl.checked;
+        setNotifyOn(nowOn);
+
+        if (nowOn) {
+          // 네이티브 알림을 선호(wantsNative)하고 아직 권한이 없다면 이때만 요청
+          if (wantsNative() && (typeof Notification !== "undefined") && Notification.permission !== "granted") {
+            try { await ensureNativePermission(); } catch {}
+          }
+          // 실시간 이벤트 수신 채널 준비
+          ensureSocket();
+          // OFF 동안 쌓였던 큐를 이때 한 번에 플러시
+          try { await flushQueuedNotices(); } catch {}
+        } else {
+          // OFF 전환: 이후 들어오는 알림은 큐에만 쌓임 (별 처리 불필요)
+        }
+      });
+    } else if (tgl && tgl.__bound) {
+      // 이미 바인딩 되어 있다면 표시만 동기화
+      tgl.checked = !!lastOn;
+    }
+
+    // 2) 실시간 이벤트 수신은 항상 준비하되, 실제 토스트 출력은 isNotifyOn()이 true일 때만 발생
     ensureSocket();
-    if (isNotifyOn()) { flushQueuedNotices().catch(() => {}); }
+
+    // 3) 이미 ON 상태였다면 진입 시 한 번만 큐 플러시 (OFF면 조용히 적재)
+    if (lastOn) {
+      try { flushQueuedNotices(); } catch {}
+    }
+
+    // 4) 커스텀 이벤트 바인딩(중복 방지)
     if (!window.__meNotifyEvtBound) {
       window.addEventListener("notify:toggle", async () => {
         try { if (isNotifyOn()) await flushQueuedNotices(); } catch {}
@@ -840,35 +895,6 @@
       });
       window.__meNotifyEvtBound = true;
     }
-    // 2) 토글 UI가 있는 경우에만 동기화/이벤트 바인딩
-    const tgl = $("#notify-toggle");
-    if (!tgl) return;
-
-    // 중복 바인딩 가드
-    if (tgl.__bound) {
-      // 외부에서 setNotifyOn(true) 했으니, 표시만 맞춰주기
-      tgl.checked = isNotifyOn();
-      return;
-    }
-    tgl.__bound = true;
-
-    // 현재 설정 반영
-    tgl.checked = isNotifyOn();
-
-    // 변경 이벤트
-    tgl.addEventListener("change", async () => {
-      setNotifyOn(tgl.checked);
-      if (tgl.checked) {
-        setWantsNative(true);
-        await ensureNativePermission();  // 허용되면 네이티브 알림, 거부돼도 in-page 유지
-        ensureSocket();
-      } else {
-        setWantsNative(false);
-        // 필요시 소켓 연결을 유지할지/끊을지 정책적으로 결정.
-        // "토글은 네이티브 알림만 제어하고 in-page는 항상 ON"이라면 여기서 소켓 끊지 않습니다.
-      }
-      if (tgl.checked) await flushQueuedNotices();
-    });
   }
 
   function ensureSocket() {
@@ -1740,7 +1766,7 @@
 
     setupNotifyUI();
     ensureSocket();
-    try { if (quick.authed) await reconcileMissedWhileAway({ maxItems: 100, concurrency: 4 }); } catch {}
+    try { if (quick.authed) await refreshSnapshotsWithoutEmit({ maxItems: 100, concurrency: 4 }); } catch {}
     try {
       const ns = getNS();
       const bc = new BroadcastChannel(`aud:sync:${ns}`);
