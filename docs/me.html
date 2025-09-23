@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+<meta name="vapid-public-key" content="https://finelee03.github.io/aud-web/me.html">
 <head>
   <script src="./js/config.js"></script>
   <meta charset="UTF-8" />
@@ -110,6 +111,16 @@
   </div>
 </footer>
 
+  <script>
+  (function(){
+    if (!('serviceWorker' in navigator)) return;
+    // GH Pages 서브패스에서 sw.js를 현재 문서 경로 기준으로 등록
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => console.log('[sw] registered with relative scope'))
+      .catch(e => console.log('[sw] register failed:', e));
+  })();
+  </script>
 
   <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
 

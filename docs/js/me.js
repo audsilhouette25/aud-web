@@ -1983,3 +1983,152 @@
   }
 
 })();
+
+
+/* ===================================================================
+ * Web Push bootstrap (append-only; minimal surface)
+ * - Registers sw.js
+ * - Requests Notification permission on user gesture
+ * - Subscribes with VAPID public key and ships subscription to server
+ * - Persists subscription endpoint in localStorage for idempotency
+ * =================================================================== */
+(() => {
+  "use strict";
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    console.log("[push] browser does not support ServiceWorker/PushManager");
+    return;
+  }
+
+  const VAPID_PUBLIC_KEY = (window.VAPID_PUBLIC_KEY || document.querySelector('meta[name="vapid-public-key"]')?.content || "").trim();
+  if (!VAPID_PUBLIC_KEY) {
+    console.log("[push] VAPID public key not present (window.VAPID_PUBLIC_KEY or <meta name='vapid-public-key'>). Skipping.");
+    return;
+  }
+
+  const SUB_KEY = () => `push:sub:${(typeof getNS === "function" ? getNS() : "default")}`;
+
+  async function urlBase64ToUint8Array(base64String) {
+    // RFC4648 base64url → Uint8Array
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw     = atob(base64);
+    const out     = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function ensureCSRF() {
+    try {
+      if (window.auth?.getCSRF) return await window.auth.getCSRF();
+      const r = await fetch("/auth/csrf", { credentials: "include", cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      return j?.csrfToken || null;
+    } catch { return null; }
+  }
+
+  async function registerSW() {
+    // Root scope preferred. If site is on GitHub Pages under subpath, still fine.
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready; // ensure active
+    return reg;
+  }
+
+  async function subscribe(reg) {
+    const key = await urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: key,
+    });
+    return sub;
+  }
+
+  async function postJSON(url, body) {
+    const t = await ensureCSRF();
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (t) {
+      headers.set("X-CSRF-Token", t);
+      headers.set("X-XSRF-TOKEN", t);
+    }
+    const res = await fetch(url, { method: "POST", credentials: "include", headers, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(()=> ({}));
+  }
+
+  async function delJSON(url, body) {
+    const t = await ensureCSRF();
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (t) {
+      headers.set("X-CSRF-Token", t);
+      headers.set("X-XSRF-TOKEN", t);
+    }
+    const res = await fetch(url, { method: "DELETE", credentials: "include", headers, body: JSON.stringify(body||{}) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(()=> ({}));
+  }
+
+  async function enablePush() {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      console.log("[push] permission not granted:", perm);
+      return false;
+    }
+    const reg = await registerSW();
+    const sub = await subscribe(reg);
+    // Record locally to avoid duplicate POSTs
+    try { localStorage.setItem(SUB_KEY(), sub?.endpoint || "1"); } catch {}
+
+    const ns = (typeof getNS === "function" ? getNS() : "default");
+    try {
+      await postJSON("/api/push/subscribe", { ns, subscription: sub });
+      console.log("[push] subscribed.");
+      return true;
+    } catch (e) {
+      console.log("[push] subscribe failed:", e?.message || e);
+      return false;
+    }
+  }
+
+  async function disablePush() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      const endpoint = sub?.endpoint || localStorage.getItem(SUB_KEY()) || null;
+      if (endpoint) {
+        await delJSON("/api/push/subscribe", { endpoint });
+      }
+      if (sub) await sub.unsubscribe();
+    } catch {}
+    try { localStorage.removeItem(SUB_KEY()); } catch {}
+    console.log("[push] unsubscribed.");
+    return true;
+  }
+
+  // Expose controls (for UI toggle to call)
+  try {
+    window.pushNotify = {
+      enable: enablePush,
+      disable: disablePush,
+      test: async (title="aud", body="테스트 알림입니다.") => {
+        const ns = (typeof getNS === "function" ? getNS() : "default");
+        return postJSON("/api/push/test", { ns, title, body, data: { url: location.href } });
+      }
+    };
+  } catch {}
+
+  // Auto-wire an existing toggle if present
+  document.addEventListener("DOMContentLoaded", () => {
+    const toggle = document.querySelector("#notify-toggle");
+    if (!toggle) return;
+    toggle.addEventListener("change", async (ev) => {
+      ev.target.disabled = true;
+      try {
+        if (ev.target.checked) await enablePush();
+        else await disablePush();
+      } finally {
+        ev.target.disabled = false;
+      }
+    });
+  });
+})();
+

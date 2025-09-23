@@ -3541,3 +3541,32 @@
   })();
 
 })();
+
+
+/* Append-only: expose a quick test hook to trigger a push to my NS. */
+(() => {
+  "use strict";
+  async function ensureCSRF() {
+    try {
+      if (window.auth?.getCSRF) return await window.auth.getCSRF();
+      const r = await fetch("/auth/csrf", { credentials: "include", cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      return j?.csrfToken || null;
+    } catch { return null; }
+  }
+  async function postJSON(url, body) {
+    const t = await ensureCSRF();
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (t) { headers.set("X-CSRF-Token", t); headers.set("X-XSRF-TOKEN", t); }
+    const res = await fetch(url, { method: "POST", credentials: "include", headers, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(()=> ({}));
+  }
+  try {
+    window.pushTest = async (msg="새 좋아요가 도착했습니다.") => {
+      const ns = (typeof getNS === "function" ? getNS() : "default");
+      return postJSON("/api/push/test", { ns, title: "aud", body: msg, data: { url: location.href } });
+    };
+  } catch {}
+})();
+

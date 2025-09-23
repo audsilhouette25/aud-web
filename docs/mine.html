@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+<meta name="vapid-public-key" content="https://finelee03.github.io/aud-web/mine.html">
 <head>
   <script src="./js/config.js"></script>
   <meta charset="UTF-8" />
@@ -73,6 +74,16 @@
     </section>
   </section>
 <!-- 소켓 (선택) -->
+
+  <script>
+  (function(){
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => console.log('[sw] registered with relative scope (mine.html)'))
+      .catch(e => console.log('[sw] register failed:', e));
+  })();
+  </script>
 
   <script>window.PROFILE_ENDPOINTS = ['/api/users/:id/public'];</script>
 
