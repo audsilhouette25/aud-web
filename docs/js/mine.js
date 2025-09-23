@@ -3597,5 +3597,64 @@
     // 3) NS가 바뀌면 캐시 분리 — store.js가 이벤트를 쏴줌
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
   })();
+  /* [PATCH][ADD-ONLY] mine.html 진입 시 푸시 구독 업서트 */
+  (function ensureMinePushSubscription(){
+    // 브라우저/권한/키 → 구독 → 서버 업서트까지 한 번에 처리
+    const toAPI = (p) => {
+      try { return new URL(p, window.API_BASE || location.origin).toString(); }
+      catch { return p; }
+    };
+    const b64uToU8 = (s) => {
+      const pad = '='.repeat((4 - (s.length % 4)) % 4);
+      const b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(b64);
+      const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    };
+
+    (async () => {
+      try {
+        // 0) 내 NS: username/email 등으로 저장된 값 사용 (store.js/me.js 가 세팅)
+        const ns = (localStorage.getItem('auth:userns') || 'default').trim().toLowerCase();
+
+        // 1) SW 보장
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const reg = await (navigator.serviceWorker.getRegistration('./') ||
+                          navigator.serviceWorker.register('./sw.js', { scope: './' }));
+        if (!reg.active) await navigator.serviceWorker.ready;
+
+        // 2) 권한
+        if (Notification.permission !== 'granted') {
+          const p = await Notification.requestPermission();
+          if (p !== 'granted') return; // 유저가 거절한 경우 조용히 종료
+        }
+
+        // 3) 구독 확보 (없으면 생성)
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const { vapidPublicKey } = await fetch(toAPI('/api/push/public-key'), { credentials: 'include' })
+            .then(r => r.json()).catch(()=>({}));
+          if (!vapidPublicKey) return;
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64uToU8(vapidPublicKey)
+          });
+        }
+
+        // 4) 서버에 업서트
+        await fetch(toAPI('/api/push/subscribe'), {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ns, subscription: sub })
+        }).catch(()=>{});
+
+        // 디버그 로그
+        console.log('[mine:push] ready', { ns, endpoint: sub && sub.endpoint });
+      } catch (e) {
+        console.log('[mine:push] skip:', e?.message || e);
+      }
+    })();
+  })();
 
 })();
