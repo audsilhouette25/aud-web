@@ -1983,3 +1983,154 @@
   }
 
 })();
+
+// me.js — Web Push glue (ADD-ONLY; scoped to notify toggle)
+// ----------------------------------------------------------
+// Drop this block somewhere near your existing me.js script where
+// the notify toggle (#notify-toggle) is managed. It does not alter
+// your other code paths. It only wires subscription on toggle ON
+// and cleans up on toggle OFF.
+
+(() => {
+  "use strict";
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    console.log("[push] not supported in this browser");
+    return;
+  }
+
+  // Resolve API origin just like existing code
+  const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || "";
+  const toAPI = (p) => {
+    try {
+      const u = new URL(p, location.href);
+      return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
+        ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
+        : u.toString();
+    } catch { return p; }
+  };
+
+  const VAPID_META = document.querySelector('meta[name="vapid-public-key"]');
+  let   VAPID_PUBLIC = (VAPID_META && VAPID_META.getAttribute('content')) || "";
+
+  const KEY_TOGGLE = "me:notify-enabled";
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  async function fetchVapidKeyIfNeeded(){
+    if (VAPID_PUBLIC) return VAPID_PUBLIC;
+    try {
+      const r = await fetch(toAPI("/api/push/public-key"), { credentials: "include" });
+      const j = await r.json().catch(()=>({}));
+      if (j && j.vapidPublicKey) VAPID_PUBLIC = j.vapidPublicKey;
+      return VAPID_PUBLIC;
+    } catch { return ""; }
+  }
+
+  async function ensureWorker(){
+    const reg = await navigator.serviceWorker.getRegistration("./") ||
+                await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    // wait until active
+    if (!reg.active) await navigator.serviceWorker.ready;
+    return reg;
+  }
+
+  function currentNS(){
+    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
+    catch { return "default"; }
+  }
+
+  async function subscribeIfNeeded(){
+    const reg = await ensureWorker();
+    const vapid = await fetchVapidKeyIfNeeded();
+    if (!vapid) throw new Error("VAPID key missing");
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapid)
+      });
+    }
+    // send to backend (idempotent upsert)
+    await fetch(toAPI("/api/push/subscribe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ ns: currentNS(), subscription: sub })
+    });
+    return sub;
+  }
+
+  async function unsubscribeIfAny(){
+    try {
+      const reg = await ensureWorker();
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      try {
+        await fetch(toAPI("/api/push/unsubscribe"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ subscription: { endpoint: sub.endpoint, keys: {} } })
+        });
+      } catch {}
+      await sub.unsubscribe().catch(()=>{});
+    } catch {}
+  }
+
+  function setToggleUI(on){
+    try {
+      const el = document.getElementById("notify-toggle");
+      if (el) el.checked = !!on;
+    } catch {}
+  }
+
+  async function setNotify(on){
+    localStorage.setItem(KEY_TOGGLE, on ? "1" : "0");
+    setToggleUI(on);
+    if (on) {
+      // Request permission up front
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        localStorage.setItem(KEY_TOGGLE, "0");
+        setToggleUI(false);
+        return;
+      }
+      await subscribeIfNeeded();
+      // Optionally, tell sw to replay any locally queued notifications
+      try {
+        const reg = await ensureWorker();
+        reg.active?.postMessage?.({ type: "LOCAL_NOTIFY", payload: {
+          title: "Alarm enabled",
+          sub:   "You'll receive likes/votes while this is on.",
+          opt: { tag: "notify:enabled" }
+        }});
+      } catch {}
+    } else {
+      await unsubscribeIfAny();
+    }
+  }
+
+  // Wire UI
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("notify-toggle");
+    if (!btn) return;
+    // initial state
+    const on = localStorage.getItem(KEY_TOGGLE) === "1";
+    setToggleUI(on);
+    btn.addEventListener("change", (ev) => {
+      const checked = !!ev.currentTarget.checked;
+      setNotify(checked);
+    });
+  });
+
+  // Expose for console testing
+  try { window.__push = { subscribeIfNeeded, unsubscribeIfAny, setNotify }; } catch {}
+})();
