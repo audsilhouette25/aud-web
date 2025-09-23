@@ -70,8 +70,10 @@
   };
 
   const getNS = () => {
-    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
-    catch { return "default"; }
+    try {
+      const ns = (window.__STORE_NS || localStorage.getItem("auth:userns") || "default");
+      return String(ns).trim().toLowerCase();
+    } catch { return "default"; }
   };
 
   /* [PATCH][ADD-ONLY] Ensure user-namespace (NS) before push subscribe on me page */
@@ -1881,6 +1883,11 @@
 
     window.addEventListener("auth:state",        refreshQuickCounts);
     window.addEventListener("store:ns-changed",  refreshQuickCounts);
+    // [ADD] me.js — 스토어 변경 이벤트를 들을 때마다 빠르게 카운트 리프레시
+    window.addEventListener("itemLikes:changed",       () => window.__meCountsRefresh?.());
+    window.addEventListener("label:votes-changed",     () => window.__meCountsRefresh?.());
+    window.addEventListener("label:collected-changed", () => window.__meCountsRefresh?.());
+    window.addEventListener("jib:collection-changed",  () => window.__meCountsRefresh?.());
 
     // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
