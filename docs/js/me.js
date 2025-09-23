@@ -19,6 +19,8 @@
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
 
+  const PAGE_T0 = Date.now();ㄴ
+
   const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
 
   // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
@@ -660,7 +662,17 @@
   const __recentNotify = new Map(); // tag -> timestamp(ms)
   const __RECENT_TTL = 4000; // 4초 내 동일 tag 차단 (원하면 2~5초로 조절)
   function pushNotice(text, sub = "", opt = {}) {
+    // OFF 상태일 때: 큐에만 적재(표시는 하지 않음), 네이티브는 조건 충족 시만
     if (!__replayMode && !isNotifyOn()) {
+      try {
+        enqueueNotice({
+          text: String(text || ""),
+          sub: String(sub || ""),
+          tag: opt?.tag || "",
+          data: opt?.data || null,
+          ts: Date.now(),
+        });
+      } catch {}
       try { if (!opt?.silent) maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
       return;
     }
@@ -864,6 +876,9 @@
             try { await ensureNativePermission(); } catch {}
           }
           ensureSocket();
+          // ❶ 부팅 중/오프라인 동안 놓친 like/vote를 '스냅샷' 비교로 합성해 푸시
+          try { await reconcileMissedWhileAway({ maxItems: 100, concurrency: 4 }); } catch {}
+          // ❷ OFF 동안 큐에 쌓인 개별 알림 재생(최신 N개만, 너무 많으면 요약)
           try { await flushQueuedNotices(); } catch {}
         }
         // OFF로 바꾸면 이후 알림은 enqueueNotice()로 큐에만 적재됨
@@ -1765,6 +1780,12 @@
         const m = e?.data; if (!m || m.kind !== "feed:event") return;
         const { type, data } = m.payload || {};
         if (!type) return;
+
+        // ▶ 첫 1.2초 동안은 seed/오래된 이벤트 무시(진입 즉시 중복 알림 방지)
+        if (Date.now() - PAGE_T0 < 1200) {
+          const t = Number(ts || data?.ts || 0);
+          if (!t || t < PAGE_T0 - 5000) return;
+        }
 
         // 2) 원격(다른 사람이 한) 행동 → 알림 (소켓 미연결/다른 탭만 mine 열려 있을 때 대비)
         //    mine.js 쪽에서 1차 필터링하지만, 여기서도 내 게시물인지 2차 방어
