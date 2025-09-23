@@ -1464,6 +1464,28 @@
     // 서버 권위 카운트 병합
     if (typeof r.likes === 'number') {
       try { window.setLikeFromServer?.(id, r.liked, r.likes); } catch {}
+
+    // ✅ Web Push: when user likes (optimistic resolved), notify owner NS
+    try {
+      if (wantLike === true) {
+        const sel = `.feed-card[data-id="${CSS.escape(String(id))}"]`;
+        const art = document.querySelector(sel);
+        const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || ns || 'default')
+                          .toString().trim().toLowerCase();
+        // Fire-and-forget
+        fetch(toAPI('/api/push/emit'), {
+          method: 'POST', credentials:'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ns: ownerNS,
+            title: '좋아요가 달렸습니다',
+            body:  '내 게시물에 누군가 좋아요를 눌렀습니다.',
+            url:   '/mine.html',
+            tag:   `like:${id}`
+          })
+        }).catch(()=>{});
+      }
+    } catch {}
       try { window.renderCountFromStore?.(id); } catch {}
     }
     return { liked: (typeof r.liked==='boolean'? r.liked : null),
@@ -2193,6 +2215,25 @@
         }
       }
 
+
+    // ✅ Web Push: vote action notification
+    try {
+      const sel = `.feed-card[data-id="${CSS.escape(String(pid))}"]`;
+      const art = document.querySelector(sel);
+      const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || getNS() || 'default')
+                        .toString().trim().toLowerCase();
+      fetch(toAPI('/api/push/emit'), {
+        method: 'POST', credentials:'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ns: ownerNS,
+          title: '투표가 업데이트되었습니다',
+          body:  '내 게시물에 새 투표가 기록되었습니다.',
+          url:   '/mine.html',
+          tag:   `vote:${pid}`
+        })
+      }).catch(()=>{});
+    } catch {}
       let j = {};
       try { if (r.status !== 204) j = await r.json(); } catch {}
       if (r.ok) {
