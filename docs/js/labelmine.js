@@ -2771,7 +2771,7 @@ function goMineAfterShare(label = getLabel()) {
     const pick  = document.createElement("button"); pick.className = "feedc__pick"; pick.type="button"; pick.textContent = "이미지 선택";
     chooser.append(hint, pick);
     const stageImg = document.createElement("img");
-    stage.append(dummy, chooser, stageImg);
+    stage.append(dummy, chooser, stageImg); 
     left.append(stage);
 
     const right = document.createElement("div"); right.className = "im-right";
@@ -2779,26 +2779,36 @@ function goMineAfterShare(label = getLabel()) {
     const avatar= document.createElement("div"); avatar.className= "im-acct-avatar";
     const name  = document.createElement("div"); name.className  = "im-acct-name"; name.textContent = "You";
     acct.append(avatar, name);
+    
+    const caption = document.createElement("textarea"); caption.className = "im-caption"; caption.placeholder = "문구 입력..."; caption.maxLength = 300;
+    const meta = document.createElement("div"); meta.className = "im-cap-meta";
+    const mR = document.createElement("span"); mR.textContent = "0 / 300";
+    caption.addEventListener("input", ()=>{ mR.textContent = `${caption.value.length} / 300`; });
+    meta.append(mR);
 
-    // --- [프로필 즉시 주입: labelmine_avatar와 동일 전략] -----------------
+    const attach = document.createElement("div"); attach.className = "im-attach";
+    const label  = document.createElement("label"); label.className = "feedc__attach"; label.textContent = "컴퓨터에서 선택";
+    const fileInput = document.createElement("input"); fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.className = "feedc__file";
+    label.append(fileInput); attach.append(label);
 
-    // ② 이니셜 SVG 생성(네트워크 요청 없음)
-    function initialsOf(name='member'){
-      const parts = String(name).trim().split(/\s+/).filter(Boolean);
-      const init  = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-      return (init || (name[0] || 'U')).toUpperCase().slice(0, 2);
-    }
-    function svgAvatar(name='member'){
-      let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0;
-      const hue = Math.abs(h)%360;
-      const bg  = `hsl(${hue},75%,85%)`, fg=`hsl(${hue},60%,28%)`, txt=initialsOf(name);
-      return 'data:image/svg+xml;utf8,'+encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-          <rect width="80" height="80" rx="40" fill="${bg}"/>
-          <text x="50%" y="54%" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial"
-                font-size="32" font-weight="600" fill="${fg}" text-anchor="middle">${txt}</text>
-        </svg>`);
-    }
+    let bgHex = '#FFFFFF';
+    const applyBg = (c) => { left.style.background = c; stage.style.background = c; bgHex = c; };
+    const picker  = buildColorPicker({ onChange: (hex)=> applyBg(hex) });
+    applyBg('#FFFFFF');
+
+    right.append(acct, caption, meta, attach, picker.el);
+
+    const globalClose = document.createElement("button");
+    globalClose.className = "im-head-close";
+    globalClose.type = "button";
+    globalClose.setAttribute("aria-label","닫기");
+    globalClose.innerHTML = '<span class="im-x"></span>';
+
+    body.append(left, right);
+    shell.append(head, body);
+    back.append(shell, globalClose);
+    document.body.append(back);
+
 
     // ③ 현재 사용자 정보로 아바타/이름 결정 (동기화 전에 1차 즉시 주입)
     (async () => {
@@ -2830,37 +2840,12 @@ function goMineAfterShare(label = getLabel()) {
       }
     })();
 
-    const caption = document.createElement("textarea"); caption.className = "im-caption"; caption.placeholder = "문구 입력..."; caption.maxLength = 300;
-    const meta = document.createElement("div"); meta.className = "im-cap-meta";
-    const mR = document.createElement("span"); mR.textContent = "0 / 300";
-    caption.addEventListener("input", ()=>{ mR.textContent = `${caption.value.length} / 300`; });
-    meta.append(mR);
-
-    const attach = document.createElement("div"); attach.className = "im-attach";
-    const label  = document.createElement("label"); label.className = "feedc__attach"; label.textContent = "컴퓨터에서 선택";
-    const fileInput = document.createElement("input"); fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.className = "feedc__file";
-    label.append(fileInput); attach.append(label);
-
-    // 배경색
-    let bgHex = '#FFFFFF';
-    const applyBg = (c) => { left.style.background = c; stage.style.background = c; bgHex = c; };
-    const picker  = buildColorPicker({ onChange: (hex)=> applyBg(hex) });
-    applyBg('#FFFFFF');
-
-    right.append(acct, caption, meta, attach, picker.el);
-
-    // 글로벌 닫기
-    const globalClose = document.createElement("button");
-    globalClose.className = "im-head-close";
-    globalClose.type = "button";
-    globalClose.setAttribute("aria-label","닫기");
-    globalClose.innerHTML = '<span class="im-x"></span>';
-
-    // 조립
-    body.append(left, right);
-    shell.append(head, body);
-    back.append(shell, globalClose);
-    document.body.append(back);
+    (async () => {
+      try {
+        const a = await getAuthorMeta();
+        if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
+      } catch {}
+    })();
 
     // 상태
     const state = { blob:null, w:0, h:0 };
