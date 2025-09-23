@@ -19,8 +19,6 @@
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
 
-  const PAGE_T0 = Date.now();ㄴ
-
   const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
 
   // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
@@ -1780,12 +1778,6 @@
         const m = e?.data; if (!m || m.kind !== "feed:event") return;
         const { type, data } = m.payload || {};
         if (!type) return;
-
-        // ▶ 첫 1.2초 동안은 seed/오래된 이벤트 무시(진입 즉시 중복 알림 방지)
-        if (Date.now() - PAGE_T0 < 1200) {
-          const t = Number(ts || data?.ts || 0);
-          if (!t || t < PAGE_T0 - 5000) return;
-        }
 
         // 2) 원격(다른 사람이 한) 행동 → 알림 (소켓 미연결/다른 탭만 mine 열려 있을 때 대비)
         //    mine.js 쪽에서 1차 필터링하지만, 여기서도 내 게시물인지 2차 방어
