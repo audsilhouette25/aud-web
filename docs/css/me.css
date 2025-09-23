@@ -448,16 +448,16 @@ progress#m-rate-bar::-webkit-progress-value{
 .switch.icon{
   width:auto; height:auto;
   display:inline-flex; align-items:center; justify-content:center;
-  padding:6px;
+  padding:4px;
   border-radius:10px;
   background: transparent;
   cursor:pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .switch.icon .notify-icon{
-  inline-size: 24px;
-  block-size: 24px;
-  flex: 0 0 24px;
+  inline-size: 18px;
+  block-size: 18px;
+  flex: 0 0 18px;
   background: center / contain no-repeat var(--ico-bell-off);
 }
 .switch.icon input:checked ~ .notify-icon{
