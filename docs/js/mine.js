@@ -3052,6 +3052,39 @@
       }
 
       const art = content.querySelector(".feed-card");
+      // === Tall(1:2) 전달: 그리드 카드의 data-ar 값을 모달로 복사 ===
+      try {
+        const srcCard = document.querySelector(`.feed-card[data-id="${String(it.id)}"]`);
+        const ar = srcCard?.dataset?.ar || "";
+        if (ar) {
+          // pm-sheet에 상태 부여 → CSS 변수를 통해 레이아웃이 자동 조정
+          sheet?.setAttribute("data-ar", ar);
+          // (참조 용도) 모달 내 카드에도 동일 마킹
+          art?.setAttribute("data-ar", ar);
+        } else {
+          sheet?.removeAttribute("data-ar");
+          art?.removeAttribute("data-ar");
+        }
+      } catch {}
+
+      // === Tall(1:2) 동적 판별 보강: srcCard에 마킹이 없던 경우 대비 ===
+      try {
+        const imgEl = content.querySelector(".pm-left .media img");
+        if (imgEl) {
+          const applyIfTall = () => {
+            const nw = Number(imgEl.naturalWidth || 0);
+            const nh = Number(imgEl.naturalHeight || 0);
+            if (nw > 0 && nh > 0 && (nw / nh) <= 0.55) { // 1:2(=0.5) 관용치
+              sheet?.setAttribute("data-ar", "1:2");
+              const art2 = content.querySelector(".feed-card");
+              art2?.setAttribute("data-ar", "1:2");
+            }
+          };
+          if (imgEl.complete) applyIfTall();
+          else imgEl.addEventListener("load", applyIfTall, { once: true });
+        }
+      } catch {}
+
       try { window.__hookA11yLikes?.(art); } catch {}
 
       try { upgradeHeartIconIn(art); Avatar.install(art); } catch {}

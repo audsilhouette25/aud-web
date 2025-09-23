@@ -3392,23 +3392,33 @@ function goMineAfterShare(label = getLabel()) {
       let sel = await openGalleryPicker(); // { blob, w, h }
 
       while (true) {
-        // 2) 크롭(현재 사양은 미리보기 단계)
-        const cropped = await openCropModal(sel); // { blob, w, h }
+        // 2) 크롭 단계
+        let cropped = await openCropModal(sel); // { blob, w, h } 또는 { back:true, ... }
 
-        // 3) 작성(Share) — 뒤로가면 back 신호를 줌
+        // ◀ Crop에서 '뒤로'를 누른 경우: 갤러리(Step1)로 복귀
+        if (cropped && cropped.back) {
+          try {
+            sel = await openGalleryPicker();     // 새로 선택
+          } catch {
+            return;                              // 갤러리에서 취소하면 종료
+          }
+          continue;                               // 다시 Crop으로
+        }
+
+        // 3) 작성(Compose) 단계
         const res = await openComposeModal(cropped);
 
         if (res === true) {
-          // Share 완료
+          // 업로드까지 완료
           return;
         }
         if (res && res.back) {
-          // ← Compose에서 뒤로: 직전 이미지로 “크롭” 다시
+          // Compose에서 '뒤로': 직전 이미지로 크롭 재진입
           sel = { blob: res.blob, w: res.w, h: res.h };
           continue;
         }
-        // 그 외(취소 등) 종료
-        return;
+
+        return; // 취소 등
       }
     } catch (e) {
       // 취소가 아니면 1-스텝 폴백

@@ -849,6 +849,35 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   .post-modal--split .pm-right-head .account{ gap: 8px; } /* 큰 화면에서 8px로 살짝 여유 */
 }
 
+/* === Tall(1:2) in Post Modal — keep height, shrink width ================== */
+/* 1) 좌측 칼럼 폭을 고정 높이의 절반으로 (단, 최소폭 보호) */
+.post-modal .pm-sheet[data-ar="1:2"]{
+  --left-w: max(var(--pm-left-min, 300px),
+               min(var(--side-by-width), calc(var(--pm-fixed-h) / 2)));
+}
+
+/* 2) 좌측 미디어 박스를 세로 기준으로 맞춤: 높이를 고정, 가로는 자동 */
+.post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
+  width: auto;                       /* 정사각 기본(width) → Tall에서는 height 기준 */
+  height: var(--pm-fixed-h);         /* 모달 고정 높이와 동일 */
+  aspect-ratio: 1 / 2;               /* 1:2 비율 */
+}
+
+/* 3) Tall일 때는 전체가 잘 보이도록 contain */
+.post-modal .pm-sheet[data-ar="1:2"] .pm-left .media :is(img,video){
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* (선택) 모바일 스택 전환 구간에서도 Tall 규칙이 우선 적용되도록 보강 */
+@media (max-width: 750px){
+  .post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
+    max-width: calc(var(--pm-fixed-h, 92dvh) / 2);
+    aspect-ratio: 1 / 2;
+  }
+}
+
 /* === Tall(1:2) 카드 전용 규칙 === */
 .feed-card[data-ar="1:2"] .media{
   aspect-ratio: 1 / 2;
