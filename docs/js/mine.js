@@ -1473,14 +1473,14 @@
         const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || ns || 'default')
                           .toString().trim().toLowerCase();
         // Fire-and-forget
-        fetch(toAPI('/api/push/emit'), {
+        fetch(toAPI('/api/push/test'), {
           method: 'POST', credentials:'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ns: ownerNS,
             title: '좋아요가 달렸습니다',
             body:  '내 게시물에 누군가 좋아요를 눌렀습니다.',
-            url:   '/mine.html',
+            data:  { url: '/mine.html' },
             tag:   `like:${id}`
           })
         }).catch(()=>{});
