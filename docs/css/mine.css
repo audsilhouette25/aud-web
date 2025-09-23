@@ -296,9 +296,8 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 ===================================================================== */
 .feed { width: 100%; max-width: 900px; }
 .feed-grid{
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
+  column-count: 3;       /* 3개의 "행"(=열) 강제 유지 */
+  column-gap: 1px;       /* 기존 gap과 동일하게 1px */
 }
 @media (max-width: 480px){ .feed-grid{ --feed-col: 200px; } }
 .feed{ width: 100%; margin-top: var(--feed-top-gap); margin-bottom: var(--feed-bottom-gap); }
@@ -310,6 +309,9 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   position: relative; overflow: hidden;
   background: #f6f6f6;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    break-inside: avoid;
+  margin: 0 0 1px;       /* 아래쪽으로만 1px 간격 (grid의 gap 대체) */
+  width: 100%;
 }
 .feed-card .media{
   position: relative; width: 100%; aspect-ratio: 1 / 1;
