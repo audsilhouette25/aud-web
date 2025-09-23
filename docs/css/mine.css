@@ -517,7 +517,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   --stack-threshold: 480px;
 
   /* ---- 고정 높이 + 가로는 화면에 따라 축소 ---- */
-  --pm-fixed-h: var(--pm-min) + 100px;
+  --pm-fixed-h: calc(var(--pm-min) + 100px);
   --sheet-w: min(96vw, var(--sheet-w-max));
   --side-by-width: calc(var(--sheet-w) - var(--pm-right) - var(--pm-gap));
   /* 좌측 실제 가로폭: 화면 가로제약과 고정높이 중 작은 값,

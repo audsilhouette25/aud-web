@@ -154,6 +154,36 @@ const IMG_SRC = {
   
   function updateStep3View(patch={}){
     const latest = pickLatest(readLatestProfile() || {}, patch || {});
+        // [PATCH-1] Avatar placeholder shim (inserted once; used when avatarUrl is empty)
+    if (!window.Avatar || typeof window.Avatar.svgPlaceholder !== "function") {
+      (function () {
+        function initialsOf(name = "") {
+          const parts = String(name).trim().split(/\s+/).filter(Boolean);
+          const init = (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
+          return (init || (name[0] || "U")).toUpperCase().slice(0, 2);
+        }
+        function hashedHue(s = "") {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+          return Math.abs(h) % 360;
+        }
+        function svgPlaceholder(name = "member") {
+          const hue = hashedHue(name);
+          const bg  = `hsl(${hue},75%,85%)`;
+          const fg  = `hsl(${hue},60%,28%)`;
+          const txt = initialsOf(name);
+          const svg =
+            `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'>
+              <rect width='80' height='80' rx='16' fill='${bg}'/>
+              <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle'
+                    font-family='Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial'
+                    font-size='30' font-weight='700' fill='${fg}'>${txt}</text>
+            </svg>`;
+          return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+        }
+        window.Avatar = { svgPlaceholder };
+      })();
+    }
     const name = latest.displayName || latest.name || latest.handle || latest.email || "member";
     let url  = latest.avatarUrl || latest.avatar || latest.picture || "";
     url = url ? toAPI(url) : "";
@@ -186,24 +216,26 @@ const IMG_SRC = {
           img.referrerPolicy = img.referrerPolicy || "no-referrer";
           box.appendChild(img);
         }
-        const next = bust(url, rev);
-        if (next) {
-          if (img.src !== next) img.src = next;
-        }
+        const placeholder = window.Avatar?.svgPlaceholder?.(name) || "";
+        const nextUrl = url ? bust(url, rev) : placeholder;
+        if (nextUrl && img.src !== nextUrl) img.src = nextUrl;
+        img.setAttribute("data-avatar-kind", url ? "url" : "placeholder");
         box.classList.add("has-img");
       });
 
       // 2) 추가로 페이지 내 산발적 아바타 img들도 최신 URL로 동기화
       root.querySelectorAll("img.avatar, img.profile, .avatar-img").forEach(img => {
-        const next = bust(url, rev);
-        if (next) {
+        const placeholder = window.Avatar?.svgPlaceholder?.(name) || "";
+        const nextUrl = url ? bust(url, rev) : placeholder;
+        if (nextUrl) {
           img.referrerPolicy = img.referrerPolicy || "no-referrer";
           img.decoding = img.decoding || "async";
           img.loading  = img.loading  || "lazy";
-          if (img.src !== next) img.src = next;
+          if (img.src !== nextUrl) img.src = nextUrl;
+          img.setAttribute("data-avatar-kind", url ? "url" : "placeholder");
         }
       });
-      });
+    });
   }
   window.updateStep3View = updateStep3View;
 
@@ -268,19 +300,25 @@ window.addEventListener('user:updated', (ev) => {
   ].filter(Boolean);
 
   roots.forEach(root => {
-    // 아바타 이미지 후보(관용적 셀렉터 묶음)
+    // 아바타 이미지 후보(관용적 셀렉터 묶음)  [PATCHED]
+    const name = d.displayName || d.name || d.handle || d.email || "member";
+    const ver  = d.rev ? String(d.rev) : String(Date.now());
+    const bust = (u) => (u ? (u.includes('?') ? `${u}&v=${encodeURIComponent(ver)}` 
+                                               : `${u}?v=${encodeURIComponent(ver)}`) : '');
+    const apiUrl = d.avatarUrl ? toAPI(d.avatarUrl) : null;
+    const nextUrl = apiUrl ? bust(apiUrl) : (window.Avatar?.svgPlaceholder?.(name) || "");
+
     root.querySelectorAll('img.avatar, img.profile, .avatar-img, [data-role="profile-avatar"] img, .im-acct-avatar .avatar-img')
       .forEach(img => {
-        if (d.avatarUrl) {
-          const apiUrl = toAPI(d.avatarUrl);
-          img.src = bust(apiUrl);
-        }
+        if (nextUrl && img.src !== nextUrl) img.src = nextUrl;
+        img.setAttribute("data-avatar-kind", apiUrl ? "url" : "placeholder");
       });
 
     // 이름 갱신
     if (d.displayName) {
       root.querySelectorAll('.name, [data-role="profile-name"]').forEach(el => { el.textContent = d.displayName; });
     }
+
   });
 });
 
