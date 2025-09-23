@@ -48,6 +48,22 @@
   const $btnMore    = () => $("#feed-more");
   const $sentinel   = () => $("#feed-sentinel");
   const $feedScroll = () => document.querySelector("[data-feed-scroll]"); // optional container
+
+  /* === FEED GRID SIZER: 셀 한 칸 높이를 동적으로 설정 =================== */
+  function sizeFeedGridCell(){
+    const grid = document.querySelector("[data-feed-grid]");
+    if (!grid) return;
+    const cs   = getComputedStyle(grid);
+    const gap  = parseFloat(cs.gap || cs.gridRowGap || "0") || 0;
+    const cols = 3;                                    // 3열 고정
+    const w    = grid.clientWidth;
+    const cell = Math.max(1, Math.floor((w - gap * (cols - 1)) / cols));
+    grid.style.setProperty("--cell", `${cell}px`);
+  }
+  window.addEventListener("resize", sizeFeedGridCell);
+  document.addEventListener("DOMContentLoaded", sizeFeedGridCell);
+
+
   // === Tall(1:2) 마킹 유틸 ===
   const TALL_THRESHOLD = 0.55; // 1:2 = 0.5, 관용치 포함
   function markTallByImage(card, img){
@@ -677,6 +693,7 @@
     root.removeAttribute("style");
     regs.forEach(lb => { if (ICONS[lb]) root.appendChild(makeLabelTile(lb)); });
     jibs.forEach(k  => { if (JIBS[k])  root.appendChild(makeJibTile(k));  });
+    requestAnimationFrame(() => { sizeFeedGridCell(); });
   }
   try { window.mineRenderAll = renderAll; } catch {}
 
@@ -1185,6 +1202,20 @@
       // ★ 여기서 카드 마크업을 만든다
       wrap.innerHTML = cardHTML(_it);
       const card = wrap.firstElementChild;
+      
+      // === Tall(1:2) 마킹 + Grid 보정 ===
+      const imgEl = card.querySelector(".media img");
+      if (imgEl){
+        const applyTall = () => { 
+          markTallByImage(card, imgEl);   // 1:2면 data-ar="1:2" 부여
+          sizeFeedGridCell();             // grid-row span 반영하여 레이아웃 보정
+        };
+        if (imgEl.complete) applyTall();
+        else {
+          imgEl.addEventListener("load",  applyTall, { once: true });
+          imgEl.addEventListener("error", applyTall, { once: true });
+        }
+      }
 
       // ★ [넣어둔 블럭 1/3] 캡션 텍스트 주입 (버그 수정: card 참조 순서)
       const cap = card.querySelector('[data-caption]');
@@ -1201,16 +1232,9 @@
         // 1:2 Tall 마킹: 이미지 로드 시 naturalWidth/Height 기준으로 판정
         if (img.complete) {
           markTallByImage(card, img);
-          window.layoutFeedRowwise?.();               // ★ 추가
         } else {
-          img.addEventListener("load", () => {        // ★ 변경
-            markTallByImage(card, img);
-            window.layoutFeedRowwise?.();             // ★ 추가
-          }, { once: true });
-          img.addEventListener("error", () => {
-            markTallByImage(card, img);
-            window.layoutFeedRowwise?.();             // ★ 추가
-          }, { once: true });
+          img.addEventListener("load", () => markTallByImage(card, img), { once: true });
+          img.addEventListener("error", () => markTallByImage(card, img), { once: true });
         }
 
       }, { once: true });
@@ -1244,7 +1268,6 @@
 
     // 그리드에 한 번에 붙임
     grid.appendChild(frag);
-    window.layoutFeedRowwise?.();
 
     // 새로 붙은 id들 소켓 구독 + 유휴시 서버 스냅샷 보정
     if (newIds.length) subscribeItems(newIds);
@@ -3516,84 +3539,5 @@
     // 3) NS가 바뀌면 캐시 분리 — store.js가 이벤트를 쏴줌
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
   })();
-
-  /* =========================================================
-  * Row-wise 3-column layout (1x1, 1x2 지원)
-  * - 문서 순서 그대로: 좌→우, 위→아래
-  * - 1x2는 세로 두 칸(중간 GAP 포함)
-  * ========================================================= */
-  (function(){
-    const GAP  = 1;   // mine.css --gap 과 동일
-    const COLS = 3;   // 기본 3열(요구 사항)
-
-    function layoutFeed() {
-      const root = document.querySelector("[data-feed-grid]");
-      if (!root) return;
-
-      const W = root.clientWidth;
-      const cellW = Math.floor((W - GAP * (COLS - 1)) / COLS);
-      const cellH = cellW;
-
-      const cards = Array.from(root.querySelectorAll(".feed-card"));
-      const occ = []; // occ[row][col] = boolean
-
-      let row = 0, col = 0;
-      let maxRowUsed = -1;
-
-      function fits(r, c, tall){
-        if (c >= COLS) return false;
-        occ[r] ||= [false,false,false];
-        if (occ[r][c]) return false;
-        if (!tall) return true;
-        occ[r+1] ||= [false,false,false];
-        return !occ[r+1][c];
-      }
-
-      function nextSlot(startR, startC, tall){
-        let r = startR, c = startC;
-        for(;;){
-          if (fits(r,c,tall)) return [r,c];
-          c++;
-          if (c >= COLS){ c = 0; r++; }
-        }
-      }
-
-      cards.forEach(card => {
-        const tall = (card.dataset.ar === "1:2");
-        const [r, c] = nextSlot(row, col, tall);
-
-        const x = c * (cellW + GAP);
-        const y = r * (cellH + GAP);
-        const h = tall ? (cellH * 2 + GAP) : cellH;
-
-        card.style.transform = `translate(${x}px, ${y}px)`;
-        card.style.width  = `${cellW}px`;
-        card.style.height = `${h}px`;
-
-        occ[r] ||= [false,false,false];
-        occ[r][c] = true;
-        if (tall) {
-          occ[r+1] ||= [false,false,false];
-          occ[r+1][c] = true;
-          maxRowUsed = Math.max(maxRowUsed, r+1);
-        } else {
-          maxRowUsed = Math.max(maxRowUsed, r);
-        }
-
-        const ncol = c + 1;
-        if (ncol >= COLS){ row = r + 1; col = 0; }
-        else { row = r; col = ncol; }
-      });
-
-      const rows = maxRowUsed + 1;
-      const totalH = rows * cellH + Math.max(0, rows - 1) * GAP;
-      root.style.height = `${Math.max(0, totalH)}px`;
-    }
-
-    window.addEventListener("resize", () => queueMicrotask(layoutFeed));
-    try { window.layoutFeedRowwise = layoutFeed; } catch {}
-    requestAnimationFrame(layoutFeed);
-  })();
-
 
 })();
