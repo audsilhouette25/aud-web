@@ -2809,44 +2809,6 @@ function goMineAfterShare(label = getLabel()) {
     back.append(shell, globalClose);
     document.body.append(back);
 
-
-    // ③ 현재 사용자 정보로 아바타/이름 결정 (동기화 전에 1차 즉시 주입)
-    (async () => {
-      const me = await (window.auth?.getUser?.().catch(()=>null)) || {};
-      const displayName = me.displayName || me.name || me.email || 'member';
-      name.textContent = displayName;
-
-      const rawUrl = me.avatarUrl || me.avatar || me.picture || '';
-      const img = document.createElement('img');
-      img.className = 'avatar-img';
-      img.alt = '';
-      img.decoding = 'async';
-      img.loading = 'lazy';
-      img.referrerPolicy = 'no-referrer';
-
-      if (rawUrl) {
-        const apiUrl = (typeof window.toAPI === 'function') ? window.toAPI(rawUrl) : rawUrl;
-        img.src = apiUrl;
-        avatar.append(img);
-        avatar.classList.add('has-img');
-      } else {
-        img.src = svgAvatar(displayName);
-        avatar.append(img);
-      }
-
-      // 이미 전역 동기화 유틸이 있으므로, 초기 스냅샷으로 한 번 더 보정
-      if (typeof window.updateStep3View === 'function') {
-        window.updateStep3View({});
-      }
-    })();
-
-    (async () => {
-      try {
-        const a = await getAuthorMeta();
-        if (a?.name || a?.handle) name.textContent = a.name || `@${a.handle}`;
-      } catch {}
-    })();
-
     // 상태
     const state = { blob:null, w:0, h:0 };
 
