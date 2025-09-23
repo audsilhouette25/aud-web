@@ -156,13 +156,6 @@
 
     return it;
   }
-  // 작성자 NS 추출: email(소문자) 우선, 없으면 기존 ns/owner_ns/uid 순서로 폴백
-  function nsOf(it) {
-    const email = it?.user?.email ? String(it.user.email).trim().toLowerCase() : "";
-    if (email) return email;
-    const legacy = it?.owner_ns || it?.ns || it?.user?.id || it?.user_id || it?.owner_id || "default";
-    return String(legacy).trim().toLowerCase();
-  }
 
   // Socket.IO 핸들러에서 BC로 중계할 때 접근할 수 있도록 참조 저장
   let __bcFeed = null;
@@ -1002,7 +995,6 @@
   }
 
   // === Like endpoint resolver (gallery 우선, 실패 시 items로 1회 폴백; 메서드 폴백은 POST {like}) ===
-
   const blobURL = (item) => toAPI(`/api/gallery/${encodeURIComponent(item.id)}/blob`);
   const fmtDate = (ts) => {
     try {
