@@ -295,22 +295,40 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
    10) Feed
 ===================================================================== */
 .feed { width: 100%; max-width: 900px; }
+
+/* 🔧 레거시 Grid 무력화: data-속성/클래스 모두 블록으로 고정 */
+[data-feed-grid],
 .feed-grid{
-  column-count: 3;       /* 3개의 "행"(=열) 강제 유지 */
-  column-gap: 1px;       /* 기존 gap과 동일하게 1px */
+  display: block !important;          /* grid 금지, 블록으로 */
+  width: 100%;
+  max-width: 100%;
+  /* 혹시 남아 있을 grid 설정 제거 */
+  grid-template-columns: unset !important;
+  grid-auto-rows: unset !important;
+  place-items: unset !important;
 }
-@media (max-width: 480px){ .feed-grid{ --feed-col: 200px; } }
-.feed{ width: 100%; margin-top: var(--feed-top-gap); margin-bottom: var(--feed-bottom-gap); }
+
+/* ✅ 멀티컬럼 Masonry: 3열 고정 + 빈칸 없이 스택 */
+.feed-grid{
+  column-count: 3;                     /* 3개 열(=사용자 표현의 '3줄') 고정 */
+  column-gap: 1px;                     /* 기존 gap 유지 */
+  column-fill: balance;                /* Safari/Firefox 균형 채움 */
+}
+
 
 /* =====================================================================
    11) Feed Card
 ===================================================================== */
+/* 카드가 열 안에서 쪼개지지 않도록(브라우저 호환 보강) */
 .feed-card{
   position: relative; overflow: hidden;
   background: #f6f6f6;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
-    break-inside: avoid;
-  margin: 0 0 1px;       /* 아래쪽으로만 1px 간격 (grid의 gap 대체) */
+  break-inside: avoid;
+  break-inside: avoid-column;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 1px;                     /* 아래쪽 간격만 */
   width: 100%;
 }
 .feed-card .media{
