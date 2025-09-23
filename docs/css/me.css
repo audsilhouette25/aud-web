@@ -477,11 +477,10 @@ progress#m-rate-bar::-webkit-progress-value{
   max-block-size: calc(var(--notice-h) * 2.5 + var(--notice-gap));
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
-  margin-top : 6px;
 }
 .notice{
   padding:.75rem .9rem;
-  border:1px solid rgba(0,0,0,.06);
+  border:1px solid rgbaㄴ(0,0,0,.06);
   border-radius:12px; background:#fff;
   transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
   animation: noticeIn .18s ease-out both;
