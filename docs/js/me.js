@@ -104,8 +104,6 @@
   })();
 
   /* [PATCH][ADD-ONLY] Prefer username as NS (fallback: email → id)
-   - me 페이지가 사용자 정보를 브로드캐스트/렌더링할 때 username을 auth:userns에 주입
-   - 기존 값이 'default' 이거나 비어있을 때 우선 셋업, 값이 다르면 업데이트
   */
   (() => {
     function pickNSFrom(detail) {
@@ -145,6 +143,80 @@
           localStorage.setItem("auth:userns", ns);
         }
       } catch {}
+    });
+  })();
+
+  /* [PATCH][ADD-ONLY] Auto Web Push: ensure SW + subscription + server upsert on load & NS change */
+  (() => {
+    const toAPI = (u) =>
+      (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
+
+    const b64uToU8 = (s) => {
+      const pad = "=".repeat((4 - (s.length % 4)) % 4);
+      const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(b64);
+      const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    };
+
+    async function ensureSW() {
+      // ./sw.js 가 이미 존재하고 scope './' 인 구조이므로 그대로 사용
+      const reg = await (navigator.serviceWorker.getRegistration("./")
+        || navigator.serviceWorker.register("./sw.js", { scope: "./" }));
+      if (!reg.active) await navigator.serviceWorker.ready;
+      return reg;
+    }
+
+    async function ensureSubscribedUpsert() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+      if (Notification.permission !== "granted") return false;
+
+      const reg = await ensureSW();
+
+      // 구독이 없으면 생성
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const j = await fetch(toAPI("/api/push/public-key"), { credentials: "include" })
+          .then(r => r.json()).catch(()=>null);
+        const vapid = j?.vapidPublicKey;
+        if (!vapid) return false;
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: b64uToU8(vapid)
+        });
+      }
+
+      // 내 NS로 서버 업서트
+      const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+      await fetch(toAPI("/api/push/subscribe"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ns, subscription: sub })
+      }).catch(()=>{});
+      return true;
+    }
+
+    // 1) DOMContentLoaded 시, 권한이 'granted'면 자동 업서트
+    document.addEventListener("DOMContentLoaded", () => {
+      if (Notification.permission === "granted") {
+        ensureSubscribedUpsert();
+      }
+    });
+
+    // 2) user:updated(NS/프로필 변경) 이벤트 발생 시에도 자동 업서트
+    window.addEventListener("user:updated", () => {
+      if (Notification.permission === "granted") {
+        ensureSubscribedUpsert();
+      }
+    });
+
+    // 3) 페이지가 다시 보일 때(백그라운드→포그라운드) 한 번 더 보수적으로 업서트
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && Notification.permission === "granted") {
+        ensureSubscribedUpsert();
+      }
     });
   })();
 
