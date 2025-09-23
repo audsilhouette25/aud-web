@@ -2132,3 +2132,20 @@
   });
 })();
 
+
+/* ===================================================================
+ * SW bootstrap (me.html) — safe for GH Pages subpath
+ * Registers ./sw.js with scope './' if not already registered
+ * =================================================================== */
+(() => {
+  "use strict";
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.getRegistration("./").then((existing) => {
+    if (existing) return;
+    navigator.serviceWorker.register("./sw.js", { scope: "./" })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => console.log("[sw] registered (me.js)"))
+      .catch((e) => console.log("[sw] register failed (me.js):", e));
+  });
+})();
+

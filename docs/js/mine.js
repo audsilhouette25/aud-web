@@ -3570,3 +3570,145 @@
   } catch {}
 })();
 
+
+/* ===================================================================
+ * Web Push controls + button binding (mine.js)
+ * - Button selectors: [data-role="notify-btn"], #notify-btn, #notify-toggle
+ * - Relative SW registration: ./sw.js with scope './' (GH Pages safe)
+ * - Idempotent and append-only
+ * =================================================================== */
+(() => {
+  "use strict";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  // 0) Helpers ---------------------------------------------------------
+  const VAPID_PUBLIC_KEY = (window.VAPID_PUBLIC_KEY
+    || document.querySelector('meta[name="vapid-public-key"]')?.content
+    || "").trim();
+
+  async function ensureCSRF() {
+    try {
+      if (window.auth?.getCSRF) return await window.auth.getCSRF();
+      const r = await fetch("/auth/csrf", { credentials: "include", cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      return j?.csrfToken || null;
+    } catch { return null; }
+  }
+  async function postJSON(url, body) {
+    const t = await ensureCSRF();
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (t) { headers.set("X-CSRF-Token", t); headers.set("X-XSRF-TOKEN", t); }
+    const res = await fetch(url, { method: "POST", credentials: "include", headers, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(()=> ({}));
+  }
+  async function delJSON(url, body) {
+    const t = await ensureCSRF();
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (t) { headers.set("X-CSRF-Token", t); headers.set("X-XSRF-TOKEN", t); }
+    const res = await fetch(url, { method: "DELETE", credentials: "include", headers, body: JSON.stringify(body||{}) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(()=> ({}));
+  }
+  async function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw     = atob(base64);
+    const out     = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  const getNS = () => {
+    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
+    catch { return "default"; }
+  };
+  const SUB_KEY = () => `push:sub:${getNS()}`;
+
+  // 1) SW registration (GH Pages subpath) ------------------------------
+  async function registerSW() {
+    const existing = await navigator.serviceWorker.getRegistration("./");
+    if (existing) return existing;
+    const reg = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    await navigator.serviceWorker.ready;
+    return reg;
+  }
+
+  // 2) Subscription controls ------------------------------------------
+  async function enablePush() {
+    if (!VAPID_PUBLIC_KEY) {
+      console.log("[push] VAPID public key missing (meta or window.VAPID_PUBLIC_KEY)");
+      return false;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") return false;
+    const reg = await registerSW();
+    const key = await urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    try { localStorage.setItem(SUB_KEY(), sub?.endpoint || "1"); } catch {}
+
+    const ns = getNS();
+    await postJSON("/api/push/subscribe", { ns, subscription: sub });
+    return true;
+  }
+
+  async function disablePush() {
+    const reg = await navigator.serviceWorker.getRegistration("./");
+    const sub = await reg?.pushManager.getSubscription();
+    const endpoint = sub?.endpoint || localStorage.getItem(SUB_KEY()) || null;
+    if (endpoint) await delJSON("/api/push/subscribe", { endpoint });
+    if (sub) await sub.unsubscribe();
+    try { localStorage.removeItem(SUB_KEY()); } catch {}
+    return true;
+  }
+
+  // expose (idempotent)
+  try {
+    window.pushNotify = window.pushNotify || {};
+    if (!window.pushNotify.enable)  window.pushNotify.enable  = enablePush;
+    if (!window.pushNotify.disable) window.pushNotify.disable = disablePush;
+    if (!window.pushNotify.test)    window.pushNotify.test    = (msg="테스트 알림입니다.") => {
+      const ns = getNS();
+      return postJSON("/api/push/test", { ns, title: "aud", body: msg, data: { url: location.href } });
+    };
+  } catch {}
+
+  // 3) Button wiring ---------------------------------------------------
+  const BTN_SEL = '[data-role="notify-btn"], #notify-btn, #notify-toggle';
+  function $btn(){ return document.querySelector(BTN_SEL); }
+
+  function setUI(state){ // 'on' | 'off' | 'busy'
+    const el = $btn(); if (!el) return;
+    el.disabled = (state === "busy");
+    el.dataset.state = state;
+    if (el.type === "checkbox") el.checked = (state === "on");
+    else el.textContent = (state === "on") ? "알림 ON" : "알림 OFF";
+  }
+
+  async function refreshUI() {
+    const reg = await navigator.serviceWorker.getRegistration("./");
+    const sub = await reg?.pushManager.getSubscription();
+    const enabled = (Notification.permission === "granted") && !!sub;
+    setUI(enabled ? "on" : "off");
+  }
+
+  async function handleToggle(ev){
+    setUI("busy");
+    try {
+      const reg = await registerSW();
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) await enablePush();
+      else await disablePush();
+    } finally {
+      await refreshUI();
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const el = $btn();
+    if (!el) return;
+    const evt = (el.type === "checkbox") ? "change" : "click";
+    el.addEventListener(evt, handleToggle);
+    refreshUI();
+  });
+})();
+
