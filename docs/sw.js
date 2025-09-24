@@ -2,6 +2,7 @@
 // -----------------------------------------------------------
 self.addEventListener("install", (e) => { self.skipWaiting(); });
 self.addEventListener("activate", (e) => { self.clients.claim(); });
+self.__recentTags = self.__recentTags || new Map();
 
 // Local notifications from page
 self.addEventListener("message", (ev) => {
@@ -28,13 +29,30 @@ self.addEventListener("push", (event) => {
   try { payload = event.data.json() || {}; } catch {
     payload = { title: "aud:", body: event.data.text() };
   }
+  const tag = String(payload.tag || "");
+  const typ = String(payload?.data?.type || "");
+
+  // ★ like/vote 만 허용
+  const allowed =
+    tag.startsWith("like:") || tag.startsWith("vote:") ||
+    typ === "item:like"     || typ === "vote:update";
+  if (!allowed) return;
+
+  // ★ 10초 내 동일 태그 중복 차단
+  const now = Date.now();
+  if (tag) {
+    const last = self.__recentTags.get(tag) || 0;
+    if (now - last < 10_000) return;
+    self.__recentTags.set(tag, now);
+  }
+
   const title = payload.title || "aud:";
   const body  = payload.body  || "";
   const opt = {
     body,
     icon: "./asset/icon-192.png",
     badge: "./asset/badge-72.png",
-    tag: payload.tag || undefined,
+    tag: tag || undefined,
     data: payload.data || null,
     renotify: !!payload.renotify,
     actions: payload.actions || []

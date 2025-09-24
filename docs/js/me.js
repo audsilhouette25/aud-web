@@ -150,6 +150,15 @@
 
   /* [PATCH][ADD-ONLY] Auto Web Push: ensure SW + subscription + server upsert on load & NS change */
   (() => {
+    // === Debounce for push upsert ===
+    let __lastUpsertAt = 0;
+    function ensureSubscribedUpsertDebounced(gapMs = 60_000) { // 60s
+      const now = Date.now();
+      if (now - __lastUpsertAt < gapMs) return false;
+      __lastUpsertAt = now;
+      return ensureSubscribedUpsert();
+    }
+
     const toAPI = (u) =>
       (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
 
@@ -202,22 +211,25 @@
 
     // 1) DOMContentLoaded 시, 권한이 'granted'면 자동 업서트
     document.addEventListener("DOMContentLoaded", () => {
-      if (Notification.permission === "granted") {
-        ensureSubscribedUpsert();
+      const on = (localStorage.getItem('me:notify-enabled') === '1');
+      if (on && Notification.permission === "granted") {
+        ensureSubscribedUpsertDebounced(60_000);
       }
     });
 
     // 2) user:updated(NS/프로필 변경) 이벤트 발생 시에도 자동 업서트
     window.addEventListener("user:updated", () => {
-      if (Notification.permission === "granted") {
-        ensureSubscribedUpsert();
+      const on = (localStorage.getItem('me:notify-enabled') === '1');
+      if (on && Notification.permission === "granted") {
+        ensureSubscribedUpsertDebounced(60_000);
       }
     });
 
     // 3) 페이지가 다시 보일 때(백그라운드→포그라운드) 한 번 더 보수적으로 업서트
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && Notification.permission === "granted") {
-        ensureSubscribedUpsert();
+      const on = (localStorage.getItem('me:notify-enabled') === '1');
+      if (document.visibilityState === "visible" && on && Notification.permission === "granted") {
+        ensureSubscribedUpsertDebounced(60_000);
       }
     });
   })();
