@@ -2389,14 +2389,9 @@ function goMineAfterShare(label = getLabel()) {
 
       if (!items.length){
         const empty = document.createElement("div");
-        empty.className = "sdf-empty";
-        empty.textContent = "No image";              // ← 문구 변경
-        empty.setAttribute("aria-live", "polite");   // 접근성
-        // 회색(그레이) 톤 & 간격(디폴트 스타일이 없을 가능성 대비, 인라인로 안전 적용)
-        empty.style.color = "#9AA0A6";
-        empty.style.textAlign = "center";
-        empty.style.padding = "48px 0";
-        empty.style.fontWeight = "500";
+        empty.className = "sdf-empty is-center";   // ← 인라인 대신 CSS 모디파이어 사용
+        empty.setAttribute("aria-live", "polite");
+        empty.textContent = "No image";
         body.append(empty);
       } else {
         const grid = document.createElement("div");
