@@ -2582,4 +2582,44 @@
       while (ul.children.length > 30) ul.removeChild(ul.lastChild);
     }
   }, { passive: true });
+
+  /* === In-app notification mirror (window & SW listeners + list render) === */
+(() => {
+  // 컨테이너 생성
+  function ensureList() {
+    let ul = document.getElementById('notify-list');
+    if (!ul) {
+      ul = document.createElement('ul');
+      ul.id = 'notify-list';
+      ul.className = 'notify-list';
+      ul.style.cssText = 'position:fixed;right:16px;bottom:16px;max-width:360px;max-height:50vh;overflow:auto;margin:0;padding:0;list-style:none;z-index:99999';
+      (document.querySelector('.panel.notify') || document.body).appendChild(ul);
+    }
+    return ul;
+  }
+  const esc = s => String(s||'').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+  function render(d){
+    const ul = ensureList();
+    const li = document.createElement('li');
+    li.className = 'notice';
+    li.style.cssText = 'background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:10px 12px;margin:8px 0;box-shadow:0 6px 20px rgba(0,0,0,.08)';
+    li.innerHTML = `<div style="font-weight:600">${esc(d.title||'알림')}<span style="float:right;opacity:.6">now</span></div><div style="opacity:.8;margin-top:4px">${esc(d.body||'')}</div>`;
+    ul.prepend(li);
+    while (ul.children.length > 30) ul.removeChild(ul.lastChild);
+  }
+  // 공용 핸들러
+  const onPushMsg = (ev) => {
+    const d = ev?.data || {};
+    if (d.__fromSW === 'push') render(d);
+  };
+  // 중복 제거 후 리스너 등록(두 경로 모두)
+  window.__inAppMirrorA && window.removeEventListener('message', window.__inAppMirrorA);
+  window.__inAppMirrorA = onPushMsg;
+  window.addEventListener('message', onPushMsg, { passive:true });
+
+  navigator.serviceWorker.__inAppMirrorB && navigator.serviceWorker.removeEventListener('message', navigator.serviceWorker.__inAppMirrorB);
+  navigator.serviceWorker.__inAppMirrorB = onPushMsg;
+  navigator.serviceWorker.addEventListener('message', onPushMsg, { passive:true });
+})();
+
 })();
