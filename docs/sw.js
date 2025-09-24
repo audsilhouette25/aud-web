@@ -16,11 +16,11 @@ self.addEventListener('message', (event) => {
   const payload = msg.payload || {};
   const tag = String(payload?.opt?.tag || '');
 
-  // ★ 좋아요/투표만
+  // ★ 허용: like:/vote: 만
   const allowed = /^like:|^vote:/.test(tag);
   if (!allowed) return;
 
-  // ★ 10초 내 동일 tag 중복 차단
+  // ★ 10초 내 동일 tag 디듀프
   const now = Date.now();
   if (tag) {
     const last = self.__dedup[tag] || 0;
@@ -42,7 +42,6 @@ self.addEventListener('message', (event) => {
     payload.opt || {}
   );
 
-  // message 이벤트에는 waitUntil이 없으니 그냥 호출
   self.registration.showNotification(title, opt);
 });
 
