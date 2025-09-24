@@ -3388,13 +3388,22 @@
     // BroadcastChannel
     try {
       const enrichedTs = (typeof enriched === 'object' && enriched) ? { ...enriched, ts: Date.now() } : enriched;
-      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: enrichedTs } });
+      const nowTs = Date.now();
+      const dataWithTs = (enriched && typeof enriched === 'object')
+        ? { ...enriched, ts: enriched.ts || nowTs }
+        : { ts: nowTs };
+      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: dataWithTs } });
     } catch {}
 
     // localStorage 폴백 (다른 탭의 storage 이벤트가 받음)
     try {
-      const ns = (typeof getNS === 'function' ? getNS() : 'default');
-      localStorage.setItem(`notify:self:${ns}`, JSON.stringify({ type, data: enriched, t: Date.now() }));
+      const nowTs = Date.now();
+      localStorage.setItem(key, JSON.stringify({
+        type,
+        ts: nowTs,                 // ★ 최상위 ts 추가
+        data: { ...(enriched||{}), ts: (enriched?.ts || nowTs) },  // ★ data.ts도 보강
+        t: nowTs                   // (기존 호환)
+      }));
     } catch {}
   }
 

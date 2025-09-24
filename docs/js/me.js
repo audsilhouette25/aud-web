@@ -1861,10 +1861,10 @@
           const p = parseJSON(e.newValue, null);
           const t = String(p?.type || "");
           const d = p?.data || {};
-          // ★★★ 시각 가드: 과거 이벤트/재방송 차단
-          const evtTs = Number(p?.ts || p?.t || d?.ts || 0);
-          const BASE  = __CONNECTED_AT || __PAGE_AT;   // 소켓이 없으면 페이지 개시 시각 기준
-          if (!evtTs || evtTs < BASE) return;          // ts 없거나 과거면 알림 처리 금지
+          // ★★★ 시각 가드: 스토리지 폴백 경로
+          const base  = (window.__CONNECTED_AT || window.__PAGE_AT || Date.now());
+          const evtTs = Number(p?.ts || p?.t || d?.ts || d?.time || d?.updated_at || d?.created_at || 0);
+          if (!evtTs || evtTs < base) return;
           if (!isMineOrWatchedFromPayload(d)) return;
           if (MY_UID && (String(d?.by) === String(MY_UID) || String(d?.actor) === String(MY_UID))) return;
 
@@ -1936,10 +1936,8 @@
       bc.addEventListener("message", (e) => {
         const m = e?.data; if (!m || m.kind !== "feed:event") return;
         const { type, data } = m.payload || {};
-        if (!type) return;
-        // ★★★ 시각 가드: mine 탭에서 늦게 도착한 과거 이벤트는 컷
         const evtTs = Number(data?.ts || data?.time || data?.updated_at || data?.created_at || 0);
-        const BASE  = __CONNECTED_AT || __PAGE_AT;
+        const BASE  = (window.__CONNECTED_AT || window.__PAGE_AT || Date.now());
         if (!evtTs || evtTs < BASE) return;
 
         // mine 쪽 1차 필터 외, 여기서도 2차 방어
