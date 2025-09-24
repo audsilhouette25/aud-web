@@ -1,3 +1,17 @@
+/* === shim: safe globals for parseJSON/normalizeId/dedupList (me.js early users) === */
+(() => {
+  try {
+    const H = (window.__meHelpers = window.__meHelpers || {});
+    H.parseJSON   = H.parseJSON   || function (s, d = null) { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return d; } };
+    H.normalizeId = H.normalizeId || function (v) { return String(v ?? '').trim().toLowerCase(); };
+    H.dedupList   = H.dedupList   || function (arr) { return Array.isArray(arr) ? [...new Set(arr.map(H.normalizeId).filter(Boolean))] : []; };
+    // expose globals (backward compat with older code paths)
+    window.parseJSON   = window.parseJSON   || H.parseJSON;
+    window.normalizeId = window.normalizeId || H.normalizeId;
+    window.dedupList   = window.dedupList   || H.dedupList;
+  } catch {}
+})();
+
 
 /* === [PATCH] Notification gate & SW session sync (entry-burst off / backlog on) === */
 (() => {
