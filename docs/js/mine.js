@@ -26,6 +26,26 @@
   } catch(e){}
 })();
 
+// === Mine feed filter: hide labelmine drafts ================================
+(function installMineDraftFilter(){
+  try {
+    if (!window.store || typeof window.store.getGallery !== "function") return;
+    if (window.store.__orig_getGallery) return; // once
+    const O = window.store;
+    O.__orig_getGallery = O.getGallery;
+    O.getGallery = function(label){
+      const arr = (O.__orig_getGallery.call(this, label) || []);
+      // <-- 여기 내부가 실제 필터 포인트
+      return arr.filter(it => {
+        const origin = it?.origin ?? it?.meta?.origin;
+        const status = it?.status ?? it?.meta?.status;
+        return !(origin === 'labelmine' || status === 'draft');
+      });
+    };
+    console.log("[MINE] draft filter active");
+  } catch(e){}
+})();
+
 
 /* === [PATCH] mine.js — notify session declare (no subscribe, no local notify) === */
 (() => {

@@ -1082,6 +1082,8 @@ const labels = {
       id, label, createdAt: Date.now(),
       width: canvas.width, height: canvas.height,
       thumbDataURL: await makeThumbDataURL(canvas, 480),
+      origin: 'labelmine',           // ← 추가
+      status: 'draft'                // ← 추가
     };
     const next = [...loadGalleryMeta(label), meta];
     saveGalleryMeta(label, next);
