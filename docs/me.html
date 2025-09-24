@@ -115,14 +115,6 @@
   </div>
 </footer>
 
-  <script>(function(){
-    if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
-      .then(()=>navigator.serviceWorker.ready)
-      .then(()=>console.log('[sw] registered at subpath'))
-      .catch(e=>console.log('[sw] register failed:', e));
-  })();</script>
-
 <!-- Service Worker 등록은 유지 -->
 <script>(function(){
   if (!('serviceWorker' in navigator)) return;
