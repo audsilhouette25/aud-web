@@ -22,43 +22,37 @@ self.addEventListener("message", (ev) => {
   }
 });
 
-// Web Push payload → show notification
+// sw.js - push 핸들러 교체
 self.addEventListener("push", (event) => {
   if (!event.data) return;
+
   let payload = {};
-  try { payload = event.data.json() || {}; } catch {
-    payload = { title: "aud:", body: event.data.text() };
-  }
+  try { payload = event.data.json() || {}; }
+  catch { payload = { title: "aud:", body: event.data.text() }; }
+
   const tag = String(payload.tag || "");
-  const typ = String(payload?.data?.type || "");
+  const allowed = /^like:|^vote:/.test(tag);   // ★ 좋아요/투표만
+  if (!allowed) return;                        // 나머지는 무시
 
-  // ★ like/vote 만 허용
-  const allowed =
-    tag.startsWith("like:") || tag.startsWith("vote:") ||
-    typ === "item:like"     || typ === "vote:update";
-  if (!allowed) return;
-
-  // ★ 10초 내 동일 태그 중복 차단
+  // ★ 10초 내 동일 tag 중복 방지
+  self.__dedup = self.__dedup || {};
   const now = Date.now();
-  if (tag) {
-    const last = self.__recentTags.get(tag) || 0;
-    if (now - last < 10_000) return;
-    self.__recentTags.set(tag, now);
-  }
+  if (self.__dedup[tag] && (now - self.__dedup[tag] < 10_000)) return;
+  self.__dedup[tag] = now;
 
   const title = payload.title || "aud:";
-  const body  = payload.body  || "";
   const opt = {
-    body,
+    body: payload.body || "",
     icon: "./asset/icon-192.png",
     badge: "./asset/badge-72.png",
-    tag: tag || undefined,
+    tag,
     data: payload.data || null,
     renotify: !!payload.renotify,
     actions: payload.actions || []
   };
   event.waitUntil(self.registration.showNotification(title, opt));
 });
+
 
 // Click-through
 self.addEventListener("notificationclick", (event) => {

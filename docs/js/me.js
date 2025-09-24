@@ -2283,14 +2283,7 @@
       }
       await subscribeIfNeeded();
       // Optionally, tell sw to replay any locally queued notifications
-      try {
-        const reg = await ensureWorker();
-        reg.active?.postMessage?.({ type: "LOCAL_NOTIFY", payload: {
-          title: "Alarm enabled",
-          sub:   "You'll receive likes/votes while this is on.",
-          opt: { tag: "notify:enabled" }
-        }});
-      } catch {}
+      window.__toast?.success?.("알림이 켜졌습니다. 좋아요/투표만 알려드릴게요.");
     } else {
       await unsubscribeIfAny();
     }
