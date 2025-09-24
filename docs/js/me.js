@@ -159,6 +159,15 @@
    * ──────────────────────────────────────────────────────────────────────────── */
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
+
+  // ── util: safe parseJSON (존재 시 재정의하지 않음)
+  window.parseJSON ||= function (val, fallback = null) {
+    try {
+      if (val == null) return fallback;
+      return (typeof val === 'string') ? JSON.parse(val) : val;
+    } catch { return fallback; }
+  };
+
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
 
   window.__toAPI = function (u) {
