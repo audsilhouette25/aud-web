@@ -1,0 +1,71 @@
+/* me.notify.ui.final.css — Clean alarm UI styles only */
+/* Scope: ONLY Alarm UI (notify list/cards). No other components touched. */
+
+.panel.notify{ position: relative; display: grid; gap: 10px; }
+
+.notify-empty{
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.notify-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* Card */
+.notice{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+  animation: alarm-enter .18s ease-out both;
+}
+
+.notice .row.between{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notice strong{
+  font-weight: 700;
+  font-size: 14px;
+  color: #111;
+}
+
+.notice .time{
+  opacity: .55;
+  font-size: 12px;
+}
+
+.notice .sub{
+  margin-top: 4px;
+  opacity: .85;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes alarm-enter{
+  from{ opacity: 0; transform: translateY(6px); }
+  to  { opacity: 1; transform: translateY(0); }
+}
+
+/* Fallback: if there's no .panel.notify, list can live at body root nicely */
+body > .notify-list{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  inline-size: min(360px, 92vw);
+  max-height: 50vh;
+  overflow: auto;
+  z-index: 9999;
+}

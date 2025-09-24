@@ -469,42 +469,76 @@ progress#m-rate-bar::-webkit-progress-value{
   border-radius: 6px;
 }
 
-/* 알림 리스트 */
-.notify-list{
-  list-style:none; margin:0; padding:0;
-  display:flex; flex-direction:column; gap:.5rem;
-  /* 4개 보이게 + 스크롤 */
-  max-block-size: calc(var(--notice-h) * 4 + var(--notice-gap));
-  overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
-}
-.notice{
-  padding:.75rem .9rem;
-  border:1px solid rgba(0,0,0,.06);
-  border-radius:12px; background:#fff;
-  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
-  animation: noticeIn .18s ease-out both;
-  min-block-size: var(--notice-h);
-}
-.notice:hover{
-  background:#fafbff;
-  border-color: rgba(58,111,255,.22);
-  box-shadow: 0 1px 8px rgba(0,0,0,.05);
-}
-@keyframes noticeIn{
-  from{ opacity:.0; transform: translateY(-3px); }
-  to{ opacity:1; transform: translateY(0); }
-}
-.notice .time{ font-size:.85rem; color:#7b8192; margin-left:.75rem; }
-.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; overflow:hidden; }
+/* me.notify.ui.final.css — Clean alarm UI styles only */
+/* Scope: ONLY Alarm UI (notify list/cards). No other components touched. */
 
-.notify-empty{ margin:.5rem 0 0; color:#8a8f9f; font-size:.92rem; }
-.panel.notify { position: relative; }
-.panel.notify .notify-toggle{
-  position: absolute; top: 12px; right: 12px; z-index: 2;
+.panel.notify{ position: relative; display: grid; gap: 10px; }
+
+.notify-empty{
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
 }
-.panel.notify .panel-title{
-  margin: 0 0 .5rem; font-size: 16px; font-weight: 700; padding-right: 48px;
+
+.notify-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* Card */
+.notice{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+  animation: alarm-enter .18s ease-out both;
+}
+
+.notice .row.between{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notice strong{
+  font-weight: 700;
+  font-size: 14px;
+  color: #111;
+}
+
+.notice .time{
+  opacity: .55;
+  font-size: 12px;
+}
+
+.notice .sub{
+  margin-top: 4px;
+  opacity: .85;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes alarm-enter{
+  from{ opacity: 0; transform: translateY(6px); }
+  to  { opacity: 1; transform: translateY(0); }
+}
+
+/* Fallback: if there's no .panel.notify, list can live at body root nicely */
+body > .notify-list{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  inline-size: min(360px, 92vw);
+  max-height: 50vh;
+  overflow: auto;
+  z-index: 9999;
 }
 
 /* =====================================================================
