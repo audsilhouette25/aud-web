@@ -1,10 +1,3 @@
-
-// === Post-block helper (prevents Save→Post bleed) ============================
-function __sdfShouldBlockPost(){
-  try {
-    return (window.__SDF_BLOCK_POST_UNTIL || 0) > performance.now();
-  } catch { return false; }
-}
 /* ========================================================================== *
  * 0) CONSTANTS
  * ========================================================================== */
@@ -1190,10 +1183,10 @@ if (btnSave) {
 
 // Save-only handler (guarded)
 btnSave?.addEventListener("click", async (e) => {
-e.preventDefault();
+  e.preventDefault();
   e.stopPropagation();
   if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
-  try { window.__SDF_SAVING_TS = performance.now(); window.__SDF_BLOCK_POST_UNTIL = performance.now() + 2000; } catch {}
+  try { window.__SDF_SAVING_TS = performance.now(); } catch {}
   const me = await (window.auth?.getUser?.().catch(() => null));
   if (!me) {
     const ret = encodeURIComponent(location.href);
@@ -1201,7 +1194,6 @@ e.preventDefault();
     return;
   }
   try { onSaveToGallery(); } catch {}
-
 });
 
 const btnReset   = document.getElementById("sdf-reset-btn");
@@ -2857,9 +2849,7 @@ function goMineAfterShare(label = getLabel()) {
   //    window.openFeedModal 로 노출
   // ─────────────────────────────────────────────────────────────
   function openFeedModal(){
-  
-  if (__sdfShouldBlockPost()) { return; }
-try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS < 600) return; } catch {}
+  try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS < 600) return; } catch {}
 
     document.body.classList.add("is-compose");
 
@@ -3503,9 +3493,7 @@ try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS <
 
   // 🔁 3-스텝 흐름: Gallery → Crop → Compose (← 뒤로가면 한 스텝씩 복귀)
   async function runThreeStepFlow(){
-  
-  if (__sdfShouldBlockPost()) { return; }
-try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS < 600) return; } catch {}
+  try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS < 600) return; } catch {}
 
     try {
       // 1) 갤러리에서 고르기
@@ -3566,8 +3554,6 @@ try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS <
         e.preventDefault();
         e.stopImmediatePropagation();
         e.stopPropagation();
-        if (__sdfShouldBlockPost()) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); return; }
-        if (__sdfShouldBlockPost()) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); return; }
         runThreeStepFlow();
       }, { capture: true });
 
