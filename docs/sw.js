@@ -1,39 +1,43 @@
 // sw.js — Web Push listener (extends your existing minimal SW)
 // -----------------------------------------------------------
-self.addEventListener("install", (e) => { self.skipWaiting(); });
-self.addEventListener("activate", (e) => { self.clients.claim(); });
+self.addEventListener("install", (e) => {
+  self.skipWaiting();                // 새 워커 즉시 대기 해제
+});
+
+self.addEventListener("activate", (e) => {
+  e.waitUntil(self.clients.claim()); // 기존 탭도 새 워커가 즉시 장악
+});
 self.__recentTags = self.__recentTags || new Map();
 
 // Local notifications from page
 // 전역(파일 상단 근처)
+const SW_VERSION = "v7"; 
 self.__dedup = self.__dedup || {};
 
-// message → LOCAL_NOTIFY 처리(같은 정책 적용)
-self.addEventListener('message', (event) => {
+// === LOCAL_NOTIFY: like/vote만 표시 + 10초 디듀프 ===
+self.addEventListener("message", (event) => {
   const msg = event?.data || {};
-  if (msg.type !== 'LOCAL_NOTIFY') return;
+  if (msg.type !== "LOCAL_NOTIFY") return;
 
   const payload = msg.payload || {};
-  const tag = String(payload?.opt?.tag || '');
+  const tag = String(payload?.opt?.tag || "");
 
-  // ★ 허용: like:/vote: 만
+  // 화이트리스트
   const allowed = /^like:|^vote:/.test(tag);
   if (!allowed) return;
 
-  // ★ 10초 내 동일 tag 디듀프
+  // 디듀프(10초)
   const now = Date.now();
-  if (tag) {
-    const last = self.__dedup[tag] || 0;
-    if (now - last < 10_000) return;
-    self.__dedup[tag] = now;
-  }
+  const last = self.__dedup[tag] || 0;
+  if (now - last < 10_000) return;
+  self.__dedup[tag] = now;
 
-  const title = payload.title || 'aud:';
-  const body  = payload.sub   || payload.body || '';
+  const title = payload.title || "aud:";
+  const body  = payload.sub   || payload.body || "";
   const opt   = Object.assign(
     {
-      icon: './asset/icon-192.png',
-      badge:'./asset/badge-72.png',
+      icon: "./asset/icon-192.png",
+      badge:"./asset/badge-72.png",
       tag,
       data: payload.data || null,
       renotify: !!payload.renotify,
@@ -45,29 +49,29 @@ self.addEventListener('message', (event) => {
   self.registration.showNotification(title, opt);
 });
 
-
-// sw.js - push 핸들러 교체
 self.addEventListener("push", (event) => {
   if (!event.data) return;
-
   let payload = {};
   try { payload = event.data.json() || {}; }
   catch { payload = { title: "aud:", body: event.data.text() }; }
 
   const tag = String(payload.tag || "");
-  const allowed = /^like:|^vote:/.test(tag);   // ★ 좋아요/투표만
-  if (!allowed) return;                        // 나머지는 무시
+  const typ = String(payload?.data?.type || "");
+  const allowed =
+    /^like:/.test(tag) || /^vote:/.test(tag) ||
+    typ === "item:like" || typ === "vote:update";
+  if (!allowed) return;
 
-  // ★ 10초 내 동일 tag 중복 방지
   const now = Date.now();
-  if (self.__dedup[tag] && (now - self.__dedup[tag] < 10_000)) return;
-  self.__dedup[tag] = now;
+  const last = self.__dedup[tag] || 0;
+  if (tag && (now - last < 10_000)) return;
+  if (tag) self.__dedup[tag] = now;
 
   const title = payload.title || "aud:";
   const opt = {
     body: payload.body || "",
     icon: "./asset/icon-192.png",
-    badge: "./asset/badge-72.png",
+    badge:"./asset/badge-72.png",
     tag,
     data: payload.data || null,
     renotify: !!payload.renotify,
@@ -75,7 +79,6 @@ self.addEventListener("push", (event) => {
   };
   event.waitUntil(self.registration.showNotification(title, opt));
 });
-
 
 // Click-through
 self.addEventListener("notificationclick", (event) => {
