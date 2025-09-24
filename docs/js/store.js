@@ -1090,7 +1090,9 @@ const labels = {
     emitGalleryChanged({kind:"add", label, id});
 
     // 서버 업로드(옵션)
-    if (SERVER_GALLERY_SYNC_ON && serverAuthed()){
+
+    const isDraftLike = (meta?.status === 'draft') || (meta?.origin === 'labelmine');
+    if (!isDraftLike && SERVER_GALLERY_SYNC_ON && serverAuthed()){
       try{
         const fd = new FormData();
         fd.append("id", id);
@@ -1105,6 +1107,7 @@ const labels = {
         if (!up || !up.ok) console.warn("[gallery] server upload failed");
       }catch(e){ console.warn("[gallery] server upload error", e); }
     }
+
     return id;
   },
 
