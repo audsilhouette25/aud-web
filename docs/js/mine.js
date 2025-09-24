@@ -3303,7 +3303,7 @@
 
     async function renderAt(idx){
 
-      const it = FEED.items[idx];
+      let it = FEED.items[idx];
       if (!it) return;
 
       // 1) Heart HOTFIX STATE(낙관적 최신) 우선 반영
