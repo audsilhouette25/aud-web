@@ -480,7 +480,7 @@ progress#m-rate-bar::-webkit-progress-value{
 }
 .notice{
   padding:.75rem .9rem;
-  border:1px solid rgbaㄴ(0,0,0,.06);
+  border:1px solid rgba(0,0,0,.06);
   border-radius:12px; background:#fff;
   transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
   animation: noticeIn .18s ease-out both;

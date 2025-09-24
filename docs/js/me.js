@@ -89,3 +89,33 @@
     upsert: ensureSubscriptionAndUpsert,
   };
 })();
+
+// 인앱 알림 미러(토스트)
+(() => {
+  const LIST_ID = 'notify-list';
+  const ensureList = () => {
+    let ul = document.getElementById(LIST_ID);
+    if (!ul) {
+      ul = document.createElement('ul');
+      ul.id = LIST_ID;
+      ul.className = 'notify-list';
+      // 페이지 어딘가 알림 패널이 있으면 그 안에 넣고,
+      // 없으면 body 끝에 달자(임시)
+      (document.querySelector('.panel.notify') || document.body).appendChild(ul);
+    }
+    return ul;
+  };
+  window.addEventListener('message', (ev) => {
+    const d = ev?.data || {};
+    if (d.__fromSW === 'push') {
+      const ul = ensureList();
+      const li = document.createElement('li');
+      li.className = 'notice';
+      li.innerHTML = `
+        <div><b>${d.title || '알림'}</b><span class="time">just now</span>
+          <div class="sub">${(d.body || '').replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]))}</div>
+        </div>`;
+      ul.prepend(li);
+    }
+  }, { passive: true });
+})();

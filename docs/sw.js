@@ -92,6 +92,8 @@ self.addEventListener('push', (ev) => {
   ev.waitUntil((async () => {
     try {
       const reg = self.registration;
+
+      // ① OS 배너 표시
       await reg.showNotification(t, {
         body: b,
         tag,
@@ -100,9 +102,18 @@ self.addEventListener('push', (ev) => {
         requireInteraction: false,
         ...(thumb ? { icon: thumb, image: thumb } : {})
       });
+
+      // ② 페이지로 브로드캐스트 (인앱 미러/콘솔 확인용)
+      try {
+        const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const c of allClients) {
+          c.postMessage({ __fromSW: 'push', tag, ts, kind, itemId, title: t, body: b });
+        }
+      } catch {}
     } catch {}
   })());
 });
+
 
 self.addEventListener('notificationclick', (ev) => {
   ev.notification.close();
