@@ -742,6 +742,7 @@
   const NATIVE_KEY = "me:notify-native";
 
   let socket      = null;
+  let __CONNECTED_AT = 0;
   let MY_ITEM_IDS = new Set();
   let __PREV_ITEM_IDS = new Set();
 
@@ -1053,9 +1054,8 @@
     // 2) 리스너가 중복으로 붙지 않도록 가드
     if (!socket.__meHandlersAttached) {
       Object.defineProperty(socket, "__meHandlersAttached", { value: true, enumerable: false });
-      let CONNECTED_AT = 0;
       socket.on("connect", () => {
-        CONNECTED_AT = Date.now();
+        __CONNECTED_AT = Date.now();
         const watch = (localStorage.getItem("me:watched-ns") || "[]");
         const payload = { items: [...MY_ITEM_IDS], ns: getNS() };
         try { payload.watch = JSON.parse(watch); } catch {}
@@ -1064,7 +1064,7 @@
 
       // ── 알림 리스너들
       socket.on("item:like", (p) => {
-        if (p?.ts && CONNECTED_AT && p.ts < CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
+        if (p?.ts && __CONNECTED_AT && p.ts < __CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
         if (!p || !p.id) return;
         const mineOrWatched = isMineOrWatchedFromPayload(p);
         if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
@@ -1076,7 +1076,7 @@
       });
 
       socket.on("vote:update", (p) => {
-        if (p?.ts && CONNECTED_AT && p.ts < CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
+        if (p?.ts && __CONNECTED_AT && p.ts < __CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
         if (!p || !p.id) return;
         const mineOrWatched = isMineOrWatchedFromPayload(p);
         if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
