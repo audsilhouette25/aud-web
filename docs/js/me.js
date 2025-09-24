@@ -169,7 +169,12 @@
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
 
-  const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
+  
+
+const toAPI = (u) =>
+  (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
+
+const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
 
   // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
   const WATCHED_NS_KEY = "me:watched-ns";   // 로컬 퍼시스턴스 키
@@ -304,18 +309,6 @@
   const KEY_TOGGLE = "me:notify-enabled";
   let __lastUpsertAt = 0;
   const debounceMs = 90_000;
-
-  function toAPI(u){
-    try{
-      if (typeof window.__toAPI === "function") return window.__toAPI(u);
-      const s = String(u||"");
-      if (!s) return s;
-      if (/^https?:\/\//i.test(s)) return s;
-      const base = window.API_BASE || location.origin + "/";
-      return new URL(s.replace(/^\/+/, ""), base).toString();
-    }catch{ return u; }
-  }
-
   async function ensureSW(){
     const reg = await (navigator.serviceWorker.getRegistration("./")
       || navigator.serviceWorker.register("./sw.js", { scope:"./" }));
@@ -375,7 +368,7 @@
     window.fetch = function(...args){
       try{
         const url = (args[0]?.url) || String(args[0]||"");
-        if (/\/api\/push\/(subscribe|unsubscribe|public-key)/i.test(url)){
+        if (/\/api\/push\/(subscribe|unsubscribe|public-key)/i.test(url)){
           if (localStorage.getItem(KEY_TOGGLE) !== "1"){
             return Promise.resolve(new Response(JSON.stringify({ ok:true, skipped:"toggle off" }), { status:200, headers:{ "content-type":"application/json" } }));
           }
@@ -452,21 +445,13 @@
 
     return recent.length;
   }
-
-  const toAPI = (u) =>
-  (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
-
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
   const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
 
   // In-memory state
   let MY_UID   = null;
-  let ME_STATE = { displayName: "member", email: "", avatarUrl: "" };
-
-  // JSON & list normalization
-  const parseJSON = (s, d = null) => { try { return JSON.parse(s); } catch { return d; } };
-  const normalizeId = (v) => String(v ?? "").trim().toLowerCase();
+  let ME_STATE = { displayName: "member" };
   const dedupList   = (arr) => Array.isArray(arr) ? [...new Set(arr.map(normalizeId).filter(Boolean))] : [];
   const uniqueCount = (arr) => dedupList(arr).length;
 
