@@ -1020,6 +1020,55 @@
     }
   }
 
+  /* === push-assist: safe server notify for like/vote (ADD-ONLY) =============== */
+  (function PushAssist(){
+    const toAPI = (p) => {
+      try { return new URL(p, window.API_BASE || location.origin).toString(); }
+      catch { return p; }
+    };
+
+    async function postJSON(url, data){
+      try {
+        const r = await fetch(toAPI(url), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(data)
+        });
+        return !!(r && (r.status === 200 || r.status === 204));
+      } catch { return false; }
+    }
+
+    // 여러 백엔드 구현을 넓게 호환 (있는 엔드포인트 먼저 성공하는 곳으로)
+    async function firePush(kind, data){
+      const payload = { kind, ...data, ts: Date.now() };
+      const tries = [
+        "/api/push/emit",          // 신식: { kind, ns, ... }
+        "/api/push/notify",        // 대안
+        "/api/push/test"           // 구식 테스트 엔드포인트 (ns, title/body/data/tag)
+      ];
+
+      // 구식 호환 포맷 자동 변환
+      const legacy = (d) => ({
+        ns: d.ns || d.owner?.ns || "default",
+        title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
+        body: kind === "item:like"
+                ? `Total ${Number(d.likes||0)} ${Number(d.likes||0) === 1 ? "like" : "likes"}`
+                : "",
+        tag: `${kind.replace(":","-")}:${d.id}`,
+        data: { url: "/me.html", id: String(d.id||"") }
+      });
+
+      for (const u of tries) {
+        const ok = await postJSON(u, u.endsWith("/test") ? legacy(payload) : payload);
+        if (ok) return true;
+      }
+      return false;
+    }
+
+    // 전역 노출(선택): 다른 블록에서 사용
+    window.__firePush = firePush;
+  })();
 
   // --- RANDOMIZE util (Fisher–Yates) ---
   function shuffleInPlace(arr){
@@ -1655,6 +1704,23 @@
         if (typeof r.liked === "boolean" || typeof r.likes === "number") {
           window.setLikeFromServer?.(id, r.liked, r.likes);
           // [ADD] Web Push: like action notification (server ok 이후에만)
+
+          // 서버 스냅샷은 의도 보존 병합(내가 막 클릭한 의도를 덮지 않도록)
+          if (typeof r.liked === "boolean" || typeof r.likes === "number") {
+            window.setLikeFromServer?.(id, r.liked, r.likes);
+
+            // ✅ 작성자 NS로 like 이벤트 푸시 (서버 OK 이후에만)
+            try {
+              const ownerNS = ownerNSOf(id) || (card?.getAttribute("data-ns") || ns || "default");
+              await (window.__firePush?.("item:like", {
+                id, ns: String(ownerNS).trim().toLowerCase(),
+                liked: (r.liked != null) ? !!r.liked : true,
+                likes: (typeof r.likes === "number") ? r.likes : undefined,
+                by: (typeof getMeId === "function" ? getMeId() : null)
+              }));
+            } catch {}
+          }
+
           try {
             const ownerNS = (card?.getAttribute('data-ns') || ns || 'default')
                               .toString().trim().toLowerCase();
@@ -2430,6 +2496,16 @@
               kind: FEED_EVENT_KIND,
               payload: { type: "vote:update", data: { id, counts: countsById.get(id), my: myById.get(id), by: getMeId() } }
             });
+          } catch {}
+          // ✅ 작성자 NS로 vote:update 푸시  (여기!)
+          try {
+            const ownerNS = ownerNSOf(id) || ns;
+            await (window.__firePush?.("vote:update", {
+              id,
+              ns: String(ownerNS).trim().toLowerCase(),
+              counts: countsById.get(id),
+              by: (typeof getMeId === "function" ? getMeId() : null)
+            }));
           } catch {}
         });
       }
