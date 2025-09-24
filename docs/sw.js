@@ -11,8 +11,22 @@ self.__recentTags = self.__recentTags || new Map();
 
 // Local notifications from page
 // 전역(파일 상단 근처)
-const SW_VERSION = "v7"; 
+const SW_VERSION = "v8";                 // ← 버전 변경으로 즉시 업데이트
 self.__dedup = self.__dedup || {};
+self.__DEBUG_ECHO = true;                // ← 필요 시 true/false 토글
+
+async function echoToClients(payload) {
+  if (!self.__DEBUG_ECHO) return;
+  try {
+    const list = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of list) c.postMessage({ type: "NOTIFY_ECHO", ...payload });
+  } catch {}
+}
+
+async function safeShowNotification(title, opt) {
+  await echoToClients({ phase: "show", tag: opt?.tag || "", title });
+  return self.registration.showNotification(title, opt);
+}
 
 // === LOCAL_NOTIFY: like/vote만 표시 + 10초 디듀프 ===
 self.addEventListener("message", (event) => {
@@ -24,12 +38,12 @@ self.addEventListener("message", (event) => {
 
   // 화이트리스트
   const allowed = /^like:|^vote:/.test(tag);
-  if (!allowed) return;
+  if (!allowed) { echoToClients({ phase: "blocked", tag, via: "message" }); return; }
 
   // 디듀프(10초)
   const now = Date.now();
   const last = self.__dedup[tag] || 0;
-  if (now - last < 10_000) return;
+  if (now - last < 10_000) { echoToClients({ phase: "dedup", tag, via: "message" }); return; }
   self.__dedup[tag] = now;
 
   const title = payload.title || "aud:";
@@ -46,7 +60,7 @@ self.addEventListener("message", (event) => {
     payload.opt || {}
   );
 
-  self.registration.showNotification(title, opt);
+  safeShowNotification(title, opt);
 });
 
 self.addEventListener("push", (event) => {
@@ -60,11 +74,11 @@ self.addEventListener("push", (event) => {
   const allowed =
     /^like:/.test(tag) || /^vote:/.test(tag) ||
     typ === "item:like" || typ === "vote:update";
-  if (!allowed) return;
+  if (!allowed) { event.waitUntil(echoToClients({ phase:"blocked", tag, via:"push" })); return; }
 
   const now = Date.now();
   const last = self.__dedup[tag] || 0;
-  if (tag && (now - last < 10_000)) return;
+  if (tag && (now - last < 10_000)) { event.waitUntil(echoToClients({ phase:"dedup", tag, via:"push" })); return; }
   if (tag) self.__dedup[tag] = now;
 
   const title = payload.title || "aud:";
@@ -77,7 +91,7 @@ self.addEventListener("push", (event) => {
     renotify: !!payload.renotify,
     actions: payload.actions || []
   };
-  event.waitUntil(self.registration.showNotification(title, opt));
+  event.waitUntil(safeShowNotification(title, opt));
 });
 
 // Click-through
