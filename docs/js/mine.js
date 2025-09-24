@@ -3381,7 +3381,8 @@
 
     // BroadcastChannel
     try {
-      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: enriched } });
+      const enrichedTs = (typeof enriched === 'object' && enriched) ? { ...enriched, ts: Date.now() } : enriched;
+      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: enrichedTs } });
     } catch {}
 
     // localStorage 폴백 (다른 탭의 storage 이벤트가 받음)
