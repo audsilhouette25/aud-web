@@ -1048,7 +1048,11 @@
       socket = window.sock;
     } else {
       if (!window.io) return null;
-      socket = window.io({ path: "/socket.io" });
+      socket = window.io(window.PROD_BACKEND || window.API_ORIGIN, {
+        path: "/socket.io",
+        withCredentials: true,
+        transports: ["websocket","polling"]
+      });
       try { window.sock = socket; } catch {}
     }
 

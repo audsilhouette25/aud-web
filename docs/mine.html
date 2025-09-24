@@ -88,6 +88,12 @@
 
   <script>window.PROFILE_ENDPOINTS = ['/api/users/:id/public'];</script>
 
+  <!-- 페이지 성격/알림 금지 플래그 (가장 먼저) -->
+  <script>
+    window.PAGE_KIND = 'mine';
+    window.NOTIFY_ALLOWED = false;  // 공용 모듈이 있더라도 mine에선 권한요청/업서트 금지
+  </script>
+
   <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
 
   <script src="./js/fetch-sanitizer.js"></script>
@@ -110,22 +116,6 @@
   <!-- 7) 페이지 전용 스크립트 -->
   <script type="module" src="./js/mine.js"></script>
 
-<script>
-// 최초 카드가 DOM에 나타나면 단 한 번만 초기 동기화 완료 마크
-(function(){
-  var grid = document.querySelector('[data-feed-grid]');
-  if (!grid || !('MutationObserver' in window)) return;
-  var done = false;
-  var mo = new MutationObserver(function(){
-    if (!done && grid.children.length > 0) {
-      done = true; mo.disconnect();
-      if (window.__mineMarkInitialDone) window.__mineMarkInitialDone();
-      console.log('[mine] initial render detected -> mark done');
-    }
-  });
-  mo.observe(grid, { childList:true });
-})();
-</script>
 
 </body>
 </html>

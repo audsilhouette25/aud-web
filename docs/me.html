@@ -123,19 +123,38 @@
       .catch(e=>console.log('[sw] register failed:', e));
   })();</script>
 
-  <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
+<!-- Service Worker 등록은 유지 -->
+<script>(function(){
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js', { scope: './' })
+    .then(()=>navigator.serviceWorker.ready)
+    .then(()=>console.log('[sw] registered at subpath'))
+    .catch(e=>console.log('[sw] register failed:', e));
+})();</script>
 
-  <script src="./js/socket-init.js"></script>
+<!-- socket.io client (서버 제공 버전) -->
+<script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js" crossorigin="anonymous"></script>
 
-  <script src="./js/fetch-sanitizer.js"></script>
+<!-- 프로젝트 초기화(있다면) -->
+<script src="./js/socket-init.js"></script>
 
-  <script src="./js/auth-boot.js" defer></script>
+<!-- fetch/sso/부트 유틸들 -->
+<script src="./js/fetch-sanitizer.js"></script>
+<script src="./js/auth-boot.js" defer></script>
+<script src="./js/logo-guard.js" defer></script>
+<script type="module" src="./js/store.js"></script>
 
-  <script src="./js/logo-guard.js" defer></script>
+<!-- 부트 보장 인라인(ensureSocket 없을 때만 실행) -->
+<script>
+  window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-dtd1.onrender.com";
+  function __ensureSocketInline() { /* 위 1) 스니펫과 동일 */ }
+  window.addEventListener("DOMContentLoaded", () => {
+    (window.ensureSocket?.bind(window) || __ensureSocketInline)();
+  }, { once: true });
+</script>
 
-  <script type="module" src="./js/store.js"></script>
-
-  <script src="./js/me.js" type="module"></script>
+<!-- 페이지 로직 -->
+<script src="./js/me.js" type="module"></script>
 
 </body>
 </html>

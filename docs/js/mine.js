@@ -3640,65 +3640,12 @@
           });
         }
 
-        // 4) 서버에 업서트
-        await fetch(toAPI('/api/push/subscribe'), {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ns, subscription: sub })
-        }).catch(()=>{});
-
         // 디버그 로그
         console.log('[mine:push] ready', { ns, endpoint: sub && sub.endpoint });
       } catch (e) {
         console.log('[mine:push] skip:', e?.message || e);
       }
     })();
-  })();
-  /* [PATCH][ADD-ONLY] ensure push subscription (mine page) */
-  (() => {
-    const toAPI = (p) => {
-      try { return new URL(p, window.API_BASE || location.origin).toString(); }
-      catch { return p; }
-    };
-    const b64uToU8 = (s) => {
-      const pad = '='.repeat((4 - (s.length % 4)) % 4);
-      const b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
-      const raw = atob(b64);
-      const out = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-      return out;
-    };
-
-    async function ensureSubscribedUpsert() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      if (Notification.permission !== 'granted') {
-        const p = await Notification.requestPermission();
-        if (p !== 'granted') return;
-      }
-      const reg = await (navigator.serviceWorker.getRegistration('./') ||
-                        navigator.serviceWorker.register('./sw.js', { scope: './' }));
-      if (!reg.active) await navigator.serviceWorker.ready;
-
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        const { vapidPublicKey } = await fetch(toAPI('/api/push/public-key'), { credentials:'include' }).then(r=>r.json());
-        if (!vapidPublicKey) return;
-        sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64uToU8(vapidPublicKey) });
-      }
-
-      const ns = (localStorage.getItem('auth:userns') || 'default').trim().toLowerCase();
-      await fetch(toAPI('/api/push/subscribe'), {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ ns, subscription: sub })
-      }).catch(()=>{});
-      console.log('[mine:push] ready', { ns, endpoint: sub.endpoint });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => { ensureSubscribedUpsert(); });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') ensureSubscribedUpsert();
-    });
   })();
 
 })();
