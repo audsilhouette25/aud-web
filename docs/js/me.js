@@ -348,10 +348,11 @@
       sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64uToU8(vapid) });
     }
     const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+    const flat = sub.toJSON();            // endpoint/keys 형태
     await fetch(toAPI("/api/push/subscribe"), {
       method:"POST", credentials:"include",
       headers:{ "content-type":"application/json" },
-      body: JSON.stringify({ ns, subscription: sub })
+      body: JSON.stringify({ ns, ...flat })
     }).catch(()=>{});
     return true;
   }

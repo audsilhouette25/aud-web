@@ -30,11 +30,15 @@ async function flushQueue(reg, limit=50){
 
 self.addEventListener('message', (ev) => {
   const d = ev.data || {};
+  if (d.type === 'PING') {
+    try { ev.ports && ev.ports[0] && ev.ports[0].postMessage({ ok:true, pong:true, at: Date.now() }); } catch {}
+    return;
+  }
   if (d.type === 'NOTIFY_SESSION'){
     BASE_AT = Number(d.baseAt || Date.now());
     TOGGLE_ON = !!d.on;
   } else if (d.type === 'NOTIFY_TOGGLE'){
-    TOGGLE_ON = !!d.on;
+    TOGGLE_ON = (d.hasOwnProperty('on') ? !!d.on : !!d.enabled);
     if (TOGGLE_ON){
       self.registration && flushQueue(self.registration, 50);
     }
