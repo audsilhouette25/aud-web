@@ -3681,10 +3681,8 @@
           });
         }
 
-        // 디버그 로그
-        console.log('[mine:push] ready', { ns, endpoint: sub && sub.endpoint });
       } catch (e) {
-        console.log('[mine:push] skip:', e?.message || e);
+
       }
     })();
   })();
