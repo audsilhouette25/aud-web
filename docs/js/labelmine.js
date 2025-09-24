@@ -3549,13 +3549,13 @@ function goMineAfterShare(label = getLabel()) {
       if (!btn || btn.dataset.flow3Bound) return;
 
       btn.addEventListener("click", (e)=>{
-        if (e.target !== btn) return;   // 다른 요소/자식에서 올라온 버블 클릭 무시
+        if (e.target !== btn) return;
         try {
           const label = getLabel();
           const items = (window.store && typeof window.store.getGallery === "function")
             ? (window.store.getGallery(label) || [])
             : [];
-          if (!items.length) return; // 비어있으면 기존 1-스텝으로
+          // if (!items.length) return; // ← 제거: 비어있어도 3-스텝으로 진입 (Step1 표시)
         } catch {}
         e.preventDefault();
         e.stopImmediatePropagation();
