@@ -1660,17 +1660,15 @@
                               .toString().trim().toLowerCase();
             await fetch(toAPI('/api/push/test'), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {'Content-Type':'application/json'},
               body: JSON.stringify({
-                ns: ownerNS,                 // 게시물 작성자 NS
-                tag: `like:${pid}`,          // ★ SW 허용 접두사
-                title: '새 좋아요',
-                body: '내 게시물에 좋아요가 추가되었습니다.',
-                ts: Date.now(),              // SW 세션컷 통과용
-                kind: 'like',
-                itemId: String(pid)
+                ns: ownerNS,                    // ← 카드 소유자 NS (nsOf(it)와 일치)
+                title: 'CARD TEST',
+                body: `card ${pid}`,
+                data: { url: '/mine.html' },    // ← 꼭 data 안쪽에 url
+                tag: `card:${pid}`
               })
-            }).catch(() => {});
+            }).catch(()=>{});
           } catch {}
         }
       }
@@ -2263,22 +2261,19 @@
       const art = document.querySelector(sel);
       const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || getNS() || 'default')
                         .toString().trim().toLowerCase();
-      await fetch(toAPI('/api/push/test'), {
+      fetch(toAPI('/api/push/test'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ns: ownerNS,
-          tag: `vote:${pid}`,          // ★ SW 허용 접두사
-          title: '새 투표',
-          body: '내 게시물에 새 투표가 기록되었습니다.',
-          ts: Date.now(),              // 세션컷 통과
-          kind: 'vote',
-          itemId: String(pid)
+          title: '투표가 업데이트되었습니다',
+          body:  '내 게시물에 새 투표가 기록되었습니다.',
+          data:  { url: '/mine.html' },
+          tag:   `vote:${pid}`
         })
-      });
+      }).catch(()=>{});
     } catch {}
-
       let j = {};
       try { if (r.status !== 204) j = await r.json(); } catch {}
       if (r.ok) {
