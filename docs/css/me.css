@@ -395,151 +395,107 @@ progress#m-rate-bar::-webkit-progress-value{
 
 
 /* =====================================================================
-   10) Notifications panel
+   Alarm UI — consolidated & de-duplicated (panel-scoped)
+   - Keeps only alarm UI rules; no other components touched
+   - Works with existing tokens: --notice-h, --notice-gap, --focus,
+     --ico-bell-off, --ico-bell-on
 ===================================================================== */
+
+/* Panel structure */
+.panel.notify{ position: relative; }
 .panel.notify .panel-head{
   display:flex; align-items:center; justify-content:space-between;
   margin-bottom:.75rem;
 }
-.panel.notify h3{ margin:0; font-size:16px; font-weight:700; letter-spacing:.2px; }
+.panel.notify .panel-title,
+.panel.notify h3{
+  margin:0; font-size:16px; font-weight:700; letter-spacing:.2px;
+  padding-right:48px; /* space for toggle in the corner */
+}
 
-/* 토글 스위치 */
+/* Toggle anchor (top-right inside panel) */
+.panel.notify .notify-toggle{
+  position:absolute; top:12px; right:12px; z-index:2;
+}
+
+/* === Switch (slider) =================================================== */
 .switch{
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 42px;
-  height: 24px;
-  cursor: pointer;
-  user-select: none;
+  position:relative; display:inline-flex; align-items:center;
+  inline-size:42px; block-size:24px; cursor:pointer; user-select:none;
 }
 .switch input{
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
+  position:absolute; inset:0; opacity:0; pointer-events:none;
 }
 .switch .slider{
-  position: relative;
-  display: block;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: #E6E8EF;
+  position:relative; display:block; inline-size:42px; block-size:24px;
+  border-radius:999px; background:#E6E8EF;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
   transition: box-shadow .18s ease;
 }
 .switch input:focus-visible + .slider{
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 999px;
+  outline:2px solid var(--focus); outline-offset:2px; border-radius:999px;
 }
 .switch .slider::after{
-  content:"";
-  position:absolute; inset:0;
-  width:18px; height:18px; margin:auto;
+  content:""; position:absolute; inset:0; inline-size:18px; block-size:18px; margin:auto;
   background: center / 18px 18px no-repeat var(--ico-bell-off);
 }
-.switch input:checked + .slider::after{
-  background-image: var(--ico-bell-on);
-}
+.switch input:checked + .slider::after{ background-image: var(--ico-bell-on); }
 
-/* 아이콘형 스위치(선택형) */
+/* === Icon switch (optional) ============================================ */
 .switch.icon{
-  width:auto; height:auto;
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:4px;
-  border-radius:10px;
-  background: transparent;
-  cursor:pointer;
-  -webkit-tap-highlight-color: transparent;
+  inline-size:auto; block-size:auto; display:inline-flex;
+  align-items:center; justify-content:center; padding:4px;
+  border-radius:10px; background:transparent; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
 }
 .switch.icon .notify-icon{
-  inline-size: 18px;
-  block-size: 18px;
-  flex: 0 0 18px;
+  inline-size:18px; block-size:18px; flex:0 0 18px;
   background: center / contain no-repeat var(--ico-bell-off);
 }
-.switch.icon input:checked ~ .notify-icon{
-  background-image: var(--ico-bell-on);
-}
+.switch.icon input:checked ~ .notify-icon{ background-image: var(--ico-bell-on); }
 .switch.icon input:focus-visible ~ .notify-icon{
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 6px;
+  outline:2px solid var(--focus); outline-offset:2px; border-radius:6px;
 }
 
-/* me.notify.ui.final.css — Clean alarm UI styles only */
-/* Scope: ONLY Alarm UI (notify list/cards). No other components touched. */
-
-.panel.notify{ position: relative; display: grid; gap: 10px; }
-
-.notify-empty{
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-}
-
+/* === List & items ====================================================== */
 .notify-list{
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
+  list-style:none; margin:0; padding:0;
+  display:flex; flex-direction:column; gap: var(--notice-gap, .5rem);
+  max-block-size: calc(var(--notice-h, 56px) * 4 + var(--notice-gap, .5rem));
+  overflow-y:auto; scrollbar-gutter: stable both-edges;
 }
 
-/* Card */
+.notify-empty{ margin:.5rem 0 0; color:#8a8f9f; font-size:.92rem; }
+
 .notice{
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 12px;
-  padding: 10px 12px;
+  padding:.75rem .9rem; min-block-size: var(--notice-h, 56px);
+  border:1px solid rgba(0,0,0,.08); border-radius:12px; background:#fff;
   box-shadow: 0 6px 20px rgba(0,0,0,.08);
-  animation: alarm-enter .18s ease-out both;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  animation: noticeIn .18s ease-out both;
 }
-
-.notice .row.between{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.notice:hover{
+  background:#fafbff; border-color: rgba(58,111,255,.22); box-shadow: 0 1px 8px rgba(0,0,0,.05);
 }
-
-.notice strong{
-  font-weight: 700;
-  font-size: 14px;
-  color: #111;
-}
-
-.notice .time{
-  opacity: .55;
-  font-size: 12px;
-}
-
+.notice .row.between{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.notice strong{ font-weight:700; font-size:14px; color:#111; }
+.notice .time{ font-size:.85rem; color:#7b8192; margin-left:.75rem; }
 .notice .sub{
-  margin-top: 4px;
-  opacity: .85;
-  font-size: 13px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-word;
+  margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35;
+  white-space: pre-wrap; word-break: break-word;
 }
 
-@keyframes alarm-enter{
-  from{ opacity: 0; transform: translateY(6px); }
-  to  { opacity: 1; transform: translateY(0); }
+@keyframes noticeIn{
+  from{ opacity:0; transform: translateY(6px); }
+  to  { opacity:1; transform: translateY(0); }
 }
 
-/* Fallback: if there's no .panel.notify, list can live at body root nicely */
+/* === Fallback (no panel host) ========================================= */
 body > .notify-list{
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  inline-size: min(360px, 92vw);
-  max-height: 50vh;
-  overflow: auto;
-  z-index: 9999;
+  position: fixed; right:16px; bottom:16px;
+  inline-size: min(360px, 92vw); max-height: 50vh; overflow:auto; z-index: 9999;
 }
+
 
 /* =====================================================================
    11) PM Sheet
