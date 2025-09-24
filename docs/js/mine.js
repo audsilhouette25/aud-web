@@ -2,6 +2,24 @@
 (() => {
   "use strict";
 
+
+/* [ADD] mine.js — block any push subscribe/upsert activity on this page */
+(() => {
+  if (window.__MINE_FETCH_GUARD__) return;
+  const _f = window.fetch;
+  window.fetch = function(...args){
+    try{
+      const url = (args[0]?.url) || String(args[0]||"");
+      if (/\/api\/push\/(subscribe|unsubscribe|public-key)\b/i.test(url)){
+        return Promise.resolve(new Response(JSON.stringify({ ok:true, page:"mine", skipped:"no push on mine" }), { status:200, headers:{ "content-type":"application/json" } }));
+      }
+    }catch{}
+    return _f.apply(this, args);
+  };
+  window.__MINE_FETCH_GUARD__ = true;
+})();
+
+
   /* =========================================================
    * 0) KEYS / EVENTS / SHORTCUTS
    * ========================================================= */

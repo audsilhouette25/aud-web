@@ -4,6 +4,55 @@
 (() => {
   "use strict";
 
+
+/* [ADD] Gate page/SW notifications: visible tab = suppress, past events cut */
+(() => {
+  const PAGE_AT = Date.now();
+  let CONNECTED_AT = (window.__CONNECTED_AT||0);
+  const BASE = () => (CONNECTED_AT || PAGE_AT);
+
+  const s = (window.sock || window.socket || window.io?.socket || window.io || window.__sock__);
+  if (s && typeof s.on === 'function' && !s.__ME_VIS_GUARD__) {
+    s.on('connect', () => { CONNECTED_AT = Date.now(); });
+    s.__ME_VIS_GUARD__ = true;
+  }
+
+  try{
+    if (window.Notification && !window.Notification.__ME_VIS_GUARD__){
+      const N = window.Notification;
+      const P = function(title, opt){
+        const tag = String(opt?.tag||"");
+        const ts  = Number(opt?.data?.ts || opt?.ts || 0);
+        const fresh = !!ts && ts >= BASE();
+        const visible = (document.visibilityState === 'visible');
+        const allowed = /^like:|^vote:/.test(tag);
+        if (!allowed || !fresh || visible) { return { close(){} }; }
+        return new N(title, opt);
+      };
+      Object.setPrototypeOf(P, N); P.prototype = N.prototype;
+      window.Notification = P; window.Notification.__ME_VIS_GUARD__ = true;
+    }
+  }catch{}
+
+  try{
+    const SR = window.ServiceWorkerRegistration;
+    if (SR?.prototype && !SR.prototype.__ME_VIS_GUARD__){
+      const orig = SR.prototype.showNotification;
+      SR.prototype.showNotification = function(title, opt){
+        const tag = String(opt?.tag||"");
+        const ts  = Number(opt?.data?.ts || opt?.ts || 0);
+        const fresh = !!ts && ts >= BASE();
+        const visible = (document.visibilityState === 'visible');
+        const allowed = /^like:|^vote:/.test(tag);
+        if (!allowed || !fresh || visible) { return Promise.resolve(); }
+        return orig.apply(this, arguments);
+      };
+      SR.prototype.__ME_VIS_GUARD__ = true;
+    }
+  }catch{}
+})();
+
+
   /* ─────────────────────────────────────────────────────────────────────────────
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
@@ -148,92 +197,93 @@
     });
   })();
 
-  /* [PATCH][ADD-ONLY] Auto Web Push: ensure SW + subscription + server upsert on load & NS change */
-  (() => {
-    // === Debounce for push upsert ===
-    let __lastUpsertAt = 0;
-    function ensureSubscribedUpsertDebounced(gapMs = 60_000) { // 60s
-      const now = Date.now();
-      if (now - __lastUpsertAt < gapMs) return false;
-      __lastUpsertAt = now;
-      return ensureSubscribedUpsert();
+  
+/* [REPLACE] Auto Web Push: gated by toggle (ON) + permission + 90s debounce */
+(() => {
+  const KEY_TOGGLE = "me:notify-enabled";
+  let __lastUpsertAt = 0;
+  const debounceMs = 90_000;
+
+  function toAPI(u){
+    try{
+      if (typeof window.__toAPI === "function") return window.__toAPI(u);
+      const s = String(u||"");
+      if (!s) return s;
+      if (/^https?:\/\//i.test(s)) return s;
+      const base = window.API_BASE || location.origin + "/";
+      return new URL(s.replace(/^\/+/, ""), base).toString();
+    }catch{ return u; }
+  }
+
+  async function ensureSW(){
+    const reg = await (navigator.serviceWorker.getRegistration("./")
+      || navigator.serviceWorker.register("./sw.js", { scope:"./" }));
+    if (!reg.active) await navigator.serviceWorker.ready;
+    return reg;
+  }
+
+  function b64uToU8(s){
+    const pad = "=".repeat((4 - (s.length % 4)) % 4);
+    const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(b64); const out = new Uint8Array(raw.length);
+    for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+    return out;
+  }
+
+  async function upsertOnce(){
+    const now = Date.now();
+    if (now - __lastUpsertAt < debounceMs) return false;
+    __lastUpsertAt = now;
+
+    if (localStorage.getItem(KEY_TOGGLE) !== "1") return false;
+    if (Notification?.permission !== "granted") return false;
+
+    const reg = await ensureSW();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      const vapid = await fetch(toAPI("/api/push/public-key"), { credentials:"include" })
+        .then(r=>r.json()).then(j=>j?.vapidPublicKey||"").catch(()=> "");
+      if (!vapid) return false;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64uToU8(vapid) });
     }
+    const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+    await fetch(toAPI("/api/push/subscribe"), {
+      method:"POST", credentials:"include",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ ns, subscription: sub })
+    }).catch(()=>{});
+    return true;
+  }
 
-    const toAPI = (u) =>
-      (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
+  function trigger(){
+    if (localStorage.getItem(KEY_TOGGLE) === "1" && Notification?.permission === "granted"){
+      upsertOnce();
+    }
+  }
 
-    const b64uToU8 = (s) => {
-      const pad = "=".repeat((4 - (s.length % 4)) % 4);
-      const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
-      const raw = atob(b64);
-      const out = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-      return out;
+  document.addEventListener("DOMContentLoaded", trigger);
+  window.addEventListener("user:updated", trigger);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") trigger();
+  });
+
+  // Hard guard: when toggle OFF, eat push upsert calls silently
+  if (!window.__ME_FETCH_GUARD__){
+    const _f = window.fetch;
+    window.fetch = function(...args){
+      try{
+        const url = (args[0]?.url) || String(args[0]||"");
+        if (/\/api\/push\/(subscribe|unsubscribe|public-key)/i.test(url)){
+          if (localStorage.getItem(KEY_TOGGLE) !== "1"){
+            return Promise.resolve(new Response(JSON.stringify({ ok:true, skipped:"toggle off" }), { status:200, headers:{ "content-type":"application/json" } }));
+          }
+        }
+      }catch{}
+      return _f.apply(this, args);
     };
-
-    async function ensureSW() {
-      // ./sw.js 가 이미 존재하고 scope './' 인 구조이므로 그대로 사용
-      const reg = await (navigator.serviceWorker.getRegistration("./")
-        || navigator.serviceWorker.register("./sw.js", { scope: "./" }));
-      if (!reg.active) await navigator.serviceWorker.ready;
-      return reg;
-    }
-
-    async function ensureSubscribedUpsert() {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
-      if (Notification.permission !== "granted") return false;
-
-      const reg = await ensureSW();
-
-      // 구독이 없으면 생성
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        const j = await fetch(toAPI("/api/push/public-key"), { credentials: "include" })
-          .then(r => r.json()).catch(()=>null);
-        const vapid = j?.vapidPublicKey;
-        if (!vapid) return false;
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: b64uToU8(vapid)
-        });
-      }
-
-      // 내 NS로 서버 업서트
-      const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
-      await fetch(toAPI("/api/push/subscribe"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ns, subscription: sub })
-      }).catch(()=>{});
-      return true;
-    }
-
-    // 1) DOMContentLoaded 시, 권한이 'granted'면 자동 업서트
-    document.addEventListener("DOMContentLoaded", () => {
-      const on = (localStorage.getItem('me:notify-enabled') === '1');
-      if (on && Notification.permission === "granted") {
-        ensureSubscribedUpsertDebounced(60_000);
-      }
-    });
-
-    // 2) user:updated(NS/프로필 변경) 이벤트 발생 시에도 자동 업서트
-    window.addEventListener("user:updated", () => {
-      const on = (localStorage.getItem('me:notify-enabled') === '1');
-      if (on && Notification.permission === "granted") {
-        ensureSubscribedUpsertDebounced(60_000);
-      }
-    });
-
-    // 3) 페이지가 다시 보일 때(백그라운드→포그라운드) 한 번 더 보수적으로 업서트
-    document.addEventListener("visibilitychange", () => {
-      const on = (localStorage.getItem('me:notify-enabled') === '1');
-      if (document.visibilityState === "visible" && on && Notification.permission === "granted") {
-        ensureSubscribedUpsertDebounced(60_000);
-      }
-    });
-  })();
-
+    window.__ME_FETCH_GUARD__ = true;
+  }
+})();
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // External knobs / keys (backward compatible)
