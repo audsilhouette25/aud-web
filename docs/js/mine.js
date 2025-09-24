@@ -982,7 +982,7 @@
     try {
       const idx = FEED.idxById.get(sid);
       if (typeof idx === "number" && FEED.items[idx]) {
-        const it = FEED.items[idx];
+        let it = FEED.items[idx];
         const ns =
           it?.owner?.ns ||
           it?.ns ||
@@ -3177,6 +3177,23 @@
       }
     }
 
+    function paintAccountHeader(root, item){
+      try{
+        if (!root || !item) return;
+        const acc = root.querySelector('.pm-right .account');
+        if (!acc) return;
+
+        const emailName = (item?.user?.email || '').split('@')[0] || '';
+        const name = item?.user?.displayName || item?.user?.name || emailName || 'member';
+        const avatarSrc = (window.Avatar?.fromUserObject ? Avatar.fromUserObject(item.user) : (item?.user?.avatarUrl || item?.user?.avatar || null));
+        const img = acc.querySelector('.avatar');
+        const nm  = acc.querySelector('.name');
+
+        if (nm) nm.textContent = name;
+        if (img && window.Avatar?.wire) Avatar.wire(img, avatarSrc, name);
+      } catch {}
+    }
+
     // NEW — 모달 2열 마크업(댓글 제거, 투표 추가)
     function modalSplitHTML(item){
       const liked = !!item.liked;
@@ -3310,7 +3327,7 @@
       
       currentIndex = idx;
 
-      await ensureAuthorInfo(it);
+      it = (await ensureAuthorInfo(it)) || it;
 
       content.innerHTML = `<div class="pm-card">${modalSplitHTML(it)}</div>`;
       try { renderCountFromStore(it.id, content); } catch {}
@@ -3325,6 +3342,9 @@
       }
 
       const art = content.querySelector(".feed-card");
+
+      try { paintAccountHeader(art, it); } catch {}
+
       // === Tall(1:2) 전달: 그리드 카드의 data-ar 값을 모달로 복사 ===
       try {
         const srcCard = document.querySelector(`.feed-card[data-id="${String(it.id)}"]`);
@@ -3383,8 +3403,11 @@
       );
       renderHashtagsFromCaption(art);
 
+      await ensureCaptionLoaded(it, art);
+      try { paintAccountHeader(art, it); } catch {}
+
       // 없으면 상세 호출로 보강
-      ensureCaptionLoaded(it, art);
+      try { it = await ensureAuthorInfo(it); } catch {}
 
       // 이미지 eager
       const img = content.querySelector(".pm-left .media img");
