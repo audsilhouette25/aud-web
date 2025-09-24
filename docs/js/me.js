@@ -88,7 +88,6 @@
     toggle: (on) => { setToggle(!!on); syncToggleToSW(); },
     upsert: ensureSubscriptionAndUpsert,
   };
-})();
 
 // 인앱 알림 미러(토스트)
 (() => {
@@ -119,3 +118,6 @@
     }
   }, { passive: true });
 })();
+
+})();
+
