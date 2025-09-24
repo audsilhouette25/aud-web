@@ -1951,7 +1951,7 @@
     if (!item) return item;
 
     // 내 글은 me 캐시로 이미 커버됨
-    if (mineFlagOf(item) === true || isMine(item)) return item;
+    if (mineFlagOf(item) === true || isMineStrict(item)) return item;
 
     try {
       const ns = nsOf(item);
@@ -3122,22 +3122,13 @@
       const safeLabel = (item.label || '').replace(/[^\w-]+/g, '');
 
       // 내 글이면 me.html에서 저장한 최신 프로필 스냅샷을 우선 사용
-      const profSnap = readProfileCache();
-      const minePost = isMineStrict(item);  // ← 교체 포인트
-
       const userIdForDom =
-        pickUserId(item) ||
-        (minePost && (profSnap?.id || getMeId())) ||
-        '';
+        pickUserId(item) || '';
 
       const emailName = (item?.user?.email || '').split('@')[0] || '';
-      const name = (minePost && profSnap?.displayName)
-        ? profSnap.displayName
-        : (item?.user?.displayName || item?.user?.name || emailName || 'member');
+      const name = (item?.user?.displayName || item?.user?.name || emailName || 'member');
 
-      const avatarSrc = (minePost && profSnap?.avatarUrl)
-        ? profSnap.avatarUrl
-        : Avatar.fromUserObject(item?.user);
+      const avatarSrc = Avatar.fromUserObject(item?.user);
       const avatar = Avatar.resolve(avatarSrc, name || emailName || 'member');
       return `
       <article class="feed-card pm-split" data-id="${escAttr(item.id)}" data-ns="${escAttr(nsOf(item))}">
