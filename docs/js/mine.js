@@ -1051,37 +1051,25 @@
     }
 
     // 동작 후보를 넓게: 실제 서버와 맞는 것을 자동 채택
-    function candidateEndpoints(kind){
-      // 환경변수/전역 오버라이드 우선 (있으면 최우선 시도)
-      const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS : (
-        typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []
-      );
+    
+function candidateEndpoints(kind){
+      const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS :
+        (typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []);
 
-      // 일반적으로 많이 쓰는 패턴들
-      const common = [
-        "/api/notify",                // 단일 엔드포인트(바디에 kind 포함)
-        "/api/notify/emit",           // namespaced
-        "/api/notify/like",           // like 전용
-        "/api/notify/vote",           // vote 전용
-        "/api/push/emit",             // 기존 시도(404면 자동 비활성화)
-        "/api/push/notify",
-        "/api/push"                   // 컨트롤러 한 곳에 몰아둔 형태
-      ];
-
-      // 최후 폴백: 구식 데모 라우트
-      const legacy = [ "/api/push/test" ];
-
-      // kind별 특화 라우트가 있으면 먼저
+      // 서버 패치 기준: 실제 존재하는 경로만 시도 (404 스팸 억제)
       const kindPref = (kind === "item:like")
-        ? ["/api/notify/like", "/api/push/like"]
+        ? ["/api/notify/like"]
         : (kind === "vote:update")
-        ? ["/api/notify/vote", "/api/push/vote"]
+        ? ["/api/notify/vote"]
         : [];
 
-      return [...over, ...kindPref, ...common, ...legacy];
-    }
+      const minimal = [
+        "/api/push/test"   // 개발/폴백 테스트 라우트 (서버에서 push payload 그대로 발사)
+      ];
 
-    function legacyPayload(d, kind){
+      return [...over, ...kindPref, ...minimal];
+    }
+function legacyPayload(d, kind){
       return {
         ns: d.ns || d.owner?.ns || "default",
         title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
