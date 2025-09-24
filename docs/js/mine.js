@@ -2472,9 +2472,13 @@
       // ✅ 3) 렌더는 store 경유
       try { if (id) renderCountFromStore(id); } catch {}
 
-      // BC 중계는 그대로
       try {
-        __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type: "item:like", data: enriched } });
+        const now = Date.now();
+        const payload = {
+          type: "item:like",
+          data: { ...enriched, ts: enriched?.ts || now } // ★ ts 보강
+        };
+        __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload });
       } catch {}
     });
 
@@ -2488,10 +2492,12 @@
         POLL.updateEverywhere(id, counts, my);
       } catch {}
       try {
-        __bcFeed?.postMessage({
-          kind: FEED_EVENT_KIND,
-          payload: { type:"vote:update", data: enriched }
-        });
+        const now = Date.now();
+        const payload = {
+          type: "vote:update",
+          data: { ...enriched, ts: enriched?.ts || now } // ★ ts 보강
+        };
+        __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload });
       } catch {}
     });
 
