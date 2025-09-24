@@ -2458,146 +2458,170 @@
   try { window.__push = { subscribeIfNeeded, unsubscribeIfAny, setNotify }; } catch {}
 })();
 
-/* === Alarm UI (clean module) === */
+/* ===== [MERGED FROM 'me (1).js'] ===== */
+/* me.js — cache-busted SW registration, toggle sync, and flat subscription upsert */
 
-/* me.notify-ui.js — Clean alarm UI (in-app toast list) 
-   - Pure UI: mounts #notify-list and mirrors SW push messages
-   - Reads only localStorage 'me:notify-enabled' (ON: '1')
-   - No debug code, no network calls, no other module mutations
-   - Safe to include after me.js; idempotent across reloads
-*/
 (() => {
-  "use strict";
+  const API_BASE = (window.API_BASE || '');
+  const toAPI = (p) => (/^https?:\/\//.test(p) ? p : (API_BASE.replace(/\/?$/,'') + (p.startsWith('/')? p : '/'+p)));
 
-  if (window.__NotifyUIMounted__) return;
-  window.__NotifyUIMounted__ = true;
+  const LS_TOGGLE = 'me:notify-enabled';
+  const getToggle = () => localStorage.getItem(LS_TOGGLE) === '1';
+  const setToggle = (on) => localStorage.setItem(LS_TOGGLE, on ? '1' : '0');
 
-  const KEY_TOGGLE = "me:notify-enabled";
-  const isOn = () => (localStorage.getItem(KEY_TOGGLE) === "1");
-
-  // ---------- DOM helpers ----------
-  function ensureList() {
-    // 1) Preferred host: a panel that already exists for alarm/notifications
-    let host =
-      document.querySelector(".panel.notify") ||
-      document.querySelector('[data-panel="alarm"]') ||
-      document.getElementById("alarm-panel");
-
-    // 2) Create floating container if panel is absent
-    let ul = document.getElementById("notify-list");
-    if (!ul) {
-      ul = document.createElement("ul");
-      ul.id = "notify-list";
-      ul.className = "notify-list";
-      if (host) {
-        host.appendChild(ul);
-      } else {
-        // minimal floating placement
-        ul.style.position = "fixed";
-        ul.style.right = "16px";
-        ul.style.bottom = "16px";
-        ul.style.maxWidth = "360px";
-        ul.style.maxHeight = "50vh";
-        ul.style.overflow = "auto";
-        ul.style.zIndex = "99999";
-        document.body.appendChild(ul);
-      }
-    }
-
-    // empty-state
-    if (!document.getElementById("notify-empty")) {
-      const empty = document.createElement("div");
-      empty.id = "notify-empty";
-      empty.className = "notify-empty";
-      empty.textContent = "No alarm";
-      ul.parentElement.insertBefore(empty, ul);
-    }
-
-    return ul;
-  }
-
-  function esc(s) {
-    return String(s || "").replace(/[<>&]/g, m => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[m]));
-  }
-
-  function renderCard(title, body, ts) {
-    const ul = ensureList();
-    const li = document.createElement("li");
-    li.className = "notice";
-
-    const row = document.createElement("div");
-    row.className = "row between";
-
-    const strong = document.createElement("strong");
-    strong.textContent = title || "알림";
-
-    const t = document.createElement("time");
-    t.className = "time";
-    const d = ts ? new Date(ts) : new Date();
-    t.dateTime = d.toISOString();
-    t.textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
-
-    row.append(strong, t);
-    li.appendChild(row);
-
-    if (body) {
-      const p = document.createElement("p");
-      p.className = "sub";
-      p.innerHTML = esc(body);
-      li.appendChild(p);
-    }
-
-    ul.prepend(li);
-    // cap length
-    while (ul.children.length > 20) ul.removeChild(ul.lastChild);
-
-    const empty = document.getElementById("notify-empty");
-    if (empty) empty.style.display = "none";
-  }
-
-  // ---------- Public API (optional) ----------
-  const API = {
-    push({ title, body, ts }) {
-      if (!isOn()) return;  // UI respects toggle
-      renderCard(title, body, ts);
-    },
-    clear() {
-      const ul = document.getElementById("notify-list");
-      if (ul) ul.innerHTML = "";
-      const empty = document.getElementById("notify-empty");
-      if (empty) empty.style.display = "";
-    }
+  const postSW = (type, payload={}) => {
+    if (!navigator.serviceWorker?.controller) return;
+    navigator.serviceWorker.controller.postMessage({ type, ...payload });
   };
-  Object.defineProperty(window, "notifyUI", { value: API, configurable: false });
 
-  // ---------- SW → PAGE mirror ----------
-  function onWindowMessage(ev) {
-    const d = ev && ev.data;
-    if (!d || d.__fromSW !== "push") return;
-    if (!isOn()) return; // UI respects toggle OFF
-    const title = d.title || "알림";
-    const body  = d.body  || "";
-    const ts    = d.ts    || Date.now();
-    renderCard(title, body, ts);
+  function syncSessionToSW() {
+    const baseAt = Date.now();
+    postSW('NOTIFY_SESSION', { baseAt, on: getToggle() }); // send 'on' explicitly
+  }
+  function syncToggleToSW() {
+    postSW('NOTIFY_TOGGLE', { on: getToggle(), at: Date.now() });
   }
 
-  function onSWMessage(ev) {
-    const d = ev && ev.data;
-    if (!d || d.__fromSW !== "push") return;
-    if (!isOn()) return;
-    renderCard(d.title || "알림", d.body || "", d.ts || Date.now());
+  const b64UrlToUint8 = (b64) => {
+    const p = (b64 + '==='.slice((b64.length + 3) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(p);
+    const out = new Uint8Array(raw.length);
+    for (let i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+    return out;
+  };
+
+  async function ensureSubscriptionAndUpsert() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return;
+      if (Notification.permission !== 'granted') {
+        const r = await Notification.requestPermission();
+        if (r !== 'granted') return;
+      }
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const keyRes = await fetch(toAPI('/api/push/public-key')).then(r=>r.json()).catch(()=>({ok:false}));
+        if (!keyRes?.vapidPublicKey) return;
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: b64UrlToUint8(keyRes.vapidPublicKey)
+        });
+      }
+      const ns = (localStorage.getItem('auth:userns') || '').trim().toLowerCase();
+      const flat = sub.toJSON();
+      await fetch(toAPI('/api/push/subscribe'), {
+        method:'POST', headers:{'content-type':'application/json'}, credentials:'include',
+        body: JSON.stringify({ ns, ...flat })
+      }).catch(()=>{});
+    } catch {}
   }
 
-  // avoid duplicate registration across HMR/partial reloads
-  if (window.__NotifyUIWinLsnr) window.removeEventListener("message", window.__NotifyUIWinLsnr);
-  window.__NotifyUIWinLsnr = onWindowMessage;
-  window.addEventListener("message", onWindowMessage, { passive: true });
+  window.addEventListener('load', async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        // Cache-busted registration so the newest SW controls this page
+        await navigator.serviceWorker.register('sw.js?v=' + Date.now(), { scope: './' });
+        if (localStorage.getItem(LS_TOGGLE) === null) setToggle(true); // default ON
+        syncSessionToSW();
+        syncToggleToSW();
+        setTimeout(ensureSubscriptionAndUpsert, 500); // debounce
+      }
+    } catch {}
+  });
 
-  if (navigator.serviceWorker) {
-    if (navigator.serviceWorker.__NotifyUISWLsnr)
-      navigator.serviceWorker.removeEventListener("message", navigator.serviceWorker.__NotifyUISWLsnr);
-    navigator.serviceWorker.__NotifyUISWLsnr = onSWMessage;
-    navigator.serviceWorker.addEventListener("message", onSWMessage, { passive: true });
-  }
+  document.addEventListener('change', (ev) => {
+    const el = ev.target;
+    if (el && el.matches && el.matches('[data-notify-toggle]')) {
+      setToggle(!!el.checked);
+      syncToggleToSW();
+      if (getToggle()) ensureSubscriptionAndUpsert();
+    }
+  });
+
+  window.__notify = {
+    pingSW: () => new Promise((res) => {
+      if (!navigator.serviceWorker?.controller) return res({ ok:false, note:'no-controller' });
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (ev) => res(ev.data || { ok:false });
+      navigator.serviceWorker.controller.postMessage({ type:'PING', at:Date.now() }, [ch.port2]);
+      setTimeout(()=>res({ ok:false, note:'timeout' }), 1500);
+    }),
+    toggle: (on) => { setToggle(!!on); syncToggleToSW(); },
+    upsert: ensureSubscriptionAndUpsert,
+  };
 })();
 
+/* ===== [APPENDED: In-app notification mirror] ===== */
+/* === [ADD] In-app notification mirror (toast/list) ========================= */
+(() => {
+  const LIST_ID = 'notify-list';
+  const ensureList = () => {
+    let ul = document.getElementById(LIST_ID);
+    if (!ul) {
+      ul = document.createElement('ul');
+      ul.id = LIST_ID;
+      ul.className = 'notify-list';
+      // If there is a panel to host notifications, use it; otherwise append to body.
+      (document.querySelector('.panel.notify') || document.body).appendChild(ul);
+    }
+    return ul;
+  };
+  window.addEventListener('message', (ev) => {
+    const d = (ev && ev.data) || {};
+    if (d.__fromSW === 'push') {
+      const ul = ensureList();
+      const li = document.createElement('li');
+      li.className = 'notice';
+      const esc = (s) => String(s || '').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+      li.innerHTML = `
+        <div><b>${esc(d.title || '알림')}</b><span class="time">just now</span>
+          <div class="sub">${esc(d.body || '')}</div>
+        </div>`;
+      ul.prepend(li);
+      // keep list short
+      while (ul.children.length > 30) ul.removeChild(ul.lastChild);
+    }
+  }, { passive: true });
+
+  /* === In-app notification mirror (window & SW listeners + list render) === */
+(() => {
+  // 컨테이너 생성
+  function ensureList() {
+    let ul = document.getElementById('notify-list');
+    if (!ul) {
+      ul = document.createElement('ul');
+      ul.id = 'notify-list';
+      ul.className = 'notify-list';
+      ul.style.cssText = 'position:fixed;right:16px;bottom:16px;max-width:360px;max-height:50vh;overflow:auto;margin:0;padding:0;list-style:none;z-index:99999';
+      (document.querySelector('.panel.notify') || document.body).appendChild(ul);
+    }
+    return ul;
+  }
+  const esc = s => String(s||'').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+  function render(d){
+    const ul = ensureList();
+    const li = document.createElement('li');
+    li.className = 'notice';
+    li.style.cssText = 'background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:10px 12px;margin:8px 0;box-shadow:0 6px 20px rgba(0,0,0,.08)';
+    li.innerHTML = `<div style="font-weight:600">${esc(d.title||'알림')}<span style="float:right;opacity:.6">now</span></div><div style="opacity:.8;margin-top:4px">${esc(d.body||'')}</div>`;
+    ul.prepend(li);
+    while (ul.children.length > 30) ul.removeChild(ul.lastChild);
+  }
+  // 공용 핸들러
+  const onPushMsg = (ev) => {
+    const d = ev?.data || {};
+    if (d.__fromSW === 'push') render(d);
+  };
+  // 중복 제거 후 리스너 등록(두 경로 모두)
+  window.__inAppMirrorA && window.removeEventListener('message', window.__inAppMirrorA);
+  window.__inAppMirrorA = onPushMsg;
+  window.addEventListener('message', onPushMsg, { passive:true });
+
+  navigator.serviceWorker.__inAppMirrorB && navigator.serviceWorker.removeEventListener('message', navigator.serviceWorker.__inAppMirrorB);
+  navigator.serviceWorker.__inAppMirrorB = onPushMsg;
+  navigator.serviceWorker.addEventListener('message', onPushMsg, { passive:true });
+})();
+
+
+
+})();
