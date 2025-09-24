@@ -1804,6 +1804,29 @@
     return false;
   }
 
+  // === 엄격 판정: 서버 플래그 or (id/이메일 완전 일치)만 인정 ===
+  function isMineStrict(item){
+    if (!item) return false;
+
+    // 1) 서버가 명시적으로 mine/by_me 플래그를 준 경우만 즉시 신뢰
+    const flag =
+      item?.mine ?? item?.isMine ?? item?.by_me ?? item?.byMe ??
+      item?.created_by_me ?? item?.posted_by_me ?? item?.i_posted ?? item?.author_me ??
+      item?.meta?.mine ?? item?.meta?.by_me ?? null;
+    if (typeof flag === "boolean") return flag;
+
+    // 2) id/이메일 완전 일치만 인정 (NS 힌트는 사용하지 않음)
+    const meId    = (typeof getMeId === "function" && getMeId()) || (window.__ME_ID || null);
+    const myEmail = normEmail((typeof getMeEmail === "function" && getMeEmail()) || (window.__ME_EMAIL || null));
+
+    const theirId    = pickUserId(item);
+    const theirEmail = normEmail(pickUserEmail(item));
+
+    if (meId && theirId && String(theirId) === String(meId)) return true;
+    if (myEmail && theirEmail && myEmail === theirEmail) return true;
+
+    return false;
+  }
 
   // 설정: 서버에 프로필 API를 만들면 페이지 어디서든 이렇게 켜주면 됨.
   //   window.PROFILE_ENDPOINTS = ['/api/users/:id', '/api/profiles/:id'];
@@ -3024,7 +3047,8 @@
 
       // 내 글이면 me.html에서 저장한 최신 프로필 스냅샷을 우선 사용
       const profSnap = readProfileCache();
-      const minePost = isMine(item);
+      const minePost = isMineStrict(item);  // ← 교체 포인트
+
       const userIdForDom =
         pickUserId(item) ||
         (minePost && (profSnap?.id || getMeId())) ||
@@ -3209,7 +3233,7 @@
       // 내 글이면 캐시로 강제 동기화(이름/아바타/데이터-id)
       try {
         const prof = readProfileCache();
-        if (prof && isMine(it)) {
+        if (prof && isMineStrict(it)) {
           const acc = art.querySelector('.pm-right .account');
           if (acc) {
             if (!acc.dataset.userId && prof.id) acc.dataset.userId = String(prof.id);
