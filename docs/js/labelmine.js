@@ -3571,3 +3571,45 @@ window.addEventListener("auth:logout", ()=>{
   const ret = encodeURIComponent(location.href);
   location.replace(`${pageHref('login.html')}?next=${ret}`);
 });
+
+// [LMFIX] Save/Post precise guards appended
+;(() => {
+  const log = (...a)=>console.log('%c[LMFIX]', 'color:#2c82c9;font-weight:700;', ...a);
+  const saveBtn = document.getElementById('sdf-save-btn')
+    || document.querySelector('button[aria-label="Save to Gallery"], button[title*="Save to Gallery"]');
+  const postBtn = document.getElementById('feed-open-btn')
+    || document.querySelector('button[data-action*="post"], button#post, button.post-open');
+  if (!saveBtn) { log('⛔ Save button not found'); return; }
+
+  // prevent implicit submit and pointer bubbling
+  try { if (!saveBtn.type) saveBtn.type = 'button'; } catch { }
+  const onPD = (e)=>{ e.stopPropagation(); };
+  const onCKcap = (e)=>{ 
+    // stop at capture so target click handler still runs, but nothing bubbles upward
+    e.stopPropagation(); 
+  };
+  // attach capture listeners only once
+  if (!saveBtn.__lmfix__) {
+    saveBtn.addEventListener('pointerdown', onPD, { passive: true });
+    saveBtn.addEventListener('click', onCKcap, true);
+    // if inside form, block submit when triggered by save
+    const form = saveBtn.closest && saveBtn.closest('form');
+    if (form) {
+      const onSubmit = (e)=>{ if (e.submitter === saveBtn) { e.preventDefault(); e.stopPropagation(); } };
+      form.addEventListener('submit', onSubmit, true);
+      saveBtn.__lmfix__ = { onPD, onCKcap, onSubmit, form };
+    } else { saveBtn.__lmfix__ = { onPD, onCKcap }; }
+    try { saveBtn.style.outline = '2px solid #2c82c9'; } catch { }
+    log('guards: save armed');
+  }
+
+  // post: target-only guard to avoid ghost clicks from overlays
+  if (postBtn && !postBtn.__lmfix_post__) {
+    const onCap = (e)=>{ if (e.target !== postBtn) e.stopPropagation(); };
+    postBtn.addEventListener('click', onCap, true);
+    postBtn.__lmfix_post__ = onCap;
+    try { postBtn.style.outline = '2px dashed #e67e22'; } catch { }
+    log('guards: post(target-only) armed');
+  }
+})();
+
