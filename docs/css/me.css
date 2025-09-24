@@ -469,6 +469,43 @@ progress#m-rate-bar::-webkit-progress-value{
   border-radius: 6px;
 }
 
+/* 알림 리스트 */
+.notify-list{
+  list-style:none; margin:0; padding:0;
+  display:flex; flex-direction:column; gap:.5rem;
+  /* 4개 보이게 + 스크롤 */
+  max-block-size: calc(var(--notice-h) * 4 + var(--notice-gap));
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+.notice{
+  padding:.75rem .9rem;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:12px; background:#fff;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  animation: noticeIn .18s ease-out both;
+  min-block-size: var(--notice-h);
+}
+.notice:hover{
+  background:#fafbff;
+  border-color: rgba(58,111,255,.22);
+  box-shadow: 0 1px 8px rgba(0,0,0,.05);
+}
+@keyframes noticeIn{
+  from{ opacity:.0; transform: translateY(-3px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+.notice .time{ font-size:.85rem; color:#7b8192; margin-left:.75rem; }
+.notice .sub{ margin:.35rem 0 0; color:#586074; font-size:.92rem; line-height:1.35; overflow:hidden; }
+
+.notify-empty{ margin:.5rem 0 0; color:#8a8f9f; font-size:.92rem; }
+.panel.notify { position: relative; }
+.panel.notify .notify-toggle{
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+}
+.panel.notify .panel-title{
+  margin: 0 0 .5rem; font-size: 16px; font-weight: 700; padding-right: 48px;
+}
 /* me.notify.ui.final.css — Clean alarm UI styles only */
 /* Scope: ONLY Alarm UI (notify list/cards). No other components touched. */
 
