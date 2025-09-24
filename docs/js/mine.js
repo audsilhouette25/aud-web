@@ -1340,6 +1340,24 @@
       // DOM 조각에 카드 추가
       frag.appendChild(card);
 
+      // ★ NS 백스탑: 카드에 data-ns가 비어 있으면 FEED/유추로 보정
+      (() => {
+        const id = String(it.id || "");
+        const nsInDom = card?.dataset?.ns || "";
+        if (!nsInDom) {
+          // 1) 아이템에서 가장 신뢰되는 필드 순서로 추출
+          const nsFromItem =
+            (it?.owner && it.owner.ns) ||
+            it?.ns ||
+            it?.meta?.ns ||
+            (it?.user && (it.user.email || it.user.id)) ||
+            "";
+          // 2) 최종 보정
+          const ns = String(nsFromItem || "default").trim().toLowerCase();
+          card.dataset.ns = ns;
+        }
+      })();
+
       // ★ [넣어둔 블럭 3/3] store 카운트 반영(값 있을 때만)
       try { renderCountFromStore(id, card); } catch {}
 
