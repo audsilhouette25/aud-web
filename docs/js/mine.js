@@ -1,3 +1,26 @@
+
+/* === [PATCH] mine.js — notify session declare (no subscribe, no local notify) === */
+(() => {
+  try{
+    const KEY_TOGGLE = "me:notify-enabled";
+    const PAGE_AT = Date.now();
+    function isOn(){ try{ return localStorage.getItem(KEY_TOGGLE) === "1"; } catch { return false; } }
+    function post(type, payload){
+      try { navigator.serviceWorker.controller?.postMessage?.({ type, ...(payload||{}) }); } catch {}
+      try {
+        navigator.serviceWorker.getRegistration("./").then(reg => {
+          if (reg && reg.active) reg.active.postMessage({ type, ...(payload||{}) });
+        }).catch(()=>{});
+      } catch {}
+    }
+    // declare baseAt so any backfilled pushes older than entry are ignored
+    post("NOTIFY_SESSION", { baseAt: PAGE_AT, on: isOn() });
+
+    // keep SW in sync if user flips toggle from this page
+    window.addEventListener("storage", (e) => { if (e.key === KEY_TOGGLE) post("NOTIFY_TOGGLE", { on: isOn(), baseAt: Date.now() }); });
+  }catch{}
+})();
+
 // /public/js/mine.js — FEED + LIKE/VOTE + POST MODAL + INFINITE SCROLL (refactored 2025-09-10)
 (() => {
   "use strict";

@@ -1,3 +1,101 @@
+
+/* === [PATCH] Notification gate & SW session sync (entry-burst off / backlog on) === */
+(() => {
+  try {
+    const KEY_TOGGLE = "me:notify-enabled";
+    const PAGE_AT = Date.now();
+    let lastToggle = null;
+
+    async function swReady() {
+      try {
+        const reg = await (navigator.serviceWorker.getRegistration("./") || navigator.serviceWorker.register("./sw.js", { scope: "./" }));
+        if (!reg.active) await navigator.serviceWorker.ready;
+        return reg;
+      } catch { return null; }
+    }
+
+    async function post(type, payload) {
+      try {
+        const reg = await swReady(); if (!reg) return;
+        const list = await reg.getNotifications({ includeTriggered: false }).catch(() => []);
+        // send to all clients
+        const clients = await (self && self.clients ? self.clients.matchAll({ type: "window", includeUncontrolled: true }) : Promise.resolve([])).catch(()=>[]);
+      } catch {}
+      try {
+        navigator.serviceWorker.controller?.postMessage?.({ type, ...(payload||{}) });
+      } catch {}
+      try {
+        const reg = await swReady();
+        if (reg && reg.active) reg.active.postMessage({ type, ...(payload||{}) });
+      } catch {}
+    }
+
+    function isOn() { return localStorage.getItem(KEY_TOGGLE) === "1"; }
+
+    // On page load: declare session to SW so it can ignore older pushes (ts < baseAt)
+    post("NOTIFY_SESSION", { baseAt: PAGE_AT, on: isOn() });
+
+    // On socket connect: update baseAt to a later time if needed
+    const s = (window.sock || window.socket || window.io?.socket || window.io || window.__sock__);
+    if (s && typeof s.on === "function") {
+      s.on("connect", () => post("NOTIFY_SESSION", { baseAt: Date.now(), on: isOn() }));
+    }
+
+    // Observe local toggle changes and inform SW (also flush backlog when ON)
+    function emitToggle() {
+      const on = isOn();
+      if (on !== lastToggle) {
+        lastToggle = on;
+        post("NOTIFY_TOGGLE", { on, baseAt: Date.now() });
+      }
+    }
+    emitToggle();
+
+    // Listen to UI checkbox (if present)
+    document.addEventListener("change", (ev) => {
+      const t = ev.target;
+      if (!t) return;
+      if ((t.id === "notify-toggle") || (t.matches && t.matches('[data-role="notify-toggle"]'))) {
+        try { localStorage.setItem(KEY_TOGGLE, t.checked ? "1" : "0"); } catch {}
+        emitToggle();
+      }
+    });
+
+    // Listen to storage events (other tabs)
+    window.addEventListener("storage", (e) => {
+      if (e.key === KEY_TOGGLE) emitToggle();
+    });
+
+    // Extra guard: if toggle is OFF in this tab, swallow Notification/SR.showNotification calls
+    (function guardLocalConstructors(){
+      const off = () => localStorage.getItem(KEY_TOGGLE) !== "1";
+      try{
+        if (window.Notification && !window.Notification.__ME_TOGGLE_GUARD__){
+          const N = window.Notification;
+          const P = function(title, opt){
+            if (off()) { return { close(){} }; }
+            return new N(title, opt);
+          };
+          Object.setPrototypeOf(P, N); P.prototype = N.prototype;
+          window.Notification = P; window.Notification.__ME_TOGGLE_GUARD__ = true;
+        }
+      }catch{}
+      try{
+        const SR = window.ServiceWorkerRegistration;
+        if (SR?.prototype && !SR.prototype.__ME_TOGGLE_GUARD__){
+          const orig = SR.prototype.showNotification;
+          SR.prototype.showNotification = function(title, opt){
+            if (off()) return Promise.resolve();
+            return orig.apply(this, arguments);
+          };
+          SR.prototype.__ME_TOGGLE_GUARD__ = true;
+        }
+      }catch{}
+    })();
+
+  } catch {}
+})();
+
 // me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
 // 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
 
