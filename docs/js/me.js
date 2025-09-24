@@ -26,7 +26,9 @@
         const fresh = !!ts && ts >= BASE();
         const visible = (document.visibilityState === 'visible');
         const allowed = /^like:|^vote:/.test(tag);
-        if (!allowed || !fresh || visible) { return { close(){} }; }
+        // ★ 강제 표시 플래그: opt.force / opt.data.force / window.__ME_FORCE_SHOW
+        const force   = (opt?.force === true) || (opt?.data?.force === true) || (window.__ME_FORCE_SHOW === true);
+        if (!allowed || !fresh || (visible && !force)) { return { close(){} }; }
         return new N(title, opt);
       };
       Object.setPrototypeOf(P, N); P.prototype = N.prototype;
@@ -44,7 +46,8 @@
         const fresh = !!ts && ts >= BASE();
         const visible = (document.visibilityState === 'visible');
         const allowed = /^like:|^vote:/.test(tag);
-        if (!allowed || !fresh || visible) { return Promise.resolve(); }
+        const force   = (opt?.force === true) || (opt?.data?.force === true) || (window.__ME_FORCE_SHOW === true);
+        if (!allowed || !fresh || (visible && !force)) { return Promise.resolve(); }
         return orig.apply(this, arguments);
       };
       SR.prototype.__ME_VIS_GUARD__ = true;
