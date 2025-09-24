@@ -1027,29 +1027,62 @@
       catch { return p; }
     };
 
+    // 서버 가용 라우트를 메모이즈
+    const _usable = new Map(); // url -> true/false
     async function postJSON(url, data){
+      const u = toAPI(url);
+      if (_usable.has(u) && _usable.get(u) === false) return false;
       try {
-        const r = await fetch(toAPI(url), {
+        const r = await fetch(u, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify(data)
         });
-        return !!(r && (r.status === 200 || r.status === 204));
-      } catch { return false; }
+        // 2xx만 성공으로 보고, 404/405/501은 바로 비활성화
+        const ok = r && r.status >= 200 && r.status < 300;
+        if (!ok && (r.status === 404 || r.status === 405 || r.status === 501)) {
+          _usable.set(u, false);
+        }
+        return ok;
+      } catch {
+        return false;
+      }
     }
 
-    // 여러 백엔드 구현을 넓게 호환 (있는 엔드포인트 먼저 성공하는 곳으로)
-    async function firePush(kind, data){
-      const payload = { kind, ...data, ts: Date.now() };
-      const tries = [
-        "/api/push/emit",          // 신식: { kind, ns, ... }
-        "/api/push/notify",        // 대안
-        "/api/push/test"           // 구식 테스트 엔드포인트 (ns, title/body/data/tag)
+    // 동작 후보를 넓게: 실제 서버와 맞는 것을 자동 채택
+    function candidateEndpoints(kind){
+      // 환경변수/전역 오버라이드 우선 (있으면 최우선 시도)
+      const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS : (
+        typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []
+      );
+
+      // 일반적으로 많이 쓰는 패턴들
+      const common = [
+        "/api/notify",                // 단일 엔드포인트(바디에 kind 포함)
+        "/api/notify/emit",           // namespaced
+        "/api/notify/like",           // like 전용
+        "/api/notify/vote",           // vote 전용
+        "/api/push/emit",             // 기존 시도(404면 자동 비활성화)
+        "/api/push/notify",
+        "/api/push"                   // 컨트롤러 한 곳에 몰아둔 형태
       ];
 
-      // 구식 호환 포맷 자동 변환
-      const legacy = (d) => ({
+      // 최후 폴백: 구식 데모 라우트
+      const legacy = [ "/api/push/test" ];
+
+      // kind별 특화 라우트가 있으면 먼저
+      const kindPref = (kind === "item:like")
+        ? ["/api/notify/like", "/api/push/like"]
+        : (kind === "vote:update")
+        ? ["/api/notify/vote", "/api/push/vote"]
+        : [];
+
+      return [...over, ...kindPref, ...common, ...legacy];
+    }
+
+    function legacyPayload(d, kind){
+      return {
         ns: d.ns || d.owner?.ns || "default",
         title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
         body: kind === "item:like"
@@ -1057,16 +1090,29 @@
                 : "",
         tag: `${kind.replace(":","-")}:${d.id}`,
         data: { url: "/me.html", id: String(d.id||"") }
-      });
+      };
+    }
 
-      for (const u of tries) {
-        const ok = await postJSON(u, u.endsWith("/test") ? legacy(payload) : payload);
+    async function firePush(kind, data){
+      const payload = { kind, ...data, ts: Date.now() };
+
+      // 라우트 자동 탐색
+      for (const u of candidateEndpoints(kind)) {
+        const ok = await postJSON(u, u.endsWith("/test") ? legacyPayload(payload, kind) : payload);
         if (ok) return true;
       }
+
+      // (선택) socket.io 폴백: 서버가 listen 중이라면 사용
+      try {
+        if (window.io && window.__SOCK) {
+          window.__SOCK.emit("notify", payload);
+          return true;
+        }
+      } catch {}
+
       return false;
     }
 
-    // 전역 노출(선택): 다른 블록에서 사용
     window.__firePush = firePush;
   })();
 
