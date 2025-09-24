@@ -1149,6 +1149,11 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       const inputSize  = document.getElementById("sdf-size");
       let sctx = null;
 
+      if (btnSave && !btnSave.type) btnSave.type = "button";           // 암묵적 submit 방지
+      btnSave?.addEventListener("pointerdown", (e)=>{                   // 상위 캡처 레이어로의 버블 방지
+        e.stopPropagation();
+      }, { passive: true });
+
       if (!(wrap && screen)) return;
       if (btnSave && btnSave.tagName === "BUTTON") btnSave.type = "button";
 
@@ -1342,7 +1347,11 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       }
 
       btnSave?.addEventListener("click", async (e) => {
-      e.preventDefault();
+        e.preventDefault();
+        e.stopPropagation();                 // ↑ 버블 차단
+        if (typeof e.stopImmediatePropagation === "function") {
+          e.stopImmediatePropagation();      // 동일 타겟의 다른 click 리스너도 차단
+        }
       const me = await (window.auth?.getUser?.().catch(() => null));
       if (!me) {
         const ret = encodeURIComponent(location.href);
@@ -3473,6 +3482,7 @@ function goMineAfterShare(label = getLabel()) {
       if (!btn || btn.dataset.flow3Bound) return;
 
       btn.addEventListener("click", (e)=>{
+        if (e.target !== btn) return;   // 다른 요소/자식에서 올라온 버블 클릭 무시
         try {
           const label = getLabel();
           const items = (window.store && typeof window.store.getGallery === "function")
