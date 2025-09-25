@@ -383,7 +383,7 @@
       if (!vapid) return false;
       sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64uToU8(vapid) });
     }
-    const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+    const ns = (typeof readNs === "function" ? readNs() : (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
     await fetch(toAPI("/api/push/subscribe"), {
       method:"POST", credentials:"include",
       headers:{ "content-type":"application/json" },
@@ -858,7 +858,7 @@
 
     // ☆ 전역 아이덴티티 맵에 기록 (ns = auth:userns)
     try {
-      const ns = (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+      const ns = (typeof readNs === "function" ? readNs() : (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
       if (window.setNSIdentity && ns && ns !== "default") {
         window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
       }

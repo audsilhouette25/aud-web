@@ -1093,8 +1093,7 @@
         };
       }
 
-  // /public/js/mine.js — REPLACE the old firePush() + assignment with this
-
+  // mine.js — fire notify (email NS 우선)
   window.__firePush = async function(kind, payload = {}) {
     try {
       const id = String(payload.id || payload.itemId || "");
@@ -1106,22 +1105,16 @@
         } catch { return ""; }
       };
 
-      // 1) 작성자 이메일 NS 우선 결정: DOM 카드 → payload → viewer 저장값
       const el = id ? document.querySelector(`.feed-card[data-id="${CSS.escape(id)}"]`) : null;
       const fromDom  = el?.dataset?.ns || el?.dataset?.email || "";
       const fromUser = payload.owner?.email || payload.owner?.ns || payload.ns || "";
-      const ns = isEmail(fromDom) ? fromDom
-            : isEmail(fromUser) ? fromUser
-            : readEmailNS();
+      const ns = isEmail(fromDom) ? fromDom : isEmail(fromUser) ? fromUser : readEmailNS();
 
-      // 2) 서버 알림 호출
       const url  = toAPI(`/api/notify/${/vote/i.test(kind) ? "vote" : "like"}`);
       const body = {
-        ns,
-        id,
-        by: (typeof getMeEmail === "function" && getMeEmail())
-          || (typeof getMeId    === "function" && getMeId())
-          || ""
+        ns, id,
+        by: (typeof getMeEmail === "function" && getMeEmail()) ||
+            (typeof getMeId    === "function" && getMeId())    || ""
       };
 
       const res = await fetch(url, {
@@ -1130,33 +1123,11 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body)
       });
-
-      try {
-        const j = await res.clone().json();
-        console.log("[notify]", kind, body, j); // 디버그 로그(유지 권장)
-      } catch {}
-
-      if (!res.ok) {
-        // (선택) socket.io 폴백
-        try {
-          if (window.io && window.__SOCK) {
-            window.__SOCK.emit("notify", {
-              kind,
-              ns,
-              id,
-              by: body.by,
-              data: { kind: /vote/i.test(kind) ? "vote" : "like", itemId: id },
-              tag: `${/vote/i.test(kind) ? "vote" : "like"}:${id}`
-            });
-          }
-        } catch {}
-      }
-
+      try { const j = await res.clone().json(); console.log("[notify]", kind, body, j); } catch {}
       return res;
-    } catch (e) {
-      console.warn("[notify] failed", e);
-    }
+    } catch (e) { console.warn("[notify] failed", e); }
   };
+
 
   })();
 
