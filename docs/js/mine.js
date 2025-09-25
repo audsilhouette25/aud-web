@@ -3904,32 +3904,3 @@ function legacyPayload(d, kind){
   })();
 
 })();
-
-/* === push-assist: ensure owner receives push when like/vote is clicked (safe/no-op if data missing) === */
-(() => {
-  try {
-    const toAPI = (u) => (typeof window.__toAPI === 'function' ? window.__toAPI(u) : String(u||''));
-    const lower = (v) => (v ?? '').toString().trim().toLowerCase();
-    async function fire(ownerNS, kind, itemId){
-      try {
-        if (!ownerNS || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ownerNS)) return; // expect an email-like ns
-        const payload = { ns: lower(ownerNS), tag: `${kind}:feed-${Date.now()}`, title: `🔔 ${kind}`, body: `new ${kind}`, ts: Date.now(), kind, itemId: String(itemId||'') };
-        await fetch(toAPI('/api/push/test'), { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
-      } catch {}
-    }
-    document.addEventListener('click', (ev) => {
-      const btn = ev.target.closest?.('.btn-like, .btn-vote');
-      if (!btn) return;
-      const card = btn.closest?.('.feed-card');
-      const kind = btn.classList.contains('btn-like') ? 'like' : 'vote';
-      const owner =
-        card?.dataset?.ownerNs ||
-        card?.dataset?.email ||
-        card?.querySelector?.('[data-owner-ns]')?.getAttribute?.('data-owner-ns') ||
-        '';
-      const id = card?.dataset?.id || card?.getAttribute?.('data-id') || '';
-      // defer a tick to avoid interfering with existing handlers
-      setTimeout(() => fire(owner, kind, id), 0);
-    }, { passive: true });
-  } catch {}
-})();
