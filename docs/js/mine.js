@@ -3902,6 +3902,15 @@ function legacyPayload(d, kind){
 
         // 디버그 로그
         console.log('[mine:push] ready', { ns, endpoint: sub  && sub.endpoint });
+        // 서버에 구독 업서트(ns 기준 저장)
+        try {
+          await fetch(toAPI('/api/push/subscribe'), {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ns, subscription: sub })
+          });
+        } catch {}
 
         // ★ 서버 업서트 (ns별 구독 저장; 있어도 업서트)
         try {
