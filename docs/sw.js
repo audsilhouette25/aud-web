@@ -67,13 +67,15 @@ self.addEventListener('push', (ev) => {
   let payload = {};
   try { payload = ev.data ? ev.data.json() : {}; } catch {}
 
-  const tag   = String(payload.tag || "");
-  const kind  = String(payload.kind || "");
-  const ts    = Number(payload.ts || Date.now());
-  const itemId= String(payload.itemId || "");
-  const t     = String(payload.title || "알림");
-  const b     = String(payload.body || "");
-  const thumb = payload.thumb || null;
+  const tag    = String(payload.tag || "");
+  // 서버는 { data: { kind, itemId } }로 보냄 → 폴백 병합
+  const data   = payload.data || {};
+  const kind   = String(payload.kind   ?? data.kind   ?? "");
+  const itemId = String(payload.itemId ?? data.itemId ?? "");
+  const ts     = Number(payload.ts || Date.now());
+  const t      = String(payload.title || "알림");
+  const b      = String(payload.body || "");
+  const thumb  = payload.thumb || null;
 
   // Policy 1: only like/vote
   if (!/^like:/.test(tag) && !/^vote:/.test(tag)) {
