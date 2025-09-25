@@ -292,11 +292,11 @@
   */
   (() => {
     function pickNSFrom(detail) {
-      // 가능한 후보들 중 우선순위: username > email > id
-      const username = (detail?.username ?? detail?.user?.username ?? "").toString().trim();
-      const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim();
-      const id       = (detail?.id       ?? detail?.user?.id       ?? "").toString().trim();
-      const cand = (username || email || id || "").toLowerCase();
+      // 가능한 후보들 중 우선순위:  email > username > id
+      const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim().toLowerCase();
+      const username = (detail?.username ?? detail?.user?.username ?? "").toString().trim().toLowerCase();
+      const id       = (detail?.id       ?? detail?.user?.id       ?? "").toString().trim().toLowerCase();
+      const cand = (email || username || id || "");
       return cand || null;
     }
 
@@ -2430,43 +2430,43 @@
     return sub;
   }
 
+  // /public/js/me.js — unsubscribeIfAny (완전한 교체본)
   async function unsubscribeIfAny() {
     try {
       const reg = await ensureWorker();
       const sub = await reg.pushManager.getSubscription();
       if (!sub) return;
 
-      try {
-        // Prefer keys from toJSON (already base64url)
-        let p256dh = "", auth = "";
-        const j = (typeof sub.toJSON === "function") ? sub.toJSON() : null;
-        if (j && j.keys) {
-          p256dh = j.keys.p256dh || "";
-          auth   = j.keys.auth   || "";
-        }
-        // Fallback to getKey() and convert to base64url
-        if (!p256dh || !auth) {
-          const kDh   = sub.getKey && sub.getKey("p256dh");
-          const kAuth = sub.getKey && sub.getKey("auth");
-          const toB64u = (buf) => {
-            const bin = Array.from(new Uint8Array(buf || []))
-              .map((b) => String.fromCharCode(b))
-              .join("");
-            return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-          };
+      // keys(p256dh, auth) 추출
+      let p256dh = "", auth = "";
+      const j = (typeof sub.toJSON === "function") ? sub.toJSON() : null;
+      if (j && j.keys) {
+        p256dh = j.keys.p256dh || "";
+        auth   = j.keys.auth   || "";
+      }
+      if (!p256dh || !auth) {
+        const toB64u = (buf) => {
+          const bin = Array.from(new Uint8Array(buf || []))
+            .map(b => String.fromCharCode(b)).join("");
+          return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+        };
+        if (sub.getKey) {
+          const kDh   = sub.getKey("p256dh");
+          const kAuth = sub.getKey("auth");
           if (kDh)   p256dh = toB64u(kDh);
           if (kAuth) auth   = toB64u(kAuth);
         }
+      }
 
-        await fetch(toAPI("/api/push/unsubscribe"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            subscription: { endpoint: sub.endpoint, keys: { p256dh, auth } },
-          }),
-        });
-      } catch {}
+      // 서버에 정확한 구독 정보로 해제 요청
+      await fetch(toAPI("/api/push/unsubscribe"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ subscription: { endpoint: sub.endpoint, keys: { p256dh, auth } } })
+      }).catch(() => {});
+
+      // 브라우저 구독 해제
       await sub.unsubscribe().catch(() => {});
     } catch {}
   }
