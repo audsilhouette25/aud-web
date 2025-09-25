@@ -308,6 +308,9 @@
       return cand || null;
     }
 
+    const isEmail = (s)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||'').trim());
+    if (isEmail(prev) && !isEmail(ns)) return; // keep email NS 
+
     // 1) 부팅 직후, 캐시/현재 유저 스냅에서 한 번 시도
     (async () => {
       try {
@@ -332,6 +335,7 @@
         const ns = pickNSFrom(ev?.detail || {});
         if (!ns) return;
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+        if (isEmailNS(prev) && !isEmailNS(ns)) return; // 이미 이메일이면 다운그레이드 금지
         if (!prev || prev === "default" || prev !== ns) {
           localStorage.setItem("auth:userns", ns);
         }
@@ -2413,8 +2417,12 @@
   }
 
   function currentNS(){
-    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
-    catch { return "default"; }
+    try {
+      const v = (typeof readNs === "function")
+        ? readNs()
+        : (localStorage.getItem("auth:userns") || "default");
+      return String(v).trim().toLowerCase();
+    } catch { return "default"; }
   }
 
   async function subscribeIfNeeded(){

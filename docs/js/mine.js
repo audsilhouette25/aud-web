@@ -3944,16 +3944,6 @@
             body: JSON.stringify({ ns, subscription: sub })
           });
         } catch {}
-
-        // ★ 서버 업서트 (ns별 구독 저장; 있어도 업서트)
-        try {
-          await fetch(toAPI('/api/push/subscribe'), {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ns, subscription: sub })
-          });
-        } catch {}
       } catch (e) {
         console.log('[mine:push] skip:', e?.message || e);
       }
