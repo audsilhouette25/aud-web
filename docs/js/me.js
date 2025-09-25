@@ -273,30 +273,121 @@
   /* me.js — Email-NS canonical bootstrap (final) */
 
   /* [A] helpers (file-scope) */
-  function isEmailNS(s){ return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim()); }
-  function readNs(){
-    try {
-      const v = (localStorage.getItem("auth:userns")||"").trim().toLowerCase();
-      return normalizeNs(v); // user:123 → 123
-    } catch { return ""; }
+  function isEmailNS(s) {
+    return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim());
   }
-  function writeNs(ns){
+
+  function normalizeNs(v) {
+    let s = String(v ?? "").trim().toLowerCase();
+    if (!s) return "";
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")) || (s.startsWith("`") && s.endsWith("`"))) {
+      s = s.slice(1, -1);
+    }
+    s = s.replace(/^user:/, ""); // legacy shapes
+    return s;
+  }
+
+  function __readProfileCacheSafe() {
     try {
-      let v = String(ns||"").trim().toLowerCase();
-      if (!isEmailNS(v) && typeof window.readProfileCache === "function") {
-        const snap = window.readProfileCache() || {};
-        v = String(snap.email || snap.user?.email || v).trim().toLowerCase(); // email 우선
-      }
-      if (v) localStorage.setItem("auth:userns", v);
+      if (typeof window.readProfileCache === "function") return window.readProfileCache() || null;
     } catch {}
+    try {
+      // fallback: best-effort from storage
+      const keys = ["me:profile", `me:profile:${(localStorage.getItem("auth:userns") || "default").toLowerCase()}`];
+      for (const k of keys) {
+        const raw = sessionStorage.getItem(k) || localStorage.getItem(k);
+        if (raw) return JSON.parse(raw);
+      }
+    } catch {}
+    return null;
   }
-  function deriveNSFromProfile(snap){
+
+  function readNs() {
+    try {
+      const raw = (localStorage.getItem("auth:userns") || "").trim();
+      return normalizeNs(raw);
+    } catch {
+      return "";
+    }
+  }
+  function writeNs(ns) {
+    try {
+      let next = normalizeNs(ns);
+      // Try to upgrade to email from profile if provided value is not an email.
+      if (!isEmailNS(next)) {
+        const snap = __readProfileCacheSafe();
+        const cand = deriveNSFromProfile(snap);
+        if (isEmailNS(cand)) next = cand;
+      }
+
+      const prev = readNs();
+      const prevIsEmail = isEmailNS(prev);
+      const nextIsEmail = isEmailNS(next);
+
+      if (!prev) {
+        if (next) localStorage.setItem("auth:userns", next);
+        return;
+      }
+
+      if (prevIsEmail && !nextIsEmail) {
+        // Do not downgrade an email to id/username.
+        return;
+      }
+
+      if (!prevIsEmail && nextIsEmail && prev !== next) {
+        localStorage.setItem("auth:userns", next); // upgrade
+        return;
+      }
+
+      // Same or non-upgrade change: only persist if actually different & both non-email.
+      if (!prevIsEmail && !nextIsEmail && next && prev !== next) {
+        localStorage.setItem("auth:userns", next);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  function deriveNSFromProfile(snap) {
     if (!snap || typeof snap !== "object") return null;
     const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
     const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
-    const id       = (snap.id       ?? snap.user?.id       ?? "").toString().trim().toLowerCase();
-    return (email || username || id || "") || null; // email 우선
+    const id       = (snap.id       ?? snap.user?.id       ?? snap.uid ?? snap.sub ?? "").toString().trim().toLowerCase();
+    return email || username || id || null; // email first
   }
+
+  function getNS() {
+    try {
+      // 1) From storage
+      let cur = readNs();
+      if (isEmailNS(cur)) return cur;
+
+      // 2) Try cached profile
+      const cached = __readProfileCacheSafe();
+      const candFromCache = deriveNSFromProfile(cached);
+      if (isEmailNS(candFromCache)) {
+        writeNs(candFromCache);
+        return candFromCache;
+      }
+
+      // 3) Try live user (sync; if async API exists elsewhere, boot will upgrade later)
+      const email = (window.__ME_EMAIL || "").toString().trim().toLowerCase();
+      if (isEmailNS(email)) {
+        writeNs(email);
+        return email;
+      }
+
+      // 4) Fall back to any non-empty candidate (username/id) or keep current normalized value
+      const fallback = candFromCache || cur || (window.__ME_ID ? String(window.__ME_ID).toLowerCase() : "") || "default";
+      const norm = normalizeNs(fallback);
+      if (norm && norm !== cur) writeNs(norm); // store normalized fallback (no email, so non-upgrade)
+      return norm || "default";
+    } catch {
+      return "default";
+    }
+  }
+
+  // Ensure the global symbol uses the fixed version
+  try { window.getNS = getNS; } catch {}
 
   /* [B] run once before any push/socket init */
   (() => {
@@ -1995,6 +2086,7 @@
   // 10) Boot  — REORDERED for early room subscription + predictable notifications
   // ──────────────────────────────────────────────────────────────────────────────
   async function boot() {
+    const __NS_BEFORE_BOOT__ = getNS(); // stabilize email-first ns
     // ── 로컬 상태
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
