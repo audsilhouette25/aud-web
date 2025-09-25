@@ -147,9 +147,16 @@
 
   // ── NS helper (계정별 namespace)
   const getNS = () => {
-    const uid = (typeof window.getMeId === "function" && window.getMeId()) || (window.__ME_ID || "");
-    try { return (localStorage.getItem("auth:userns") || String(uid) || "default").trim().toLowerCase(); }
-    catch { return String(uid || "default"); }
+    try {
+      const s1 = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+      const s2 = (window.__STORE_NS ?? "").toString().trim().toLowerCase();
+      const isEmail = (v)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v||"");
+      // 이메일이면 무조건 최우선
+      if (isEmail(s1)) return s1;
+      // 이메일이 아니면, __STORE_NS가 문자열로 유효할 때만 사용
+      if (s2 && s2 !== "default") return s2;
+      return s1 || "default";
+    } catch { return "default"; }
   };
   try { window.getNS = getNS; } catch {}
   // === Realtime keys
@@ -440,6 +447,7 @@
     }
     return latest;
   }
+  try { window.readProfileCache = window.readProfileCache || readProfileCache; } catch {}
 
   // 전역으로 새로 붙는 .avatar 자동 와이어
   function observeAvatars(){

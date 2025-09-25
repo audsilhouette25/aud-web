@@ -252,17 +252,29 @@
   };
 
   const getNS = () => {
+    const uid = (typeof window.getMeId === "function" && window.getMeId()) || (window.__ME_ID || "");
     try {
-      const ns = (window.__STORE_NS || localStorage.getItem("auth:userns") || "default");
-      return String(ns).trim().toLowerCase();
-    } catch { return "default"; }
+      const cur   = (localStorage.getItem("auth:userns")||"").trim().toLowerCase();
+      const email = (__ME_EMAIL||"").trim().toLowerCase();
+      const id    = (__ME_ID||"").toString().trim().toLowerCase();
+      const isEmail = s => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(s);
+      // 업그레이드만 허용: 이메일이 있으면 무조건 이메일, 없으면 기존값 유지, 둘 다 없을 때만 ID
+      const next = isEmail(cur) ? cur : (isEmail(email) ? email : (cur || id || "default"));
+      if (next && next !== cur) {
+        localStorage.setItem("auth:userns", next);
+        try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: { ns: next } })); } catch {}
+      }
+    } catch {}
   };
   /* me.js — Email-NS canonical bootstrap (final) */
 
   /* [A] helpers (file-scope) */
   function isEmailNS(s){ return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim()); }
   function readNs(){
-    try { return (localStorage.getItem("auth:userns")||"").trim().toLowerCase(); } catch { return ""; }
+    try {
+      const v = (localStorage.getItem("auth:userns")||"").trim().toLowerCase();
+      return normalizeNs(v); // user:123 → 123
+    } catch { return ""; }
   }
   function writeNs(ns){
     try {
