@@ -76,20 +76,26 @@
 
 /* [ADD] mine.js — fetch guard: mine 페이지에서만, public-key만 로컬 처리 */
 (() => {
+  // Guard should install only once and only on /mine page
   if (window.__MINE_FETCH_GUARD__) return;
-  // mine 페이지가 아니면 아예 가드 비활성
   try {
     const p = (location.pathname || "").toLowerCase();
     if (!/\/mine(\.html)?$/.test(p)) return;
   } catch {}
   const _f = window.fetch;
-  window.fetch = function(...args){
-    try{
-      const url = (args[0]?.url) || String(args[0]||"");
-      if (/\/api\/push\/public-key\b/i.test(url)){
-        return Promise.resolve(new Response(JSON.stringify({ ok:true, page:"mine", skipped:"public-key locally skipped" }), { status:200, headers:{ "content-type":"application/json" } }));
+  window.fetch = function (...args) {
+    try {
+      const url = (args[0]?.url) || String(args[0] || "");
+      // Only short-circuit public-key on mine page; let subscribe/unsubscribe reach server
+      if (/\/api\/push\/public-key\b/i.test(url)) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ ok: true, page: "mine", skipped: "public-key short-circuit" }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+        );
       }
-    }catch{}
+    } catch {}
     return _f.apply(this, args);
   };
   window.__MINE_FETCH_GUARD__ = true;

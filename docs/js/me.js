@@ -2430,36 +2430,44 @@
     return sub;
   }
 
-  async function unsubscribeIfAny(){
+  async function unsubscribeIfAny() {
     try {
       const reg = await ensureWorker();
       const sub = await reg.pushManager.getSubscription();
       if (!sub) return;
-      // 서버는 endpoint+p256dh+auth 모두 필요. 빠지면 400 invalid_subscription.
+
       try {
-        // 대부분 브라우저는 toJSON()에 keys 포함
-        const j = (typeof sub.toJSON === "function") ? sub.toJSON() : null;
+        // Prefer keys from toJSON (already base64url)
         let p256dh = "", auth = "";
+        const j = (typeof sub.toJSON === "function") ? sub.toJSON() : null;
         if (j && j.keys) {
           p256dh = j.keys.p256dh || "";
           auth   = j.keys.auth   || "";
         }
-        // 혹시나 toJSON()이 비어있으면 getKey()로 보강
+        // Fallback to getKey() and convert to base64url
         if (!p256dh || !auth) {
           const kDh   = sub.getKey && sub.getKey("p256dh");
           const kAuth = sub.getKey && sub.getKey("auth");
-          const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf || [])));
-          if (kDh)   p256dh = toB64(kDh);
-          if (kAuth) auth   = toB64(kAuth);
+          const toB64u = (buf) => {
+            const bin = Array.from(new Uint8Array(buf || []))
+              .map((b) => String.fromCharCode(b))
+              .join("");
+            return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+          };
+          if (kDh)   p256dh = toB64u(kDh);
+          if (kAuth) auth   = toB64u(kAuth);
         }
+
         await fetch(toAPI("/api/push/unsubscribe"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ subscription: { endpoint: sub.endpoint, keys: { p256dh, auth } } })
+          body: JSON.stringify({
+            subscription: { endpoint: sub.endpoint, keys: { p256dh, auth } },
+          }),
         });
       } catch {}
-      await sub.unsubscribe().catch(()=>{});
+      await sub.unsubscribe().catch(() => {});
     } catch {}
   }
 
