@@ -48,9 +48,10 @@ self.addEventListener('message', (ev) => {
     BASE_AT = Number(d.baseAt || Date.now());
     TOGGLE_ON = d.hasOwnProperty('on') ? !!d.on : (d.hasOwnProperty('enabled') ? !!d.enabled : TOGGLE_ON);
   } else if (d.type === 'NOTIFY_TOGGLE'){
-    // Accept both on/enabled for compatibility
+    const prev = !!TOGGLE_ON;
     TOGGLE_ON = (d.hasOwnProperty('on') ? !!d.on : !!d.enabled);
-    if (TOGGLE_ON){
+  if (!prev && TOGGLE_ON) {
+      // OFF → ON 으로 실제 전환된 경우에만 백로그 방출
       self.registration && flushQueue(self.registration, 100);
     }
   } else if (d.type === 'DEBUG_ENQUEUE'){

@@ -18,7 +18,7 @@
   try {
     const KEY_TOGGLE = "me:notify-enabled";
     const PAGE_AT = Date.now();
-    let lastToggle = null;
+    let lastToggle = (localStorage.getItem(KEY_TOGGLE) === "1");
 
     async function swReady() {
       try {
