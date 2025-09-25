@@ -264,8 +264,12 @@
         localStorage.setItem("auth:userns", next);
         try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: { ns: next } })); } catch {}
       }
-    } catch {}
+      return next; 
+    } catch {
+      return String(uid || "default");
+    }
   };
+  try { window.getNS = getNS; } catch {}
   /* me.js — Email-NS canonical bootstrap (final) */
 
   /* [A] helpers (file-scope) */
