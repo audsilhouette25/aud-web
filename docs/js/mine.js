@@ -73,35 +73,6 @@
 (() => {
   "use strict";
 
-
-/* [ADD] mine.js — fetch guard: mine 페이지에서만, public-key만 로컬 처리 */
-(() => {
-  // Guard should install only once and only on /mine page
-  if (window.__MINE_FETCH_GUARD__) return;
-  try {
-    const p = (location.pathname || "").toLowerCase();
-    if (!/\/mine(\.html)?$/.test(p)) return;
-  } catch {}
-  const _f = window.fetch;
-  window.fetch = function (...args) {
-    try {
-      const url = (args[0]?.url) || String(args[0] || "");
-      // Only short-circuit public-key on mine page; let subscribe/unsubscribe reach server
-      if (/\/api\/push\/public-key\b/i.test(url)) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({ ok: true, page: "mine", skipped: "public-key short-circuit" }),
-            { status: 200, headers: { "content-type": "application/json" } }
-          )
-        );
-      }
-    } catch {}
-    return _f.apply(this, args);
-  };
-  window.__MINE_FETCH_GUARD__ = true;
-})();
-
-
   /* =========================================================
    * 0) KEYS / EVENTS / SHORTCUTS
    * ========================================================= */
@@ -191,6 +162,18 @@
     const emailLike = safeLower(u?.email || u?.id);
     return emailLike || safeLower(item?.ns) || 'default';
   };
+
+  // /public/js/shared-ns.js (없으면 me.js 상단이나 mine.js 상단에 [ADD])
+  function normalizeNs(ns) {
+    const v = String(ns || '').trim().toLowerCase();
+    if (!v) return '';
+    // user:<id> → <id>
+    return v.replace(/^user:/, '');
+  }
+
+  function isEmailNS(s){ return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim()); }
+  function readNs(){ try { return (localStorage.getItem("auth:userns")||"").trim().toLowerCase(); } catch { return ""; } }
+
 
   // ── NS helper (계정별 namespace)
   const getNS = () => {
@@ -1111,56 +1094,100 @@
 
     // 동작 후보를 넓게: 실제 서버와 맞는 것을 자동 채택
     
-function candidateEndpoints(kind){
-      const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS :
-        (typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []);
+  function candidateEndpoints(kind){
+        const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS :
+          (typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []);
 
-      // 서버 패치 기준: 실제 존재하는 경로만 시도 (404 스팸 억제)
-      const kindPref = (kind === "item:like")
-        ? ["/api/notify/like"]
-        : (kind === "vote:update")
-        ? ["/api/notify/vote"]
-        : [];
+        // 서버 패치 기준: 실제 존재하는 경로만 시도 (404 스팸 억제)
+        const kindPref = (kind === "item:like")
+          ? ["/api/notify/like"]
+          : (kind === "vote:update")
+          ? ["/api/notify/vote"]
+          : [];
 
-      const minimal = [
-        "/api/push/test"   // 개발/폴백 테스트 라우트 (서버에서 push payload 그대로 발사)
-      ];
+        const minimal = [
+          "/api/push/test"   // 개발/폴백 테스트 라우트 (서버에서 push payload 그대로 발사)
+        ];
 
-      return [...over, ...kindPref, ...minimal];
-    }
-function legacyPayload(d, kind){
-      return {
-        ns: d.ns || d.owner?.ns || "default",
-        title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
-        body: kind === "item:like"
-                ? `Total ${Number(d.likes||0)} ${Number(d.likes||0) === 1 ? "like" : "likes"}`
-                : "",
-        tag: `${kind.replace(":","-")}:${d.id}`,
-        data: { url: "/me.html", id: String(d.id||"") }
-      };
-    }
-
-    async function firePush(kind, data){
-      const payload = { kind, ...data, ts: Date.now() };
-
-      // 라우트 자동 탐색
-      for (const u of candidateEndpoints(kind)) {
-        const ok = await postJSON(u, u.endsWith("/test") ? legacyPayload(payload, kind) : payload);
-        if (ok) return true;
+        return [...over, ...kindPref, ...minimal];
+      }
+  function legacyPayload(d, kind){
+        return {
+          ns: d.ns || d.owner?.ns || "default",
+          title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
+          body: kind === "item:like"
+                  ? `Total ${Number(d.likes||0)} ${Number(d.likes||0) === 1 ? "like" : "likes"}`
+                  : "",
+          tag: `${kind.replace(":","-")}:${d.id}`,
+          data: { url: "/me.html", id: String(d.id||"") }
+        };
       }
 
-      // (선택) socket.io 폴백: 서버가 listen 중이라면 사용
+  // /public/js/mine.js — REPLACE the old firePush() + assignment with this
+
+  window.__firePush = async function(kind, payload = {}) {
+    try {
+      const id = String(payload.id || payload.itemId || "");
+      const isEmail = (s) => /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(String(s || "").trim());
+      const readEmailNS = () => {
+        try {
+          const v = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+          return isEmail(v) ? v : "";
+        } catch { return ""; }
+      };
+
+      // 1) 작성자 이메일 NS 우선 결정: DOM 카드 → payload → viewer 저장값
+      const el = id ? document.querySelector(`.feed-card[data-id="${CSS.escape(id)}"]`) : null;
+      const fromDom  = el?.dataset?.ns || el?.dataset?.email || "";
+      const fromUser = payload.owner?.email || payload.owner?.ns || payload.ns || "";
+      const ns = isEmail(fromDom) ? fromDom
+            : isEmail(fromUser) ? fromUser
+            : readEmailNS();
+
+      // 2) 서버 알림 호출
+      const url  = toAPI(`/api/notify/${/vote/i.test(kind) ? "vote" : "like"}`);
+      const body = {
+        ns,
+        id,
+        by: (typeof getMeEmail === "function" && getMeEmail())
+          || (typeof getMeId    === "function" && getMeId())
+          || ""
+      };
+
+      const res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
       try {
-        if (window.io && window.__SOCK) {
-          window.__SOCK.emit("notify", payload);
-          return true;
-        }
+        const j = await res.clone().json();
+        console.log("[notify]", kind, body, j); // 디버그 로그(유지 권장)
       } catch {}
 
-      return false;
-    }
+      if (!res.ok) {
+        // (선택) socket.io 폴백
+        try {
+          if (window.io && window.__SOCK) {
+            window.__SOCK.emit("notify", {
+              kind,
+              ns,
+              id,
+              by: body.by,
+              data: { kind: /vote/i.test(kind) ? "vote" : "like", itemId: id },
+              tag: `${/vote/i.test(kind) ? "vote" : "like"}:${id}`
+            });
+          }
+        } catch {}
+      }
 
-    window.__firePush = firePush;
+      return res;
+    } catch (e) {
+      console.warn("[notify] failed", e);
+    }
+  };
+
   })();
 
   // --- RANDOMIZE util (Fisher–Yates) ---
@@ -3880,7 +3907,7 @@ function legacyPayload(d, kind){
     (async () => {
       try {
         // 0) 내 NS: username/email 등으로 저장된 값 사용 (store.js/me.js 가 세팅)
-        const ns = (localStorage.getItem('auth:userns') || 'default').trim().toLowerCase();
+        const ns = readNs() || 'default';  // always normalized (user:2 → 2)
 
         // 1) SW 보장
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;

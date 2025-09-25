@@ -135,7 +135,6 @@
 (() => {
   "use strict";
 
-
 /* [ADD] Gate page/SW notifications: visible tab = suppress, past events cut */
 (() => {
   const PAGE_AT = Date.now();
@@ -258,34 +257,43 @@
       return String(ns).trim().toLowerCase();
     } catch { return "default"; }
   };
+  /* me.js — Email-NS canonical bootstrap (final) */
 
-  /* [PATCH][ADD-ONLY] Ensure user-namespace (NS) before push subscribe on me page */
+  /* [A] helpers (file-scope) */
+  function isEmailNS(s){ return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim()); }
+  function readNs(){
+    try { return (localStorage.getItem("auth:userns")||"").trim().toLowerCase(); } catch { return ""; }
+  }
+  function writeNs(ns){
+    try {
+      let v = String(ns||"").trim().toLowerCase();
+      if (!isEmailNS(v) && typeof window.readProfileCache === "function") {
+        const snap = window.readProfileCache() || {};
+        v = String(snap.email || snap.user?.email || v).trim().toLowerCase(); // email 우선
+      }
+      if (v) localStorage.setItem("auth:userns", v);
+    } catch {}
+  }
+  function deriveNSFromProfile(snap){
+    if (!snap || typeof snap !== "object") return null;
+    const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
+    const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
+    const id       = (snap.id       ?? snap.user?.id       ?? "").toString().trim().toLowerCase();
+    return (email || username || id || "") || null; // email 우선
+  }
+
+  /* [B] run once before any push/socket init */
   (() => {
-    function deriveNSFromProfile(snap) {
-      if (!snap || typeof snap !== "object") return null;
-      const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
-      const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
-      const id       = (snap.id       ?? snap.user?.id       ?? "").toString().trim().toLowerCase();
-      return (email || username || id || "") || null; // email 우선
+    let ns = readNs();
+    if (!isEmailNS(ns)) {
+      const snap = (typeof window.readProfileCache === "function") ? window.readProfileCache() : null;
+      const cand = deriveNSFromProfile(snap);
+      if (isEmailNS(cand)) writeNs(cand);
     }
-
-    let ns = null;
-    try {
-      ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
-      if (!ns && typeof window.readProfileCache === "function") {
-        const snap = window.readProfileCache();
-        ns = deriveNSFromProfile(snap);
-      }
-    } catch {}
-
-    try {
-      if (ns) {
-        localStorage.setItem("auth:userns", ns);
-        window.dispatchEvent(new CustomEvent("user:updated", {
-          detail: { id: ns, username: ns, email: ns }
-        }));
-      }
-    } catch {}
+    ns = readNs();
+    if (ns) {
+      window.dispatchEvent(new CustomEvent("user:updated", { detail: { email: ns, username: ns, id: ns, ns } }));
+    }
   })();
 
   /* [PATCH][ADD-ONLY] Prefer username as NS (fallback: email → id)
