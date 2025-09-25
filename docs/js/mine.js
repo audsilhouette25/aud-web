@@ -3861,7 +3861,7 @@
     (async () => {
       try {
         // 0) 내 NS: username/email 등으로 저장된 값 사용 (store.js/me.js 가 세팅)
-        const ns = readNs() || 'default';  // always normalized (user:2 → 2)
+        const ns = (typeof getNS === 'function' ? getNS() : readNs()) || 'default';
 
         // 1) SW 보장
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
