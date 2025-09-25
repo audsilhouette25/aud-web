@@ -22,7 +22,8 @@
 
     async function swReady() {
       try {
-        const reg = await (navigator.serviceWorker.getRegistration("./") || navigator.serviceWorker.register("./sw.js", { scope: "./" }));
+        const reg = (await navigator.serviceWorker.getRegistration("./")) 
+                  || (await navigator.serviceWorker.register("./sw.js", { scope: "./" }));
         if (!reg.active) await navigator.serviceWorker.ready;
         return reg;
       } catch { return null; }
@@ -33,7 +34,6 @@
         const reg = await swReady(); if (!reg) return;
         const list = await reg.getNotifications({ includeTriggered: false }).catch(() => []);
         // send to all clients
-        const clients = await (self && self.clients ? self.clients.matchAll({ type: "window", includeUncontrolled: true }) : Promise.resolve([])).catch(()=>[]);
       } catch {}
       try {
         navigator.serviceWorker.controller?.postMessage?.({ type, ...(payload||{}) });
@@ -410,7 +410,7 @@
     window.fetch = function(...args){
       try{
         const url = (args[0]?.url) || String(args[0]||"");
-        if (/\/api\/push\/(subscribe|unsubscribe|public-key)/i.test(url)){
+        if (/\/api\/push\/(subscribe|unsubscribe|public-key)(?:$|[?#/])/i.test(url)){
           if (localStorage.getItem(KEY_TOGGLE) !== "1"){
             return Promise.resolve(new Response(JSON.stringify({ ok:true, skipped:"toggle off" }), { status:200, headers:{ "content-type":"application/json" } }));
           }

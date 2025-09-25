@@ -1809,9 +1809,9 @@
               body: JSON.stringify({
                 ns: ownerNS,                    // ← 카드 소유자 NS (nsOf(it)와 일치)
                 title: 'CARD TEST',
-                body: `card ${pid}`,
+                body: `card ${id}`,
                 data: { url: '/mine.html' },    // ← 꼭 data 안쪽에 url
-                tag: `card:${pid}`
+                tag: `card:${id}`
               })
             }).catch(()=>{});
           } catch {}
@@ -2283,6 +2283,7 @@
     // [REPLACE] 표준 → 대체 → 메타 추출 순으로 시도
     async function fetchVotes(itemId, ns) {
       const pid = encodeURIComponent(itemId);
+      const rawId = String(itemId);
       const nsq = `ns=${encodeURIComponent(ns)}`;
 
       // 1) 표준: GET /api/items/:id/votes
@@ -2425,7 +2426,7 @@
 
     // ✅ Web Push: vote action notification
     try {
-      const sel = `.feed-card[data-id="${CSS.escape(String(pid))}"]`;
+      const sel = `.feed-card[data-id="${CSS.escape(rawId)}"]`;
       const art = document.querySelector(sel);
       const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || getNS() || 'default')
                         .toString().trim().toLowerCase();
@@ -2438,7 +2439,7 @@
           title: '투표가 업데이트되었습니다',
           body:  '내 게시물에 새 투표가 기록되었습니다.',
           data:  { url: '/mine.html' },
-          tag:   `vote:${pid}`
+          tag:   `vote:${rawId}`
         })
       }).catch(()=>{});
     } catch {}
@@ -2861,6 +2862,9 @@
 
     // ③ 다른 탭에서 온 동기화(localStorage)도 수신
     window.addEventListener("storage", (e)=>{
+      if (e.key === 'aud:feed:bc' && e.newValue) {
+        try { const m = JSON.parse(e.newValue); __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type: m.type, data: m.data } }); } catch {}
+      }
       if (e && e.key === window.LIKES_SYNC_KEY && e.newValue) {
         try { const payload = JSON.parse(e.newValue); applyMap(payload?.map || null); } catch {}
       }
@@ -3613,6 +3617,7 @@
 
   // === FEED → other tabs (me.html) 알림 브릿지: 내가 한 행동을 방송 ===
   function bcNotifySelf(type, data){
+    const key = 'aud:feed:bc';
     // 좋아요/투표 관련 payload는 작성자 ns를 반드시 보강
     const needEnrich =
       type === "self:like" || type === "item:like" ||
@@ -3673,7 +3678,7 @@
         location.assign(target);
       } else {
         const next = encodeURIComponent(target);
-        location.assign(`${pageHref('login.html')}?next=${next}`);
+        location.assign(`${safeHref('login.html')}?next=${next}`);
       }
     };
 
