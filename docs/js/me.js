@@ -263,33 +263,26 @@
   (() => {
     function deriveNSFromProfile(snap) {
       if (!snap || typeof snap !== "object") return null;
-      const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
-      const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
-      const id       = (snap.id       ?? snap.user?.id       ?? "").toString().trim().toLowerCase();
-      return (email || username || id || "") || null; // email 우선
+      const id = (snap.id ?? snap.user?.id ?? "").toString().trim();
+      const username = (snap.username ?? snap.user?.username ?? "").toString().trim();
+      const email = (snap.email ?? snap.user?.email ?? "").toString().trim().toLowerCase();
+      return (id || username || email || "").toLowerCase() || null;
     }
 
-    // 숫자형(NS= "1") 교정: 프로필 email이 있으면 email로 치환
-    if (/^\d+$/.test(ns || "") && typeof window.readProfileCache === "function") {
-      const snap = window.readProfileCache();
-      const email = (snap?.email ?? snap?.user?.email ?? "").toString().trim().toLowerCase();
-      if (email) ns = email;
-    }
-
-    var nsCandidate = null;
+    let ns = null;
     try {
-      nsCandidate = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
-      if (!nsCandidate && typeof window.readProfileCache === "function") {
+      ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
+      if (!ns && typeof window.readProfileCache === "function") {
         const snap = window.readProfileCache();
-        nsCandidate = deriveNSFromProfile(snap);
+        ns = deriveNSFromProfile(snap);
       }
     } catch {}
 
     try {
-      if (nsCandidate) {
-        localStorage.setItem("auth:userns", nsCandidate);
+      if (ns) {
+        localStorage.setItem("auth:userns", ns);
         window.dispatchEvent(new CustomEvent("user:updated", {
-          detail: { id: nsCandidate, username: nsCandidate, email: nsCandidate }
+          detail: { id: ns, username: ns, email: ns }
         }));
       }
     } catch {}
@@ -2432,7 +2425,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ ns: (localStorage.getItem("auth:userns")||"default").trim().toLowerCase(), subscription: sub })
+      body: JSON.stringify({ ns: currentNS(), subscription: sub })
     });
     return sub;
   }
