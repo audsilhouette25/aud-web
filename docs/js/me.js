@@ -296,49 +296,40 @@
     }
   })();
 
-  /* [PATCH][ADD-ONLY] Prefer username as NS (fallback: email → id)
-  */
+  /* [KEEP] Email-first NS bootstrap with downgrade guard */
   (() => {
     function pickNSFrom(detail) {
-      // 가능한 후보들 중 우선순위:  email > username > id
       const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim().toLowerCase();
       const username = (detail?.username ?? detail?.user?.username ?? "").toString().trim().toLowerCase();
       const id       = (detail?.id       ?? detail?.user?.id       ?? "").toString().trim().toLowerCase();
-      const cand = (email || username || id || "");
-      return cand || null;
+      return (email || username || id || "") || null;
     }
-
     const isEmail = (s)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||'').trim());
-    if (isEmail(prev) && !isEmail(ns)) return; // keep email NS 
-
-    // 1) 부팅 직후, 캐시/현재 유저 스냅에서 한 번 시도
+    // 부팅 시 1회 보정
     (async () => {
       try {
         const cached = (typeof window.readProfileCache === "function") ? window.readProfileCache() : null;
-        let ns = pickNSFrom(cached);
-        if (!ns && window.auth?.getUser) {
+        let cand = pickNSFrom(cached);
+        if (!cand && window.auth?.getUser) {
           const me = await window.auth.getUser().catch(() => null);
-          ns = pickNSFrom(me);
+          cand = pickNSFrom(me);
         }
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-        if (ns && (!prev || prev === "default" || prev !== ns)) {
-          localStorage.setItem("auth:userns", ns);
-          // 다른 모듈들이 즉시 인지하도록 이벤트도 발사
-          try { window.dispatchEvent(new CustomEvent("user:updated", { detail: { username: ns, email: ns, id: ns } })); } catch {}
+        if (isEmail(prev) && !isEmail(cand)) return; // don't downgrade
+        if (cand && (!prev || prev === "default" || prev !== cand)) {
+          localStorage.setItem("auth:userns", cand);
+          window.dispatchEvent(new CustomEvent("user:updated", { detail: { username: cand, email: cand, id: cand } }));
         }
       } catch {}
     })();
-
-    // 2) 이후 프로필이 갱신될 때마다 username을 다시 주입
+    // 이후 업데이트에도 다운그레이드 금지
     window.addEventListener("user:updated", (ev) => {
       try {
-        const ns = pickNSFrom(ev?.detail || {});
-        if (!ns) return;
+        const cand = pickNSFrom(ev?.detail || {});
+        if (!cand) return;
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-        if (isEmailNS(prev) && !isEmailNS(ns)) return; // 이미 이메일이면 다운그레이드 금지
-        if (!prev || prev === "default" || prev !== ns) {
-          localStorage.setItem("auth:userns", ns);
-        }
+        if (isEmail(prev) && !isEmail(cand)) return;
+        if (!prev || prev === "default" || prev !== cand) localStorage.setItem("auth:userns", cand);
       } catch {}
     });
   })();
