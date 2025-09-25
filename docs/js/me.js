@@ -110,6 +110,25 @@
   } catch {}
 })();
 
+
+/* === DEBUG: persistent ME_NOTIFY_DIAG loader (flagged) === */
+(() => {
+  try {
+    if (localStorage.getItem('me:diag-enable') === '1' && !window.__ME_DIAG_LOADER__) {
+      window.__ME_DIAG_LOADER__ = true;
+      const code = localStorage.getItem('me:diag-code');
+      if (code && typeof code === 'string') {
+        // 전역 eval로 삽입 (IIFE 권장)
+        (0, eval)(code);
+        console.log('%c[ME] diag loaded from localStorage', 'color:#2563eb;font-weight:700;');
+      }
+    }
+  } catch {}
+})();
+
+
+
+
 // me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
 // 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
 
