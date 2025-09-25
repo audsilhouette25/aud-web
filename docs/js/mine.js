@@ -81,8 +81,8 @@
   window.fetch = function(...args){
     try{
       const url = (args[0]?.url) || String(args[0]||"");
-      if (/\/api\/push\/(subscribe|unsubscribe|public-key)\b/i.test(url)){
-        return Promise.resolve(new Response(JSON.stringify({ ok:true, page:"mine", skipped:"no push on mine" }), { status:200, headers:{ "content-type":"application/json" } }));
+      if (/\/api\/push\/(public-key)\b/i.test(url)){
+        return Promise.resolve(new Response(JSON.stringify({ ok:true, page:"mine", skipped:"public-key locally skipped" }), { status:200, headers:{ "content-type":"application/json" } }));
       }
     }catch{}
     return _f.apply(this, args);
@@ -3896,7 +3896,17 @@ function legacyPayload(d, kind){
         }
 
         // 디버그 로그
-        console.log('[mine:push] ready', { ns, endpoint: sub && sub.endpoint });
+        console.log('[mine:push] ready', { ns, endpoint: sub  && sub.endpoint });
+
+        // ★★★ 추가: 서버에 구독 업서트 (ns 기준으로 저장)
+        try {
+          await fetch(toAPI('/api/push/subscribe'), {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ns, subscription: sub })
+          });
+        } catch {}
       } catch (e) {
         console.log('[mine:push] skip:', e?.message || e);
       }
