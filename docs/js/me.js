@@ -263,10 +263,10 @@
   (() => {
     function deriveNSFromProfile(snap) {
       if (!snap || typeof snap !== "object") return null;
-      const id = (snap.id ?? snap.user?.id ?? "").toString().trim();
-      const username = (snap.username ?? snap.user?.username ?? "").toString().trim();
-      const email = (snap.email ?? snap.user?.email ?? "").toString().trim().toLowerCase();
-      return (id || username || email || "").toLowerCase() || null;
+      const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
+      const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
+      const id       = (snap.id       ?? snap.user?.id       ?? "").toString().trim().toLowerCase();
+      return (email || username || id || "") || null; // email 우선
     }
 
     let ns = null;
