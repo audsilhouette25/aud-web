@@ -276,20 +276,20 @@
       if (email) ns = email;
     }
 
-    let ns = null;
+    var nsCandidate = null;
     try {
-      ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
-      if (!ns && typeof window.readProfileCache === "function") {
+      nsCandidate = (localStorage.getItem("auth:userns") || "").trim().toLowerCase() || null;
+      if (!nsCandidate && typeof window.readProfileCache === "function") {
         const snap = window.readProfileCache();
-        ns = deriveNSFromProfile(snap);
+        nsCandidate = deriveNSFromProfile(snap);
       }
     } catch {}
 
     try {
-      if (ns) {
-        localStorage.setItem("auth:userns", ns);
+      if (nsCandidate) {
+        localStorage.setItem("auth:userns", nsCandidate);
         window.dispatchEvent(new CustomEvent("user:updated", {
-          detail: { id: ns, username: ns, email: ns }
+          detail: { id: nsCandidate, username: nsCandidate, email: nsCandidate }
         }));
       }
     } catch {}
