@@ -251,27 +251,6 @@
     catch { return String(n ?? 0); }
   };
 
-  const getNS = () => {
-    const uid = (typeof window.getMeId === "function" && window.getMeId()) || (window.__ME_ID || "");
-    try {
-      const cur   = (localStorage.getItem("auth:userns")||"").trim().toLowerCase();
-      const email = (__ME_EMAIL||"").trim().toLowerCase();
-      const id    = (__ME_ID||"").toString().trim().toLowerCase();
-      const isEmail = s => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(s);
-      // 업그레이드만 허용: 이메일이 있으면 무조건 이메일, 없으면 기존값 유지, 둘 다 없을 때만 ID
-      const next = isEmail(cur) ? cur : (isEmail(email) ? email : (cur || id || "default"));
-      if (next && next !== cur) {
-        localStorage.setItem("auth:userns", next);
-        try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: { ns: next } })); } catch {}
-      }
-      return next; 
-    } catch {
-      return String(uid || "default");
-    }
-  };
-  try { window.getNS = getNS; } catch {}
-  /* me.js — Email-NS canonical bootstrap (final) */
-
   /* [A] helpers (file-scope) */
   function isEmailNS(s) {
     return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim());
