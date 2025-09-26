@@ -78,22 +78,6 @@
   </section>
 <!-- 소켓 (선택) -->
 
-  <script>(function(){
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('./sw.js', { scope: './' })
-    .then(()=>navigator.serviceWorker.ready)
-    .then(()=>console.log('[sw] registered at subpath'))
-    .catch(e=>console.log('[sw] register failed:', e));
-})();</script>
-
-  <script>window.PROFILE_ENDPOINTS = ['/api/users/:id/public'];</script>
-
-  <!-- 페이지 성격/알림 금지 플래그 (가장 먼저) -->
-  <script>
-    window.PAGE_KIND = 'mine';
-    window.NOTIFY_ALLOWED = false;  // 공용 모듈이 있더라도 mine에선 권한요청/업서트 금지
-  </script>
-
   <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
 
   <script src="./js/fetch-sanitizer.js"></script>

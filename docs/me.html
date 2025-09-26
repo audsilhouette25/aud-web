@@ -85,19 +85,6 @@
           <div class="kpi"><b id="k-posts">0</b><span>Post</span></div>
         </div>
       </article>
-
-      <article class="panel notify">
-        <h3 class="panel-title">Alarm</h3>
-
-        <!-- 우측 상단 고정 토글 -->
-        <label class="switch icon notify-toggle">
-          <input id="notify-toggle" type="checkbox" aria-label="알림 켜기/끄기" />
-          <i class="notify-icon" aria-hidden="true"></i>
-        </label>
-
-        <ul id="notify-list" class="notify-list"></ul>
-        <p id="notify-empty" class="notify-empty">No alarm</p>
-      </article>
     </section>
   </main>
 
@@ -114,15 +101,6 @@
     </button>
   </div>
 </footer>
-
-<!-- Service Worker 등록은 유지 -->
-<script>(function(){
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('./sw.js', { scope: './' })
-    .then(()=>navigator.serviceWorker.ready)
-    .then(()=>console.log('[sw] registered at subpath'))
-    .catch(e=>console.log('[sw] register failed:', e));
-})();</script>
 
 <!-- socket.io client (서버 제공 버전) -->
 <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js" crossorigin="anonymous"></script>

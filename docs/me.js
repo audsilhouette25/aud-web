@@ -12,11 +12,179 @@
   } catch {}
 })();
 
+
+/* === [PATCH] Notification gate & SW session sync (entry-burst off / backlog on) === */
+(() => {
+  try {
+    const KEY_TOGGLE = "me:notify-enabled";
+    const PAGE_AT = Date.now();
+    let lastToggle = (localStorage.getItem(KEY_TOGGLE) === "1");
+
+    async function swReady() {
+      try {
+        const reg = (await navigator.serviceWorker.getRegistration("./")) 
+                  || (await navigator.serviceWorker.register("./sw.js", { scope: "./" }));
+        if (!reg.active) await navigator.serviceWorker.ready;
+        return reg;
+      } catch { return null; }
+    }
+
+    async function post(type, payload) {
+      try {
+        const reg = await swReady(); if (!reg) return;
+        const list = await reg.getNotifications({ includeTriggered: false }).catch(() => []);
+        // send to all clients
+      } catch {}
+      try {
+        navigator.serviceWorker.controller?.postMessage?.({ type, ...(payload||{}) });
+      } catch {}
+      try {
+        const reg = await swReady();
+        if (reg && reg.active) reg.active.postMessage({ type, ...(payload||{}) });
+      } catch {}
+    }
+
+    function isOn() { return localStorage.getItem(KEY_TOGGLE) === "1"; }
+
+    // On page load: declare session to SW so it can ignore older pushes (ts < baseAt)
+    post("NOTIFY_SESSION", { baseAt: PAGE_AT, on: isOn() });
+
+    // On socket connect: update baseAt to a later time if needed
+    const s = (window.sock || window.socket || window.io?.socket || window.io || window.__sock__);
+    if (s && typeof s.on === "function") {
+      s.on("connect", () => post("NOTIFY_SESSION", { baseAt: Date.now(), on: isOn() }));
+    }
+
+    // Observe local toggle changes and inform SW (also flush backlog when ON)
+    function emitToggle() {
+      const on = isOn();
+      if (on !== lastToggle) {
+        lastToggle = on;
+        post("NOTIFY_TOGGLE", { on, baseAt: Date.now() });
+      }
+    }
+    emitToggle();
+
+    // Listen to UI checkbox (if present)
+    document.addEventListener("change", (ev) => {
+      const t = ev.target;
+      if (!t) return;
+      if ((t.id === "notify-toggle") || (t.matches && t.matches('[data-role="notify-toggle"]'))) {
+        try { localStorage.setItem(KEY_TOGGLE, t.checked ? "1" : "0"); } catch {}
+        emitToggle();
+      }
+    });
+
+    // Listen to storage events (other tabs)
+    window.addEventListener("storage", (e) => {
+      if (e.key === KEY_TOGGLE) emitToggle();
+    });
+
+    // Extra guard: if toggle is OFF in this tab, swallow Notification/SR.showNotification calls
+    (function guardLocalConstructors(){
+      const off = () => localStorage.getItem(KEY_TOGGLE) !== "1";
+      try{
+        if (window.Notification && !window.Notification.__ME_TOGGLE_GUARD__){
+          const N = window.Notification;
+          const P = function(title, opt){
+            if (off()) { return { close(){} }; }
+            return new N(title, opt);
+          };
+          Object.setPrototypeOf(P, N); P.prototype = N.prototype;
+          window.Notification = P; window.Notification.__ME_TOGGLE_GUARD__ = true;
+        }
+      }catch{}
+      try{
+        const SR = window.ServiceWorkerRegistration;
+        if (SR?.prototype && !SR.prototype.__ME_TOGGLE_GUARD__){
+          const orig = SR.prototype.showNotification;
+          SR.prototype.showNotification = function(title, opt){
+            if (off()) return Promise.resolve();
+            return orig.apply(this, arguments);
+          };
+          SR.prototype.__ME_TOGGLE_GUARD__ = true;
+        }
+      }catch{}
+    })();
+
+  } catch {}
+})();
+
+
+/* === DEBUG: persistent ME_NOTIFY_DIAG loader (flagged) === */
+(() => {
+  try {
+    if (localStorage.getItem('me:diag-enable') === '1' && !window.__ME_DIAG_LOADER__) {
+      window.__ME_DIAG_LOADER__ = true;
+      const code = localStorage.getItem('me:diag-code');
+      if (code && typeof code === 'string') {
+        // 전역 eval로 삽입 (IIFE 권장)
+        (0, eval)(code);
+        console.log('%c[ME] diag loaded from localStorage', 'color:#2563eb;font-weight:700;');
+      }
+    }
+  } catch {}
+})();
+
+
+
+
 // me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
 // 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
 
 (() => {
   "use strict";
+
+/* [ADD] Gate page/SW notifications: visible tab = suppress, past events cut */
+(() => {
+  const PAGE_AT = Date.now();
+  let CONNECTED_AT = (window.__CONNECTED_AT||0);
+  const BASE = () => (CONNECTED_AT || PAGE_AT);
+
+  const s = (window.sock || window.socket || window.io?.socket || window.io || window.__sock__);
+  if (s && typeof s.on === 'function' && !s.__ME_VIS_GUARD__) {
+    s.on('connect', () => { CONNECTED_AT = Date.now(); });
+    s.__ME_VIS_GUARD__ = true;
+  }
+
+  try{
+    if (window.Notification && !window.Notification.__ME_VIS_GUARD__){
+      const N = window.Notification;
+      const P = function(title, opt){
+        const tag = String(opt?.tag||"");
+        const ts  = Number(opt?.data?.ts || opt?.ts || 0);
+        const fresh = !!ts && ts >= BASE();
+        const visible = (document.visibilityState === 'visible');
+        const allowed = /^like:|^vote:/.test(tag);
+        // ★ 강제 표시 플래그: opt.force / opt.data.force / window.__ME_FORCE_SHOW
+        const force   = (opt?.force === true) || (opt?.data?.force === true) || (window.__ME_FORCE_SHOW === true);
+        if (!allowed || !fresh || (visible && !force)) { return { close(){} }; }
+        return new N(title, opt);
+      };
+      Object.setPrototypeOf(P, N); P.prototype = N.prototype;
+      window.Notification = P; window.Notification.__ME_VIS_GUARD__ = true;
+    }
+  }catch{}
+
+  try{
+    const SR = window.ServiceWorkerRegistration;
+    if (SR?.prototype && !SR.prototype.__ME_VIS_GUARD__){
+      const orig = SR.prototype.showNotification;
+      SR.prototype.showNotification = function(title, opt){
+        const tag = String(opt?.tag||"");
+        const ts  = Number(opt?.data?.ts || opt?.ts || 0);
+        const fresh = !!ts && ts >= BASE();
+        const visible = (document.visibilityState === 'visible');
+        const allowed = /^like:|^vote:/.test(tag);
+        const force   = (opt?.force === true) || (opt?.data?.force === true) || (window.__ME_FORCE_SHOW === true);
+        if (!allowed || !fresh || (visible && !force)) { return Promise.resolve(); }
+        return orig.apply(this, arguments);
+      };
+      SR.prototype.__ME_VIS_GUARD__ = true;
+    }
+  }catch{}
+})();
+
 
   /* ─────────────────────────────────────────────────────────────────────────────
    * 0) Utilities & Globals
@@ -252,6 +420,93 @@
     });
   })();
 
+  
+/* [REPLACE] Auto Web Push: gated by toggle (ON) + permission + 90s debounce */
+(() => {
+  const KEY_TOGGLE = "me:notify-enabled";
+  let __lastUpsertAt = 0;
+  const debounceMs = 90_000;
+
+  function toAPI(u){
+    try{
+      if (typeof window.__toAPI === "function") return window.__toAPI(u);
+      const s = String(u||"");
+      if (!s) return s;
+      if (/^https?:\/\//i.test(s)) return s;
+      const base = window.API_BASE || location.origin + "/";
+      return new URL(s.replace(/^\/+/, ""), base).toString();
+    }catch{ return u; }
+  }
+
+  async function ensureSW(){
+    const reg = await (navigator.serviceWorker.getRegistration("./")
+      || navigator.serviceWorker.register("./sw.js", { scope:"./" }));
+    if (!reg.active) await navigator.serviceWorker.ready;
+    return reg;
+  }
+
+  function b64uToU8(s){
+    const pad = "=".repeat((4 - (s.length % 4)) % 4);
+    const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(b64); const out = new Uint8Array(raw.length);
+    for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+    return out;
+  }
+
+  async function upsertOnce(){
+    const now = Date.now();
+    if (now - __lastUpsertAt < debounceMs) return false;
+    __lastUpsertAt = now;
+
+    if (localStorage.getItem(KEY_TOGGLE) !== "1") return false;
+    if (Notification?.permission !== "granted") return false;
+
+    const reg = await ensureSW();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      const vapid = await fetch(toAPI("/api/push/public-key"), { credentials:"include" })
+        .then(r=>r.json()).then(j=>j?.vapidPublicKey||"").catch(()=> "");
+      if (!vapid) return false;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64uToU8(vapid) });
+    }
+    const ns = (typeof readNs === "function" ? readNs() : (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
+    await fetch(toAPI("/api/push/subscribe"), {
+      method:"POST", credentials:"include",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ ns, subscription: sub })
+    }).catch(()=>{});
+    return true;
+  }
+
+  function trigger(){
+    if (localStorage.getItem(KEY_TOGGLE) === "1" && Notification?.permission === "granted"){
+      upsertOnce();
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", trigger);
+  window.addEventListener("user:updated", trigger);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") trigger();
+  });
+
+  // Hard guard: when toggle OFF, eat push upsert calls silently
+  if (!window.__ME_FETCH_GUARD__){
+    const _f = window.fetch;
+    window.fetch = function(...args){
+      try{
+        const url = (args[0]?.url) || String(args[0]||"");
+        if (/\/api\/push\/(subscribe|unsubscribe|public-key)(?:$|[?#/])/i.test(url)){
+          if (localStorage.getItem(KEY_TOGGLE) !== "1"){
+            return Promise.resolve(new Response(JSON.stringify({ ok:true, skipped:"toggle off" }), { status:200, headers:{ "content-type":"application/json" } }));
+          }
+        }
+      }catch{}
+      return _f.apply(this, args);
+    };
+    window.__ME_FETCH_GUARD__ = true;
+  }
+})();
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // External knobs / keys (backward compatible)
@@ -856,6 +1111,389 @@
     }
   }
   window.__meCountsRefresh = refreshQuickCounts;
+
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 4) Notifications (native + in-page)
+   * ──────────────────────────────────────────────────────────────────────────── */
+  const NOTIFY_KEY = "me:notify-enabled";
+  const NATIVE_KEY = "me:notify-native";
+
+  let socket      = null;
+  const __PAGE_AT = Date.now();   // 페이지가 열린 시각
+  let __CONNECTED_AT = 0;
+  let MY_ITEM_IDS = new Set();
+  let __PREV_ITEM_IDS = new Set();
+
+  const isNotifyOn    = () => { try { return localStorage.getItem(NOTIFY_KEY) === "1"; } catch { return false; } };
+  const setNotifyOn   = (on) => {
+    try { localStorage.setItem(NOTIFY_KEY, on ? "1" : "0"); } catch {}
+    const tgl = $("#notify-toggle");
+    if (tgl) tgl.checked = !!on;
+  };
+  const wantsNative   = () => { try { return localStorage.getItem(NATIVE_KEY) === "1"; } catch { return false; } };
+  const setWantsNative = (v) => { try { localStorage.setItem(NATIVE_KEY, v ? "1" : "0"); } catch {} };
+  const hasNativeAPI  = () => typeof window.Notification === "function";
+
+  const LOG_KEY = () => `notify:log:${getNS()}`;
+  const LOG_MAX = 50;                                  // 최대 50개
+  const LOG_TTL = 1000 * 60 * 60 * 24 * 7;            // 7일
+
+  function readLog() {
+    try { return JSON.parse(localStorage.getItem(LOG_KEY()) || "[]"); }
+    catch { return []; }
+  }
+  function writeLog(arr) {
+    try { localStorage.setItem(LOG_KEY(), JSON.stringify(arr)); } catch {}
+  }
+  function appendLog(entry) {
+    const now = Date.now();
+    // TTL 필터 + push + 초과분 삭제(오래된 것부터)
+    const arr = readLog().filter(it => (now - (it.ts || 0)) < LOG_TTL);
+    arr.push({
+      text: entry.text || "",
+      sub:  entry.sub  || "",
+      tag:  entry.tag  || "",
+      data: entry.data || null,
+      ts:   entry.ts   || now
+    });
+    while (arr.length > LOG_MAX) arr.shift();
+    writeLog(arr);
+  }
+
+  async function ensureNativePermission() {
+    if (!hasNativeAPI()) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied")  return false;
+    try { const p = await Notification.requestPermission(); return p === "granted"; } catch { return false; }
+  }
+
+  function maybeNativeNotify(title, body, { tag, data } = {}) {
+    if (!isNotifyOn() || !hasNativeAPI() || !wantsNative() || Notification.permission !== "granted") return;
+    if (document.visibilityState === "visible") return;
+
+    const icon = (() => {
+      try {
+        const cached = readProfileCache();
+        if (cached?.avatarUrl) return cached.avatarUrl;
+      } catch {}
+      const link = document.querySelector('link[rel="icon"],link[rel="shortcut icon"]');
+      return link?.href || "/favicon.ico";
+    })();
+
+    const n = new Notification(title, { body, tag, icon, badge: icon, data });
+    n.onclick = () => { try { window.focus(); } catch {} try { n.close(); } catch {} };
+  }
+
+  const __recentNotify = new Map(); // tag -> timestamp(ms)
+  const __RECENT_TTL = 4000; // 4초 내 동일 tag 차단 (원하면 2~5초로 조절)
+  function pushNotice(text, sub = "", opt = {}) {
+    const off = !isNotifyOn();
+    const silentReplay = __replayMode && (opt?.silent === true);
+
+    // 1) OFF 상태: 화면 표시 금지, 큐에만 적재
+    if (off && !silentReplay) {
+      // OFF: 화면/네이티브 표시 금지, 큐에만 적재
+      try { enqueueNotice({ text, sub, tag: opt?.tag || "", data: opt?.data || null }); } catch {}
+      return;
+    }
+
+    // 2) 리플레이(시드)인데 OFF인 경우: 완전 무시 (패널도 그리지 않음)
+    if (off && silentReplay) {
+      // 과거 로그 재도색은 토글 ON에서 flushQueuedNotices로 처리
+      return;
+    }
+
+    // 중복 억제
+    const tag = opt?.tag || "";
+    if (tag) {
+      const now = Date.now();
+      const last = __recentNotify.get(tag) || 0;
+      if (now - last < __RECENT_TTL) return;
+      __recentNotify.set(tag, now);
+      for (const [k, t] of __recentNotify) if (now - t > __RECENT_TTL * 4) __recentNotify.delete(k);
+    }
+
+    const ul = $("#notify-list");
+    const empty = $("#notify-empty");
+    if (!ul) return;
+
+    // ✅ DOM 안전 조립 (중복 제거/불용변수 제거)
+    const li = document.createElement("li");
+    li.className = "notice";
+
+    const row = document.createElement("div");
+    row.className = "row between";
+
+    const strong = document.createElement("strong");
+    strong.textContent = String(text || "");
+
+    const timeEl = document.createElement("time");
+    timeEl.className = "time";
+    const nowDate = new Date();
+    timeEl.dateTime = nowDate.toISOString();
+    timeEl.textContent =
+      `${String(nowDate.getHours()).padStart(2,"0")}:${String(nowDate.getMinutes()).padStart(2,"0")}`;
+
+    row.append(strong, timeEl);
+    li.append(row);
+
+    if (sub) {
+      const p = document.createElement("p");
+      p.className = "sub";
+      p.textContent = String(sub || "");
+      li.append(p);
+    }
+
+    ul.prepend(li);
+
+    if (empty) empty.style.display = "none";
+    while (ul.children.length > 20) ul.removeChild(ul.lastChild);
+
+    try { maybeNativeNotify(text, sub, { tag: opt?.tag, data: opt?.data }); } catch {}
+
+    // ☆ 새로고침 후 보관용 영구 로그
+    if (opt.persist !== false) {
+      try { appendLog({ text, sub, tag: opt?.tag || "", data: opt?.data || null, ts: Date.now() }); } catch {}
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 4.5) Missed-notice reconciliation (부팅 시 놓친 알림 복구)
+   *  - 페이지가 닫혀 있던 동안(로그아웃/다른 계정 활동 포함) 증가한 좋아요/투표를
+   *    '카운트 스냅샷' 비교로 합성해서 알림(ON이면 토스트, OFF면 큐)에 넣는다.
+   * ──────────────────────────────────────────────────────────────────────────── */
+
+  // 스냅샷 키 (NS별로 분리)
+  function SNAP_L_KEY() { return `me:last-like-snap:${getNS()}`; } // { [itemId]: likeCount }
+  function SNAP_V_KEY() { return `me:last-vote-snap:${getNS()}`; } // { [itemId]: totalVotes }
+
+  function __safeJSON(v, fb) { try { return v ? (JSON.parse(v) ?? fb) : fb; } catch { return fb; } }
+  function __readSnap(k, fb) { return __safeJSON(localStorage.getItem(k), fb); }
+  function __writeSnap(k, obj) { try { localStorage.setItem(k, JSON.stringify(obj || {})); } catch {} }
+
+  async function __fetchLikeCount(itemId) {
+    // 가능한 엔드포인트 몇 개를 유연하게 시도
+    const pid = encodeURIComponent(itemId);
+    const tryRead = async (url) => {
+      try {
+        const r = await api(url, { credentials: "include", cache: "no-store" });
+        const j = await r?.json?.().catch?.(() => ({}));
+        if (!r || !r.ok) return null;
+        return j.likeCount ?? j.likes ?? j.item?.likes ?? j.data?.likes ?? null;
+      } catch { return null; }
+    };
+    return (await tryRead(`/api/items/${pid}`))
+        ?? (await tryRead(`/api/items/${pid}/like`))
+        ?? null;
+  }
+
+  async function __fetchVoteTotal(itemId) {
+    const pid = encodeURIComponent(itemId);
+    const tryRead = async (url) => {
+      try {
+        const r = await api(url, { credentials: "include", cache: "no-store" });
+        const j = await r?.json?.().catch?.(() => ({}));
+        if (!r || !r.ok) return null;
+        const counts = j.counts ?? j.item?.counts ?? j.data?.counts ?? null;
+        if (!counts || typeof counts !== "object") return null;
+        let s = 0; for (const k in counts) s += (+counts[k] || 0);
+        return s;
+      } catch { return null; }
+    };
+    return (await tryRead(`/api/items/${pid}/votes`))
+        ?? (await tryRead(`/api/votes?item=${pid}`))
+        ?? null;
+  }
+
+  // 알림 출력(ON이면 토스트, OFF면 pushNotice가 자동으로 큐에 적재)
+  function __emitMissed(text, sub, tag, data) {
+    try { pushNotice(text, sub, { tag, data }); } catch {
+      // 혹시 pushNotice가 아직 준비 전이라면 큐 키에 직접 적재
+      const qKey = `notify:queue:${getNS()}`;
+      const q = __readSnap(qKey, []);
+      q.push({ text, sub, tag, data, ts: Date.now() });
+      __writeSnap(qKey, q);
+    }
+  }
+
+  // 메인: 부팅 시 놓친 알림 복구
+  async function reconcileMissedWhileAway({ maxItems = 100, concurrency = 4 } = {}) {
+    // 내 게시물 목록 확보
+    const myItems = await fetchAllMyItems(Math.ceil(maxItems / 60), 60);
+    if (!Array.isArray(myItems) || !myItems.length) return { scanned: 0, liked: 0, voted: 0 };
+
+    const ids = myItems.map(it => String(it?.id)).filter(Boolean).slice(0, maxItems);
+
+    const prevL = __readSnap(SNAP_L_KEY(), {});
+    const prevV = __readSnap(SNAP_V_KEY(), {});
+    const nextL = { ...prevL };
+    const nextV = { ...prevV };
+
+    let likeHits = 0, voteHits = 0;
+
+    await mapLimit(ids, concurrency, async (id) => {
+      const [lc, vt] = await Promise.all([ __fetchLikeCount(id), __fetchVoteTotal(id) ]);
+
+      if (typeof lc === "number") {
+        const prev = +prevL[id] || 0;
+        if (lc > prev) {
+          __emitMissed("My post got liked", `+${lc - prev} · Total ${qty(lc, "like")}`, `like:${id}`, { id, delta: lc - prev, total: lc });
+          likeHits++;
+        }
+        nextL[id] = lc;
+      }
+
+      if (typeof vt === "number") {
+        const prev = +prevV[id] || 0;
+        if (vt > prev) {
+          __emitMissed("My post votes have been updated", `+${vt - prev} · Total ${qty(vt, "vote")}`, `vote:${id}`, { id, delta: vt - prev, total: vt });
+          voteHits++;
+        }
+        nextV[id] = vt;
+      }
+    });
+
+    __writeSnap(SNAP_L_KEY(), nextL);
+    __writeSnap(SNAP_V_KEY(), nextV);
+
+    // OFF였다면 큐에 쌓였을 것이고, ON이면 바로 토스트가 떠 있음
+    return { scanned: ids.length, liked: likeHits, voted: voteHits };
+  }
+
+  async function refreshSnapshotsWithoutEmit({ maxItems = 100, concurrency = 4 } = {}) {
+    // 내 게시물 목록
+    const myItems = await fetchAllMyItems(Math.ceil(maxItems / 60), 60);
+    if (!Array.isArray(myItems) || !myItems.length) return { scanned: 0 };
+
+    const ids = myItems.map(it => String(it?.id)).filter(Boolean).slice(0, maxItems);
+
+    const prevL = __readSnap(SNAP_L_KEY(), {});
+    const prevV = __readSnap(SNAP_V_KEY(), {});
+    const nextL = { ...prevL };
+    const nextV = { ...prevV };
+
+    await mapLimit(ids, concurrency, async (id) => {
+      const [lc, vt] = await Promise.all([ __fetchLikeCount(id), __fetchVoteTotal(id) ]);
+      if (typeof lc === "number") nextL[id] = lc;
+      if (typeof vt === "number") nextV[id] = vt;
+    });
+
+    __writeSnap(SNAP_L_KEY(), nextL);
+    __writeSnap(SNAP_V_KEY(), nextV);
+    return { scanned: ids.length };
+  }
+
+  function setupNotifyUI() {
+    // 1) 저장된 상태만 복원 (자동 ON 금지)
+    const lastOn  = isNotifyOn();
+    const tgl     = document.querySelector('#notify-toggle');
+
+    if (tgl && !tgl.__bound) {
+      tgl.checked = !!lastOn;
+      tgl.__bound = true;
+
+      // 토글 변경 시점에만 권한 확인/플러시
+      tgl.addEventListener("change", async () => {
+        const nowOn = !!tgl.checked;
+        setNotifyOn(nowOn);
+
+        if (nowOn) {
+          if (wantsNative() && (typeof Notification !== "undefined") && Notification.permission !== "granted") {
+            try { await ensureNativePermission(); } catch {}
+          }
+          ensureSocket();
+          // ❶ 부팅 중/오프라인 동안 놓친 like/vote를 '스냅샷' 비교로 합성해 푸시
+          try { await reconcileMissedWhileAway({ maxItems: 100, concurrency: 4 }); } catch {}
+          // ❷ OFF 동안 큐에 쌓인 개별 알림 재생(최신 N개만, 너무 많으면 요약)
+          try { await flushQueuedNotices(); } catch {}
+        }
+        // OFF로 바꾸면 이후 알림은 enqueueNotice()로 큐에만 적재됨
+      });
+    } else if (tgl && tgl.__bound) {
+      tgl.checked = !!lastOn;
+    }
+
+    // 2) 실시간 소켓은 준비해 두되, 실제 발사는 isNotifyOn()이 true일 때만
+    ensureSocket();
+  }
+
+  function ensureSocket() {
+    // 1) 소켓 인스턴스 확보 (있으면 재사용, 없으면 생성)
+    if (socket && socket.connected !== undefined) {
+      // 이미 리스너가 붙어 있다면 그대로 반환
+    } else if (window.sock && window.sock.connected !== undefined) {
+      socket = window.sock;
+    } else {
+      if (!window.io) return null;
+      socket = window.io(window.PROD_BACKEND || window.API_ORIGIN, {
+        path: "/socket.io",
+        withCredentials: true,
+        transports: ["websocket","polling"]
+      });
+      try { window.sock = socket; } catch {}
+    }
+
+    // 2) 리스너가 중복으로 붙지 않도록 가드
+    if (!socket.__meHandlersAttached) {
+      Object.defineProperty(socket, "__meHandlersAttached", { value: true, enumerable: false });
+      socket.on("connect", () => {
+        __CONNECTED_AT = Date.now();
+        const watch = (localStorage.getItem("me:watched-ns") || "[]");
+        const payload = { items: [...MY_ITEM_IDS], ns: getNS() };
+        try { payload.watch = JSON.parse(watch); } catch {}
+        socket.emit("subscribe", payload);
+      });
+
+      // ── 알림 리스너들
+      socket.on("item:like", (p) => {
+        if (p?.ts && __CONNECTED_AT && p.ts < __CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
+        if (!p || !p.id) return;
+        const mineOrWatched = isMineOrWatchedFromPayload(p);
+        if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
+        if (MY_UID && (String(p.by) === String(MY_UID) || String(p.actor) === String(MY_UID))) return;
+        if (p.liked) {
+          const likes = Number(p.likes || 0);
+          pushNotice("My post got liked", `Total ${qty(likes, "like")}`, { tag: `like:${p.id}`, data: { id: String(p.id) } });
+        }
+      });
+
+      socket.on("vote:update", (p) => {
+        if (p?.ts && __CONNECTED_AT && p.ts < __CONNECTED_AT) return;  // ★ 연결 이전 이벤트 무시
+        if (!p || !p.id) return;
+        const mineOrWatched = isMineOrWatchedFromPayload(p);
+        if (!(MY_ITEM_IDS.has(String(p.id)) || mineOrWatched)) return;
+        try {
+          const entries = Object.entries(p.counts || {});
+          const max = Math.max(...entries.map(([, n]) => Number(n || 0)), 0);
+          const tops = entries.filter(([, n]) => Number(n || 0) === max && max > 0).map(([k]) => k);
+          const total = entries.reduce((s, [, n]) => s + Number(n || 0), 0);
+          const label = tops.length ? tops.join(", ") : "—";
+          pushNotice("My post votes have been updated",
+            `Most votes: ${label} · Total ${qty(total, "vote")}`,
+            { tag: `vote:${p.id}`, data: { id: String(p.id) } }
+          );
+        } catch {
+          pushNotice("My post votes have been updated", "", { tag: `vote:${p?.id||""}`, data: { id: String(p?.id||"") } });
+        }
+      });
+    }
+
+    return socket;
+  }
+
+  function updateMyItemRooms(ids) {
+    __PREV_ITEM_IDS = MY_ITEM_IDS;
+    MY_ITEM_IDS = new Set((ids || []).map(String));
+    if (socket && socket.connected) {
+      // 서버가 교체를 지원하면:
+      socket.emit("subscribe", { items: [...MY_ITEM_IDS], replace: true });
+      // 교체 미지원이면 아래 주석 해제해서 diff 적용
+      // const toUnsub = [...__PREV_ITEM_IDS].filter(id => !MY_ITEM_IDS.has(id));
+      // const toSub   = [...MY_ITEM_IDS].filter(id => !__PREV_ITEM_IDS.has(id));
+      // if (toUnsub.length) socket.emit("unsubscribe", { items: toUnsub });
+      // if (toSub.length)   socket.emit("subscribe",   { items: toSub   });
+    }
+  }
 
   /* ─────────────────────────────────────────────────────────────────────────────
    * 5) Vote insights (KPI)

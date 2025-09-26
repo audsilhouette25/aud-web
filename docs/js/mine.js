@@ -17,28 +17,6 @@
   } catch(e){}
 })();
 
-/* === [PATCH] mine.js — notify session declare (no subscribe, no local notify) === */
-(() => {
-  try{
-    const KEY_TOGGLE = "me:notify-enabled";
-    const PAGE_AT = Date.now();
-    function isOn(){ try{ return localStorage.getItem(KEY_TOGGLE) === "1"; } catch { return false; } }
-    function post(type, payload){
-      try { navigator.serviceWorker.controller?.postMessage?.({ type, ...(payload||{}) }); } catch {}
-      try {
-        navigator.serviceWorker.getRegistration("./").then(reg => {
-          if (reg && reg.active) reg.active.postMessage({ type, ...(payload||{}) });
-        }).catch(()=>{});
-      } catch {}
-    }
-    // declare baseAt so any backfilled pushes older than entry are ignored
-    post("NOTIFY_SESSION", { baseAt: PAGE_AT, on: isOn() });
-
-    // keep SW in sync if user flips toggle from this page
-    window.addEventListener("storage", (e) => { if (e.key === KEY_TOGGLE) post("NOTIFY_TOGGLE", { on: isOn(), baseAt: Date.now() }); });
-  }catch{}
-})();
-
 // /public/js/mine.js — FEED + LIKE/VOTE + POST MODAL + INFINITE SCROLL (refactored 2025-09-10)
 (() => {
   "use strict";
@@ -1100,42 +1078,6 @@
           data: { url: "/me.html", id: String(d.id||"") }
         };
       }
-
-  // mine.js — fire notify (email NS 우선)
-  window.__firePush = async function(kind, payload = {}) {
-    try {
-      const id = String(payload.id || payload.itemId || "");
-      const isEmail = (s) => /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(String(s || "").trim());
-      const readEmailNS = () => {
-        try {
-          const v = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-          return isEmail(v) ? v : "";
-        } catch { return ""; }
-      };
-
-      const el = id ? document.querySelector(`.feed-card[data-id="${CSS.escape(id)}"]`) : null;
-      const fromDom  = el?.dataset?.ns || el?.dataset?.email || "";
-      const fromUser = payload.owner?.email || payload.owner?.ns || payload.ns || "";
-      const ns = isEmail(fromDom) ? fromDom : isEmail(fromUser) ? fromUser : readEmailNS();
-
-      const url  = toAPI(`/api/notify/${/vote/i.test(kind) ? "vote" : "like"}`);
-      const body = {
-        ns, id,
-        by: (typeof getMeEmail === "function" && getMeEmail()) ||
-            (typeof getMeId    === "function" && getMeId())    || ""
-      };
-
-      const res = await fetch(url, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      try { const j = await res.clone().json(); console.log("[notify]", kind, body, j); } catch {}
-      return res;
-    } catch (e) { console.warn("[notify] failed", e); }
-  };
-
 
   })();
 
@@ -3627,44 +3569,6 @@
     __bcFeed = null; // Safari 프라이빗 등: storage 폴백만 사용
   }
 
-  // === FEED → other tabs (me.html) 알림 브릿지: 내가 한 행동을 방송 ===
-  function bcNotifySelf(type, data){
-    const key = 'aud:feed:bc';
-    // 좋아요/투표 관련 payload는 작성자 ns를 반드시 보강
-    const needEnrich =
-      type === "self:like" || type === "item:like" ||
-      type === "self:vote" || type === "vote:update";
-    const enriched = needEnrich ? enrichOwnerForEvent(data) : data;
-
-    // BroadcastChannel
-    try {
-      const enrichedTs = (typeof enriched === 'object' && enriched) ? { ...enriched, ts: Date.now() } : enriched;
-      const nowTs = Date.now();
-      const dataWithTs = (enriched && typeof enriched === 'object')
-        ? { ...enriched, ts: enriched.ts || nowTs }
-        : { ts: nowTs };
-      __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type, data: dataWithTs } });
-    } catch {}
-
-    // localStorage 폴백 (다른 탭의 storage 이벤트가 받음)
-    try {
-      const nowTs = Date.now();
-      localStorage.setItem(key, JSON.stringify({
-        type,
-        ts: nowTs,                 // ★ 최상위 ts 추가
-        data: { ...(enriched||{}), ts: (enriched?.ts || nowTs) },  // ★ data.ts도 보강
-        t: nowTs                   // (기존 호환)
-      }));
-    } catch {}
-  }
-
-  /* =========================================================
-   * 13) LOGOUT BUTTON (robust, idempotent)
-   * ========================================================= */
-  
-
-  
-
   /* =========================================================
   * 14) TITLE → me 페이지 이동(인증 가드 포함)
   * ========================================================= */
@@ -3845,67 +3749,6 @@
     } catch {}
     // 3) NS가 바뀌면 캐시 분리 — store.js가 이벤트를 쏴줌
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
-  })();
-  /* [PATCH][ADD-ONLY] mine.html 진입 시 푸시 구독 업서트 */
-  (function ensureMinePushSubscription(){
-    // 브라우저/권한/키 → 구독 → 서버 업서트까지 한 번에 처리
-    const toAPI = (p) => {
-      try { return new URL(p, window.API_BASE || location.origin).toString(); }
-      catch { return p; }
-    };
-    const b64uToU8 = (s) => {
-      const pad = '='.repeat((4 - (s.length % 4)) % 4);
-      const b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
-      const raw = atob(b64);
-      const out = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-      return out;
-    };
-
-    (async () => {
-      try {
-        // 0) 내 NS: username/email 등으로 저장된 값 사용 (store.js/me.js 가 세팅)
-        const ns = (typeof getNS === 'function' ? getNS() : readNs()) || 'default';
-
-        // 1) SW 보장
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-        const reg = await (navigator.serviceWorker.getRegistration('./') ||
-                          navigator.serviceWorker.register('./sw.js', { scope: './' }));
-        if (!reg.active) await navigator.serviceWorker.ready;
-
-        // 2) 권한
-        if (Notification.permission !== 'granted') {
-          const p = await Notification.requestPermission();
-          if (p !== 'granted') return; // 유저가 거절한 경우 조용히 종료
-        }
-
-        // 3) 구독 확보 (없으면 생성)
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          const { vapidPublicKey } = await fetch(toAPI('/api/push/public-key'), { credentials: 'include' })
-            .then(r => r.json()).catch(()=>({}));
-          if (!vapidPublicKey) return;
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: b64uToU8(vapidPublicKey)
-          });
-        }
-
-        // 디버그 로그
-        console.log('[mine:push] ready', { ns, endpoint: sub  && sub.endpoint });
-        // 서버에 구독 업서트(ns 기준 저장)
-        try {
-          await fetch(toAPI('/api/push/subscribe'), {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ns, subscription: sub })
-          });
-        } catch {}
-      } catch (e) {
-        console.log('[mine:push] skip:', e?.message || e);
-      }
-    })();
   })();
 
 })();
