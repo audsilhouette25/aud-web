@@ -596,7 +596,8 @@ progress#m-rate-bar::-webkit-progress-value{
     display: flex !important;        /* grid → flex로 전환 */
     flex-direction: column;
     justify-content: flex-start;      /* ⬅ space-between 제거 */
-    gap: 18px;                        /* 라인 사이 간격 */           /* 위/아래 패딩 */
+    gap: 18px;                        /* 라인 사이 간격 */
+    padding-block: 20px;              /* 위/아래 패딩 */
     min-height: 240px;                /* 너무 납작 방지(옵션) */
   }
   .quick > .panel:first-child .kpi{
@@ -604,9 +605,9 @@ progress#m-rate-bar::-webkit-progress-value{
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 30px 14px 30px 14px;               /* 내부 여백 */
+    padding: 30px 14px;               /* 내부 여백 */
     background: transparent;
-    gap: 20px;
+    gap: 15px;
   }
   .quick > .panel:first-child .kpi b{ font-size: 22px; }
   .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
