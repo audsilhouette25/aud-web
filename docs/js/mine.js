@@ -1018,69 +1018,6 @@
     }
   }
 
-  /* === push-assist: safe server notify for like/vote (ADD-ONLY) =============== */
-  (function PushAssist(){
-    const toAPI = (p) => {
-      try { return new URL(p, window.API_BASE || location.origin).toString(); }
-      catch { return p; }
-    };
-
-    // 서버 가용 라우트를 메모이즈
-    const _usable = new Map(); // url -> true/false
-    async function postJSON(url, data){
-      const u = toAPI(url);
-      if (_usable.has(u) && _usable.get(u) === false) return false;
-      try {
-        const r = await fetch(u, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify(data)
-        });
-        // 2xx만 성공으로 보고, 404/405/501은 바로 비활성화
-        const ok = r && r.status >= 200 && r.status < 300;
-        if (!ok && (r.status === 404 || r.status === 405 || r.status === 501)) {
-          _usable.set(u, false);
-        }
-        return ok;
-      } catch {
-        return false;
-      }
-    }
-
-    // 동작 후보를 넓게: 실제 서버와 맞는 것을 자동 채택
-    
-  function candidateEndpoints(kind){
-        const over = Array.isArray(window.PUSH_PATHS) ? window.PUSH_PATHS :
-          (typeof window.PUSH_PATH === "string" ? [window.PUSH_PATH] : []);
-
-        // 서버 패치 기준: 실제 존재하는 경로만 시도 (404 스팸 억제)
-        const kindPref = (kind === "item:like")
-          ? ["/api/notify/like"]
-          : (kind === "vote:update")
-          ? ["/api/notify/vote"]
-          : [];
-
-        const minimal = [
-          "/api/push/test"   // 개발/폴백 테스트 라우트 (서버에서 push payload 그대로 발사)
-        ];
-
-        return [...over, ...kindPref, ...minimal];
-      }
-  function legacyPayload(d, kind){
-        return {
-          ns: d.ns || d.owner?.ns || "default",
-          title: kind === "item:like" ? "My post got liked" : "My post votes have been updated",
-          body: kind === "item:like"
-                  ? `Total ${Number(d.likes||0)} ${Number(d.likes||0) === 1 ? "like" : "likes"}`
-                  : "",
-          tag: `${kind.replace(":","-")}:${d.id}`,
-          data: { url: "/me.html", id: String(d.id||"") }
-        };
-      }
-
-  })();
-
   // --- RANDOMIZE util (Fisher–Yates) ---
   function shuffleInPlace(arr){
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1741,34 +1678,7 @@
           // 서버 스냅샷은 의도 보존 병합(내가 막 클릭한 의도를 덮지 않도록)
           if (typeof r.liked === "boolean" || typeof r.likes === "number") {
             window.setLikeFromServer?.(id, r.liked, r.likes);
-
-            // ✅ 작성자 NS로 like 이벤트 푸시 (서버 OK 이후에만)
-            try {
-              const ownerNS = ownerNSOf(id) || (card?.getAttribute("data-ns") || ns || "default");
-              await (window.__firePush?.("item:like", {
-                id, ns: String(ownerNS).trim().toLowerCase(),
-                liked: (r.liked != null) ? !!r.liked : true,
-                likes: (typeof r.likes === "number") ? r.likes : undefined,
-                by: (typeof getMeId === "function" ? getMeId() : null)
-              }));
-            } catch {}
           }
-
-          try {
-            const ownerNS = (card?.getAttribute('data-ns') || ns || 'default')
-                              .toString().trim().toLowerCase();
-            await fetch(toAPI('/api/push/test'), {
-              method: 'POST',
-              headers: {'Content-Type':'application/json'},
-              body: JSON.stringify({
-                ns: ownerNS,                    // ← 카드 소유자 NS (nsOf(it)와 일치)
-                title: 'CARD TEST',
-                body: `card ${id}`,
-                data: { url: '/mine.html' },    // ← 꼭 data 안쪽에 url
-                tag: `card:${id}`
-              })
-            }).catch(()=>{});
-          } catch {}
         }
       }
     } finally {
@@ -2377,26 +2287,6 @@
         }
       }
 
-
-    // ✅ Web Push: vote action notification
-    try {
-      const sel = `.feed-card[data-id="${CSS.escape(rawId)}"]`;
-      const art = document.querySelector(sel);
-      const ownerNS = (art?.getAttribute('data-ns') || art?.dataset?.ns || getNS() || 'default')
-                        .toString().trim().toLowerCase();
-      fetch(toAPI('/api/push/test'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ns: ownerNS,
-          title: '투표가 업데이트되었습니다',
-          body:  '내 게시물에 새 투표가 기록되었습니다.',
-          data:  { url: '/mine.html' },
-          tag:   `vote:${rawId}`
-        })
-      }).catch(()=>{});
-    } catch {}
       let j = {};
       try { if (r.status !== 204) j = await r.json(); } catch {}
       if (r.ok) {
@@ -2530,16 +2420,6 @@
               kind: FEED_EVENT_KIND,
               payload: { type: "vote:update", data: { id, counts: countsById.get(id), my: myById.get(id), by: getMeId() } }
             });
-          } catch {}
-          // ✅ 작성자 NS로 vote:update 푸시  (여기!)
-          try {
-            const ownerNS = ownerNSOf(id) || ns;
-            await (window.__firePush?.("vote:update", {
-              id,
-              ns: String(ownerNS).trim().toLowerCase(),
-              counts: countsById.get(id),
-              by: (typeof getMeId === "function" ? getMeId() : null)
-            }));
           } catch {}
         });
       }

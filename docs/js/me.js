@@ -265,60 +265,6 @@
   let __LIKES_PREV = {};  
   let __VOTES_PREV = {}; 
 
-  // === Backlog Queue (알림 버퍼) ==========================================
-  // OFF 상태에서 들어온 알림은 큐에 쌓아두었다가 ON으로 전환 시 재생한다.
-  const QUEUE_MAX = 200;                         // 큐 최대 길이
-  const QUEUE_TTL = 1000 * 60 * 60 * 24 * 2;     // 48시간 보관
-  const QUEUE_FLUSH_LIMIT = 50;                  // ON 전환 시 최대 재생 개수
-
-  const QUEUE_KEY = () => `notify:queue:${getNS()}`;
-
-  function readQueue() {
-    try { return JSON.parse(localStorage.getItem(QUEUE_KEY()) || "[]"); }
-    catch { return []; }
-  }
-  function writeQueue(arr) {
-    try { localStorage.setItem(QUEUE_KEY(), JSON.stringify(arr)); } catch {}
-  }
-  function enqueueNotice(n) {
-    const now = Date.now();
-    const q = readQueue().filter(it => (now - (it.ts || 0)) < QUEUE_TTL);
-    q.push({ text: n.text || "", sub: n.sub || "", tag: n.tag || "", data: n.data || null, ts: n.ts || now });
-    while (q.length > QUEUE_MAX) q.shift();
-    writeQueue(q);
-  }
-
-  // 재생 시 pushNotice가 다시 큐에 넣지 않도록 방지 플래그
-  let __replayMode = false;
-
-  async function flushQueuedNotices(limit = QUEUE_FLUSH_LIMIT) {
-    const q = readQueue();
-    if (!q.length) return 0;
-
-    const cut = Math.max(0, q.length - limit); // 오래된 것들은 남겨두고 최근 limit개만 재생
-    const recent = q.slice(cut);
-    writeQueue(q.slice(0, cut));               // 남겨둘 구간만 저장(초과분 삭제)
-
-    if (cut > 0) {
-      // 오래된 알림이 많을 땐 요약 1건 먼저
-      __replayMode = true;
-      pushNotice(`Skipped ${cut} older notifications`, `Replaying the most recent ${recent.length}.`, { tag: `replay:summary:${Date.now()}`, replay: true });
-      __replayMode = false;
-    }
-
-    for (const it of recent) {
-      __replayMode = true;
-      // tag 중복 억제를 위해 ts를 덧붙여 충돌 최소화
-      const tagWithTs = it.tag ? `${it.tag}@${it.ts}` : `replay:${it.ts}`;
-      pushNotice(it.text, it.sub, { tag: tagWithTs, data: it.data, replay: true });
-      __replayMode = false;
-      // 너무 몰아서 뜨지 않게 약간의 쉬는 시간(필요 시 조정/삭제)
-      await new Promise(r => setTimeout(r, 30));
-    }
-
-    return recent.length;
-  }
-
   const toAPI = (u) =>
   (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
 
@@ -1629,38 +1575,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           try { renderProfile(parseJSON(e.newValue, {})); } catch {}
         }
       }
-
-      // 원격 폴백 알림(소켓 미연결 대비) — 기존 로직 그대로 유지
-      if (e.key.startsWith("notify:remote:") && e.newValue) {
-        try {
-          const p = parseJSON(e.newValue, null);
-          const t = String(p?.type || "");
-          const d = p?.data || {};
-          // ★★★ 시각 가드: 스토리지 폴백 경로
-          const base  = (window.__CONNECTED_AT || window.__PAGE_AT || Date.now());
-          const evtTs = Number(p?.ts || p?.t || d?.ts || d?.time || d?.updated_at || d?.created_at || 0);
-          if (!evtTs || evtTs < base) return;
-          if (!isMineOrWatchedFromPayload(d)) return;
-          if (MY_UID && (String(d?.by) === String(MY_UID) || String(d?.actor) === String(MY_UID))) return;
-
-          if (t === "item:like" && d?.liked) {
-            const _l = Number(d.likes || 0);
-            pushNotice("My post got liked", `Total ${_l} ${_l === 1 ? "like" : "likes"}`, { tag:`like:${d.id}`, data:{ id:String(d.id||"") } });
-          }
-          if (t === "vote:update") {
-            try {
-              const entries = Object.entries(d.counts || {});
-              const max = Math.max(...entries.map(([, n]) => Number(n||0)), 0);
-              const tops = entries.filter(([, n]) => Number(n||0) === max && max > 0).map(([k])=>k);
-              const total = entries.reduce((s, [, n]) => s + Number(n||0), 0);
-              const label = tops.length ? tops.join(", ") : "—";
-              pushNotice("My post votes have been updated", `Top: ${label} · Total ${total} ${total === 1 ? "vote" : "votes"}`, { tag:`vote:${d.id}`, data:{ id:String(d.id||"") } });
-            } catch {
-              pushNotice("My post votes have been updated", "", { tag:`vote:${d?.id||""}`, data:{ id:String(d?.id||"") } });
-            }
-          }
-        } catch {}
-      }
     }, { capture: true });
 
     window.addEventListener("auth:state",        refreshQuickCounts);
@@ -1675,34 +1589,11 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
 
-    // 8) 알림 로그 시드(화면 목록만 복원; 토스트/네이티브 미발사)
-    (function seedNoticesFromLog(){
-      try {
-        const arr = readLog().slice(-LOG_MAX);
-        __replayMode = true;
-        for (const it of arr) {
-          pushNotice(it.text, it.sub, {
-            tag:    it.tag || `log:${it.ts}`,
-            data:   it.data,
-            persist:false,   // 재기록 금지
-            silent: true     // 토스트/네이티브 금지
-          });
-        }
-        __replayMode = false;
-      } catch {}
-    })();
-
     // 9-1) ★ 내 아이템 방 구독을 먼저 준비(초기 이벤트 손실 방지)
     if (quick.authed) { await __primeMyItemRoomsEarly({ maxPages: 6, pageSize: 60 }); }
 
-    // 9-2) 소켓 연결 및 리스너 바인딩
-    ensureSocket();
-
-    // 9-3) 알림 UI(토글) 준비 — change 시에만 권한/플러시 수행
-    setupNotifyUI();
-
-    // 9-4) 부팅 직후 스냅샷 보정(알림 발생 없이 최신치만 저장)
-    try { if (quick.authed) await refreshSnapshotsWithoutEmit({ maxItems: 100, concurrency: 4 }); } catch {}
+    // 9-2) 소켓 연결 및 리스너 바인딩 (알림과 무관한 실시간 구독만 사용)
+    ensureSocket && ensureSocket();
 
     // 9-5) BroadcastChannel 경로(다른 탭 mine → me) 연결
     try {
@@ -1719,33 +1610,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         if (!isMineOrWatchedFromPayload(data)) return;
         if (MY_UID && (String(data?.by) === String(MY_UID) || String(data?.actor) === String(MY_UID))) return;
 
-        if (type === "item:like" && data?.liked) {
-          const likes = Number(data.likes || 0);
-          pushNotice("My post got liked", `Total ${qty(likes, "like")}`, { tag: `like:${data.id}`, data: { id: String(data.id || "") } });
-        }
-        if (type === "vote:update") {
-          try {
-            const entries = Object.entries(data?.counts || {});
-            const max = Math.max(...entries.map(([, n]) => Number(n || 0)), 0);
-            const tops = entries.filter(([, n]) => Number(n || 0) === max && max > 0).map(([k]) => k);
-            const total = entries.reduce((s, [, n]) => s + Number(n || 0), 0);
-            const label = tops.length ? tops.join(", ") : "—";
-            pushNotice(
-              "My post votes have been updated",
-              `Most votes: ${label} · Total ${qty(total, "vote")}`,
-              { tag: `vote:${data.id}`, data: { id: String(data.id || "") } }
-            );
-          } catch {
-            pushNotice("My post votes have been updated", "", { tag: `vote:${data?.id || ""}`, data: { id: String(data?.id || "") } });
-          }
-        }
       });
     } catch {}
-
-    // 9-6) 네이티브 권한 보강(이미 ON이고 wantsNative일 때만)
-    if (isNotifyOn() && wantsNative() && hasNativeAPI() && Notification.permission === "default") {
-      ensureNativePermission();
-    }
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) {
@@ -1769,14 +1635,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     const wipeKey = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
 
-    ["auth:flag","auth:userns","collectedLabels","jib:collected","me:notify-enabled","me:notify-native"].forEach(wipeKey);
+    ["auth:flag","auth:userns","collectedLabels","jib:collected"].forEach(wipeKey);
 
     try {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i); if (!key) continue;
         if (key.startsWith("me:profile") || key.startsWith("insights:")
-          || key.startsWith("mine:") || key.startsWith("aud:label:")
-          || key.startsWith("notify:self:") || key.startsWith("notify:remote:")) {
+          || key.startsWith("mine:") || key.startsWith("aud:label:")) {
           wipeKey(key);
         }
       }
