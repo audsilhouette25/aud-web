@@ -586,9 +586,29 @@ progress#m-rate-bar::-webkit-progress-value{
 /* High-contrast focus for a11y */
 #aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
 
+/* ★ 넓은 화면(≥861px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
 @media (min-width: 1001px){
   .quick > .panel:first-child .grid-3{
-    grid-template-columns: 1fr;  /* 1열: 세로 나열 */
-    gap: 10px;
+    grid-template-columns: 1fr;
+    row-gap: 22px;          /* 라인 사이 간격 ↑ */
+  }
+  .quick > .panel:first-child .kpi{
+    gap: 12px;              /* 숫자-라벨 간격 ↑ */
+  }
+  .quick > .panel:first-child .kpi b{
+    font-size: 22px;
+  }
+}
+
+/* ★ 좁은 화면(≤860px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
+@media (max-width: 1000px){
+  .quick{
+    grid-template-columns: 1fr;               /* 스택 */
+  }
+  .quick > .panel:first-child .grid-3{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 20px;
+    row-gap: 12px;
+    justify-items: start;
   }
 }
