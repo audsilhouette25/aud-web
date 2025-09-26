@@ -1765,4 +1765,294 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     bindDeleteButtonForMe();
   }
 
+  /* ==== PATCH: append to bottom of public/js/me.js ==== */
+/* aud laboratory inlined into me.js (isolated via IIFE). 
+   Why: keep single-file page JS without polluting globals. */
+(() => {
+  // --- fast exit if lab UI is not on this page ---
+  const $ = (s, r = document) => r.querySelector(s);
+  const cvs = $("#aud-canvas");
+  if (!cvs) return; // lab not present → do nothing
+
+  // --- DOM refs ---
+  const btnPlay = $("#lab-play");
+  const btnUndo = $("#lab-undo");
+  const btnClear = $("#lab-clear");
+  const btnSubmit = $("#lab-submit");
+  const spanStrokes = $("#lab-strokes");
+  const spanPoints = $("#lab-points");
+
+  // --- API base (reuse existing globals if present) ---
+  const API = (path) => {
+    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+    const u = new URL(String(path).replace(/^\/+/, ""), base);
+    return u.toString();
+  };
+
+  // --- Canvas & drawing state ---
+  const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  let W = 900, H = 500;
+  const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
+
+  /** @typedef {{x:number,y:number,t:number}} Point */
+  /** @typedef {{points: Point[]}} Stroke */
+  const strokes = [];
+  let curStroke = null;
+  let isDrawing = false;
+
+  // --- Audio state ---
+  let AC = null, master = null, osc = null;
+  let playing = false;
+  let lastNoteAt = 0;
+
+  // --- Helpers ---
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  function now(){ return performance.now(); }
+
+  function resizeCanvas() {
+    const rect = cvs.getBoundingClientRect();
+    W = Math.max(320, Math.floor(rect.width * DPR));
+    H = Math.max(180, Math.floor(rect.height * DPR));
+    cvs.width = W; cvs.height = H;
+    drawAll();
+  }
+
+  function updateCounters(){
+    const p = strokes.reduce((s, st)=>s + st.points.length, 0);
+    if (spanStrokes) spanStrokes.textContent = String(strokes.length);
+    if (spanPoints)  spanPoints.textContent  = String(p);
+    if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
+    if (btnClear) btnClear.disabled = strokes.length === 0;
+    if (btnSubmit) btnSubmit.disabled = strokes.length === 0;
+  }
+
+  function drawAll() {
+    // background bands
+    ctx2d.fillStyle = "#eef2f7";
+    ctx2d.fillRect(0,0,W,H);
+    const bands = 8;
+    for (let i=0;i<bands;i++){
+      const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
+      ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
+      ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
+      if (i%2) {
+        ctx2d.fillStyle = "rgba(0,0,0,.03)";
+        ctx2d.fillRect(0, y0, W, 1);
+      }
+    }
+    // strokes
+    ctx2d.lineJoin = "round";
+    ctx2d.lineCap = "round";
+    for (const st of strokes) {
+      if (st.points.length < 2) continue;
+      ctx2d.strokeStyle = "#111";
+      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+      ctx2d.beginPath();
+      ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
+      for (let i=1;i<st.points.length;i++){
+        const p = st.points[i];
+        ctx2d.lineTo(p.x*W, p.y*H);
+      }
+      ctx2d.stroke();
+    }
+  }
+
+  function startAudio(){
+    if (AC) return;
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain();
+    master.gain.value = 0.0;
+    master.connect(AC.destination);
+
+    osc = AC.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 440;
+    osc.connect(master);
+    osc.start();
+  }
+
+  function freqFromY(yNorm){
+    // y=0(top) -> high, y=1(bottom) -> low
+    const fMin = 110;  // A2
+    const fMax = 1760; // A6
+    const inv = 1 - clamp(yNorm, 0, 1);
+    return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
+  }
+
+  function applySoundForPoint(pxNorm, pyNorm){
+    if (!AC) startAudio();
+    if (AC.state === "suspended") AC.resume();
+
+    const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
+    const f = freqFromY(pyNorm);
+
+    const t = AC.currentTime;
+    const portamento = 0.02 + 0.18 * legato; // smoother to the right
+    osc.frequency.cancelScheduledValues(t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
+
+    const nowMs = now();
+    const staccato = 1 - legato;
+    const retriggerGap = 18 + 120 * staccato; // ms
+    const a = 0.003 + 0.020 * legato; // attack
+    const r = 0.030 + 0.250 * (1 - legato); // release
+
+    // Left: chopped via retrigger; Right: sustained
+    if (staccato > 0.12) {
+      if (nowMs - lastNoteAt > retriggerGap) {
+        lastNoteAt = nowMs;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(0.0, t);
+        master.gain.linearRampToValueAtTime(0.9, t + a);
+        master.gain.linearRampToValueAtTime(0.0, t + a + r);
+      }
+    } else {
+      master.gain.cancelScheduledValues(t);
+      const g = 0.15 + 0.75 * legato;
+      master.gain.linearRampToValueAtTime(g, t + a);
+    }
+  }
+
+  function noteOff(){
+    if (!AC || !master) return;
+    const t = AC.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.linearRampToValueAtTime(0.0, t + 0.08);
+  }
+
+  // --- Pointer handlers ---
+  function getXY(e){
+    const rect = cvs.getBoundingClientRect();
+    const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
+    const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
+    return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
+  }
+  function toNorm({x,y}){
+    const rect = cvs.getBoundingClientRect();
+    return { x: x/rect.width, y: y/rect.height };
+  }
+
+  function beginStroke(e){
+    if (!playing) return; // only when play ON
+    isDrawing = true;
+    curStroke = { points: [] };
+    const p = toNorm(getXY(e));
+    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+    strokes.push(curStroke);
+    applySoundForPoint(p.x, p.y);
+    updateCounters();
+    drawAll();
+  }
+
+  function moveStroke(e){
+    if (!isDrawing || !curStroke) return;
+    const p = toNorm(getXY(e));
+    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+    applySoundForPoint(p.x, p.y);
+    // incremental draw
+    const lastTwo = curStroke.points.slice(-2);
+    if (lastTwo.length === 2){
+      ctx2d.strokeStyle = "#111";
+      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+      ctx2d.beginPath();
+      ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
+      ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
+      ctx2d.stroke();
+    }
+    if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
+  }
+
+  function endStroke(){
+    if (!isDrawing) return;
+    isDrawing = false;
+    curStroke = null;
+    if (!playing) noteOff();
+    updateCounters();
+  }
+
+  function undoStroke(){
+    if (!strokes.length) return;
+    strokes.pop();
+    drawAll();
+    updateCounters();
+  }
+
+  function clearAll(){
+    strokes.length = 0;
+    drawAll();
+    updateCounters();
+  }
+
+  function togglePlay(){
+    playing = !playing;
+    if (btnPlay) {
+      btnPlay.setAttribute("aria-pressed", String(playing));
+      btnPlay.textContent = playing ? "Pause" : "Play";
+    }
+    if (playing) startAudio(); else noteOff();
+  }
+
+  // --- Submit ---
+  async function submitLab(){
+    if (btnSubmit) btnSubmit.disabled = true;
+    try {
+      const dataURL = cvs.toDataURL("image/png", 0.92);
+      const payload = {
+        ns: (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")),
+        width: W, height: H,
+        strokes,
+        previewDataURL: dataURL,
+      };
+      const res = await fetch(API("/api/audlab/submit"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json();
+      if (!j?.ok) throw new Error(j?.error || "submit_failed");
+      if (btnSubmit){
+        btnSubmit.textContent = "Submitted ✓";
+        setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
+      }
+    } catch (e) {
+      alert("제출 실패: " + (e?.message || e));
+    } finally {
+      if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    try {
+      if (document.hidden && AC && master && AC.state !== "closed") {
+        master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
+      }
+    } catch {}
+  });
+
+  // --- Wire up ---
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+  updateCounters();
+
+  cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
+  cvs.addEventListener("pointermove", moveStroke);
+  cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
+  cvs.addEventListener("pointercancel", endStroke);
+  cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+
+  if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
+  if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
+  if (btnClear) btnClear.addEventListener("click", clearAll);
+  if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+
+  // a11y: space toggles play when canvas focused
+  cvs.tabIndex = 0;
+  cvs.addEventListener("keydown", (e)=>{
+    if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
+  });
+})(); 
+/* ==== end aud laboratory patch ==== */
+
 })();
+

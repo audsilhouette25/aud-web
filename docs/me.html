@@ -1,19 +1,15 @@
+<!-- FILE: public/me.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- ✅ VAPID 공개키를 head 안에, 실제 키 문자열로 -->
   <script src="./js/config.js"></script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>me · 마이페이지</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/me.css" />
 </head>
 <body>
-  <!-- ===== Navigation (기존 구조 유지) ===== -->
   <header class="nav" role="banner">
     <div class="nav-inner">
       <ul class="menu" role="navigation" aria-label="주요 메뉴">
@@ -31,7 +27,7 @@
   </header>
 
   <main id="main" class="me" tabindex="-1">
-    <!-- ===== Profile Hero ===== -->
+    <!-- Profile Hero (unchanged) -->
     <section class="profile-hero" aria-label="프로필 요약">
       <div class="ph-left">
         <img id="me-avatar" class="avatar" src="" alt="프로필 이미지" width="88" height="88" />
@@ -48,7 +44,7 @@
       </div>
     </section>
 
-    <!-- ===== Vote Insights ===== -->
+    <!-- Insights (unchanged) -->
     <section class="insights" aria-label="투표 인사이트">
       <article class="panel kpi-box">
         <div class="kpi-lg">
@@ -56,14 +52,12 @@
           <span>My post</span>
         </div>
       </article>
-
       <article class="panel kpi-box">
         <div class="kpi-lg">
           <b id="m-participated">0</b>
           <span>Post participated in vote</span>
         </div>
       </article>
-
       <article class="panel rate-box">
         <h3>aud: match rate</h3>
         <div class="rate">
@@ -73,9 +67,8 @@
       </article>
     </section>
 
-
-    <!-- ===== Quick Panels ===== -->
-    <section class="quick" aria-label="빠른 정보">
+    <!-- Quick + Laboratory (side-by-side on wide screen) -->
+    <section class="quick lab-wrap" aria-label="빠른 정보 및 실험실">
       <article class="panel">
         <h3>Collection</h3>
         <div class="grid-3">
@@ -84,46 +77,52 @@
           <div class="kpi"><b id="k-posts">0</b><span>Post</span></div>
         </div>
       </article>
+
+      <!-- NEW: aud laboratory -->
+      <article class="panel lab" aria-label="aud laboratory">
+        <header class="lab-head">
+          <h3>aud laboratory</h3>
+          <div class="lab-stats" aria-live="polite">
+            <span id="lab-strokes">0</span> strokes ·
+            <span id="lab-points">0</span> points
+          </div>
+        </header>
+
+        <div class="lab-canvas-wrap">
+          <canvas id="aud-canvas" width="900" height="500" aria-label="소리 그리기 캔버스"></canvas>
+          <div class="lab-hint">↑ 고음 · ↓ 저음 — ← 스타카토 · → 레가토</div>
+        </div>
+
+        <footer class="lab-controls">
+          <button id="lab-play" class="btn primary" type="button" aria-pressed="false">Play</button>
+          <div class="spacer"></div>
+          <button id="lab-undo" class="btn ghost" type="button" disabled>Undo</button>
+          <button id="lab-clear" class="btn ghost" type="button" disabled>Clear</button>
+          <button id="lab-submit" class="btn" type="button" disabled>Submit</button>
+        </footer>
+      </article>
     </section>
   </main>
 
-  <!-- 하단 푸터: mine과 동일 -->
-<footer class="mine-footer">
-  <div class="footer-inner">
-    <!-- 기존 로그아웃 버튼(현 상태 유지) -->
-    <button id="btn-logout" class="btn-logout" type="button">
-      <span class="label">Log out</span>
-    </button>
-    <!-- 신규 탈퇴 버튼: 동일 스타일(.btn-logout) + 외부 SVG + 180° 회전 -->
-    <button id="btn-delete" class="btn btn-delete" aria-label="탈퇴"></button>
+  <footer class="mine-footer">
+    <div class="footer-inner">
+      <button id="btn-logout" class="btn-logout" type="button">
+        <span class="label">Log out</span>
+      </button>
+      <button id="btn-delete" class="btn btn-delete" aria-label="탈퇴"></button>
       <span class="sr-only">탈퇴</span>
-    </button>
-  </div>
-</footer>
+    </div>
+  </footer>
 
-<!-- socket.io client (서버 제공 버전) -->
-<script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js" crossorigin="anonymous"></script>
-
-<!-- 프로젝트 초기화(있다면) -->
-<script src="./js/socket-init.js"></script>
-
-<!-- fetch/sso/부트 유틸들 -->
-<script src="./js/fetch-sanitizer.js"></script>
-<script src="./js/auth-boot.js" defer></script>
-<script src="./js/logo-guard.js" defer></script>
-<script type="module" src="./js/store.js"></script>
-
-<!-- 부트 보장 인라인(ensureSocket 없을 때만 실행) -->
-<script>
-  window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-dtd1.onrender.com";
-  function __ensureSocketInline() { /* 위 1) 스니펫과 동일 */ }
-  window.addEventListener("DOMContentLoaded", () => {
-    (window.ensureSocket?.bind(window) || __ensureSocketInline)();
-  }, { once: true });
-</script>
-
-<!-- 페이지 로직 -->
-<script src="./js/me.js" type="module"></script>
-
+  <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js" crossorigin="anonymous"></script>
+  <script src="./js/socket-init.js"></script>
+  <script src="./js/fetch-sanitizer.js"></script>
+  <script src="./js/auth-boot.js" defer></script>
+  <script src="./js/logo-guard.js" defer></script>
+  <script type="module" src="./js/store.js"></script>
+  <script>
+    window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-dtd1.onrender.com";
+  </script>
+  <script src="./js/me.js" type="module"></script>
 </body>
 </html>
