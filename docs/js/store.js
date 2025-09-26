@@ -1430,36 +1430,39 @@ function writeJibSelected(k){
 }
 
 const jib = {
-  getSelected(){ return readJibSelected(); },
-  setSelected(kind){
-    if(kind!==null && !isJibKind(kind)) return;
+  getSelected() { return readJibSelected(); },
+  setSelected(kind) {
+    if (kind !== null && !isJibKind(kind)) return;
     writeJibSelected(kind || null);
   },
-  getCollected(){ return [...readJibCollectedSet()]; },
-  isCollected(kind){ return readJibCollectedSet().has(kind); },
-  toggle(kind){
-    if(!isJibKind(kind)) return false;
+  getCollected() {
+    // 왜: me.js 집계가 Array 전제를 가짐. Set을 Array로 정확히 변환해야 카운트/렌더가 맞음.
+    return [...readJibCollectedSet()];
+  },
+  isCollected(kind) { return readJibCollectedSet().has(kind); },
+  toggle(kind) {
+    if (!isJibKind(kind)) return false;
     const s = readJibCollectedSet();
-    if(s.has(kind)) s.delete(kind); else s.add(kind);
+    if (s.has(kind)) s.delete(kind); else s.add(kind);
     writeJibCollectedSet(s);
     return s.has(kind);
   },
-  add(kind){
-    if(!isJibKind(kind)) return;
+  add(kind) {
+    if (!isJibKind(kind)) return;
     const s = readJibCollectedSet();
-    if(!s.has(kind)){ s.add(kind); writeJibCollectedSet(s); }
+    if (!s.has(kind)) { s.add(kind); writeJibCollectedSet(s); }
   },
-  remove(kind){
+  remove(kind) {
     const s = readJibCollectedSet();
-    if(s.delete(kind)) writeJibCollectedSet(s);
+    if (s.delete(kind)) writeJibCollectedSet(s);
   },
-  clear(){
-    try{
+  clear() {
+    try {
       S.removeItem(JIB_COLLECTED_KEY);
       window.dispatchEvent(new Event(JIB_COLLECTED_EVT));
-      emitSync(JIB_SYNC_KEY, { type:"set", arr: [], t:Date.now() });
+      emitSync(JIB_SYNC_KEY, { type: "set", arr: [], t: Date.now() });
       scheduleServerSync();
-    }catch{}
+    } catch {}
   },
 };
 
