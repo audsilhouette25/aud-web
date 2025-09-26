@@ -2166,6 +2166,14 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       quick.jibs   = readJibs().length;
     }
 
+    // ★ 초기 posts 0으로 덮이지 않게 캐시로 보강
+    try {
+      const ic = readInsightsCache(getNS());
+      if (ic && typeof ic.posts === "number" && ic.posts >= 0) {
+        quick.posts = ic.posts; // why: 부팅 첫 렌더에서 0으로 찍히는 깜박임 방지
+      }
+    } catch {}
+
     // 3) 1차 렌더(프로필/카운트) + 프로필 브로드캐스트
     renderProfile(me);
     await broadcastMyProfile({});
