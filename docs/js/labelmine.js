@@ -557,10 +557,6 @@ function renderLabelGalleryBox(){
 /* ---- timestamp ---- */
 const isValidYMD = (s) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const ymdToDate  = (ymd) => new Date(`${ymd}T00:00:00.000Z`);
-const todayYMD   = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-};
 
 const getTs = (label) => storeTsGet(label);
 const setTs = (label, ymd) => { if (isValidYMD(ymd)) storeTsSet(label, ymd); };
@@ -1126,8 +1122,6 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
   ensureReady(() => {
     (function SimpleDrawEmbedded(){
       const TB_H = 48, TB_ITEM = 40;
-      const TB_PAD_V = Math.max(0, Math.floor((TB_H - TB_ITEM) / 2));
-      const TB_PAD_H = 15;
       const OFF_DPR = 1;
 
       const DEFAULTS = {

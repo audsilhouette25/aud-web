@@ -1,22 +1,3 @@
-// === Mine draft filter (single install) =====================================
-(function installMineDraftFilter(){
-  try {
-    if (!window.store || typeof window.store.getGallery !== "function") return;
-    if (window.store.__orig_getGallery) return; // once
-    const O = window.store;
-    O.__orig_getGallery = O.getGallery;
-    O.getGallery = function(label){
-      const arr = (O.__orig_getGallery.call(this, label) || []);
-      return arr.filter(it => {
-        const origin = it?.origin ?? it?.meta?.origin;
-        const status = it?.status ?? it?.meta?.status;
-        return !(origin === 'labelmine' || status === 'draft');
-      });
-    };
-    console.log("[MINE] draft filter active");
-  } catch(e){}
-})();
-
 // /public/js/mine.js — FEED + LIKE/VOTE + POST MODAL + INFINITE SCROLL (refactored 2025-09-10)
 (() => {
   "use strict";
@@ -110,18 +91,6 @@
     const emailLike = safeLower(u?.email || u?.id);
     return emailLike || safeLower(item?.ns) || 'default';
   };
-
-  // /public/js/shared-ns.js (없으면 me.js 상단이나 mine.js 상단에 [ADD])
-  function normalizeNs(ns) {
-    const v = String(ns || '').trim().toLowerCase();
-    if (!v) return '';
-    // user:<id> → <id>
-    return v.replace(/^user:/, '');
-  }
-
-  function isEmailNS(s){ return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim()); }
-  function readNs(){ try { return (localStorage.getItem("auth:userns")||"").trim().toLowerCase(); } catch { return ""; } }
-
 
   // ── NS helper (계정별 namespace)
   const getNS = () => {
@@ -2673,37 +2642,6 @@
       }
     } catch {}
   }
-
-  // === Store Likes → UI Bridge (mount early) ==========================
-  (function bridgeStoreLikesToUI(){
-    if (!window.readLikesMap) return;
-
-    function applyMap(map){
-      if (!map) return;
-      for (const [id, rec] of Object.entries(map)){
-        const likes = (typeof rec?.c === "number")  ? rec.c : null;
-        if (likes !== null) { try { renderCountFromStore(id); } catch {} }
-      }
-    }
-
-    // ① 초기 스냅샷으로 즉시 보정
-    try { applyMap(readLikesMap()); } catch {}
-
-    // ② 같은 탭 내 변경 이벤트
-    window.addEventListener("itemLikes:changed", (e)=>{
-      applyMap(e?.detail?.map || readLikesMap());
-    });
-
-    // ③ 다른 탭에서 온 동기화(localStorage)도 수신
-    window.addEventListener("storage", (e)=>{
-      if (e.key === 'aud:feed:bc' && e.newValue) {
-        try { const m = JSON.parse(e.newValue); __bcFeed?.postMessage({ kind: FEED_EVENT_KIND, payload: { type: m.type, data: m.data } }); } catch {}
-      }
-      if (e && e.key === window.LIKES_SYNC_KEY && e.newValue) {
-        try { const payload = JSON.parse(e.newValue); applyMap(payload?.map || null); } catch {}
-      }
-    });
-  })();
 
   /* =========================================================
    * 10) HERO/이벤트/부트

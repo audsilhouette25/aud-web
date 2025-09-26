@@ -33,8 +33,6 @@
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
 
-  const qty = (n, one, many = one + "s") => `${Number(n||0)} ${Number(n||0) === 1 ? one : many}`;
-
   // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
   const WATCHED_NS_KEY = "me:watched-ns";   // 로컬 퍼시스턴스 키
   function readWatchedNS() {
@@ -1488,19 +1486,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   // 10) Boot  — REORDERED for early room subscription + predictable notifications
   // ──────────────────────────────────────────────────────────────────────────────
   async function boot() {
-    const __NS_BEFORE_BOOT__ = getNS();
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
-
-    // ★ (내 아이템 방 구독 선행) 헬퍼 — boot 범위 로컬 함수
-    async function __primeMyItemRoomsEarly({ maxPages = 6, pageSize = 60 } = {}) {
-      if (!sessionAuthed()) return;
-      try {
-        const mine = await fetchAllMyItems(maxPages, pageSize);
-        const ids  = Array.isArray(mine) ? mine.map(it => String(it.id)).filter(Boolean) : [];
-        updateMyItemRooms(ids); // socket.connect 시 subscribe payload가 즉시 유효
-      } catch {}
-    }
 
     // 0) Warm from cache (빠른 초기 렌더)
     const cached = readProfileCache();
