@@ -992,8 +992,6 @@
 
   /* ─────────────────────────────────────────────────────────────────────────────
    * 3.5) Server-first quick counts (labels & jibbitz)
-   * ──────────────────────────────────────────────────────────────────────────── */
-  const OPTIONS = ["thump", "miro", "whee", "track", "echo", "portal"]; // valid label set
 
   const arrify = (x, kind) => {
     const a = coerceList(x, kind);
