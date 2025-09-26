@@ -1593,7 +1593,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (quick.authed) { await __primeMyItemRoomsEarly({ maxPages: 6, pageSize: 60 }); }
 
     // 9-2) 소켓 연결 및 리스너 바인딩 (알림과 무관한 실시간 구독만 사용)
-    ensureSocket && ensureSocket();
+    if (typeof ensureSocket === "function") { ensureSocket(); }
 
     // 9-5) BroadcastChannel 경로(다른 탭 mine → me) 연결
     try {
