@@ -588,15 +588,30 @@ progress#m-rate-bar::-webkit-progress-value{
 
 /* ★ 넓은 화면(≥861px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
 @media (min-width: 1001px){
+  .quick > .panel:first-child{
+    display: flex;                 /* 패널 자체를 flex로 */
+    flex-direction: column;
+  }
   .quick > .panel:first-child .grid-3{
-    grid-template-columns: 1fr;
-    row-gap: 22px;          /* 라인 사이 간격 ↑ */
+    display: flex !important;      /* 기존 display:grid를 덮어씀 */
+    flex-direction: column;
+    justify-content: space-between;/* 위·중간·아래 골고루 */
+    gap: 22px;                     /* 라인 간 여유 */
+    height: 100%;                  /* 패널 내부 전체 높이 사용 */
+    min-height: 240px;             /* 너무 납작해지지 않게 */
   }
   .quick > .panel:first-child .kpi{
-    gap: 12px;              /* 숫자-라벨 간격 ↑ */
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;/* 숫자 좌, 라벨 우로 넓게 */
+    gap: 12px;
   }
   .quick > .panel:first-child .kpi b{
     font-size: 22px;
+  }
+  .quick > .panel:first-child .kpi span{
+    font-size: 13px; color: #777;
   }
 }
 
