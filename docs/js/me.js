@@ -986,6 +986,14 @@
     const a = coerceList(x, kind);
     return Array.isArray(a) ? a : [];
   };
+  function readInsightsCache(ns) {
+    try {
+      const raw = sessionStorage.getItem(`insights:${String(ns||"").toLowerCase()}`);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return obj && typeof obj === "object" ? obj : null;
+    } catch { return null; }
+  }
 
   async function fetchCountsFromServer(ns) {
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
@@ -1003,7 +1011,6 @@
       const s = await fetchCountsFromServer(ns).catch(() => null);
       if (s && (s.labels || s.jibs || s.source)) return s;
     }
-    // fallback to local/store (stabilized)
     try { return await settleInitialCounts(1000, 40); }
     catch { return { labels: readLabels().length, jibs: readJibs().length }; }
   }
@@ -1013,10 +1020,35 @@
     if (__countsBusy) return;
     __countsBusy = true;
     try {
-      const postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
+      const ns = getNS();
+
+      // ── 기존: DOM 값만 재사용 → 보강
+      let postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
+
+      if (!postsNow) {
+        // 1) insights 캐시 먼저
+        const cached = readInsightsCache(ns);
+        if (cached && typeof cached.posts === "number" && cached.posts >= 0) {
+          postsNow = cached.posts;
+        } else if (sessionAuthed()) {
+          // 2) 가벼운 폴백 조회(페이지 4 * 60 = 240개 한정)
+          try {
+            const mine = await fetchAllMyItems(4, 60);
+            if (Array.isArray(mine)) postsNow = mine.length;
+          } catch { /* 네트워크 실패 시 0 유지 */ }
+        }
+      }
+
       const counts = await getQuickCounts();
-      renderQuick({ labels: counts.labels || 0, jibs: counts.jibs || 0, posts: postsNow, authed: sessionAuthed() });
-    } finally { __countsBusy = false; }
+      renderQuick({
+        labels: counts.labels || 0,
+        jibs:   counts.jibs   || 0,
+        posts:  Number.isFinite(postsNow) ? postsNow : 0,
+        authed: sessionAuthed()
+      });
+    } finally {
+      __countsBusy = false;
+    }
   }
   window.__meCountsRefresh = refreshQuickCounts;
 
@@ -2089,8 +2121,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   // 10) Boot  — REORDERED for early room subscription + predictable notifications
   // ──────────────────────────────────────────────────────────────────────────────
   async function boot() {
-    const __NS_BEFORE_BOOT__ = getNS(); // stabilize email-first ns
-    // ── 로컬 상태
+    const __NS_BEFORE_BOOT__ = getNS();
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
 
