@@ -1008,24 +1008,71 @@
     } catch { return null; }
   }
 
+  // PATCH for me.js — robust jibbitz counting (server-first but safe)
+
+  // 1) 유틸: 서버 state에서 지비츠 리스트를 최대한 유연하게 추출
+  function extractJibListFromState(st) {
+    // why: 백엔드/버전별로 스키마가 달라서 coerceList를 여러 후보에 시도
+    if (!st || typeof st !== "object") return [];
+    const tryPick = (...paths) => {
+      for (const p of paths) {
+        let cur = st;
+        for (const k of p.split(".")) {
+          if (!cur || typeof cur !== "object") { cur = undefined; break; }
+          cur = cur[k];
+        }
+        const arr = coerceList(cur, "jib");
+        if (Array.isArray(arr) && arr.length) return arr;
+      }
+      return null;
+    };
+    // 흔한 스키마 후보들
+    return (
+      tryPick("jibs.collected") ||
+      tryPick("jibs.items", "jibs.list", "jibs.data", "jibs") ||
+      tryPick("jib.collected", "jib.items", "jib") ||
+      tryPick("collectedJibs", "collected") ||
+      tryPick("data.jibs", "data.jibIds") ||
+      tryPick("state.jibs.collected", "state.jibs") || // 일부 래핑
+      []
+    );
+  }
+
+  // 2) 서버 카운트: 실패/빈값일 때 null 리턴(로컬에 맡김)
   async function fetchCountsFromServer(ns) {
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
     if (!res || !res.ok) return null;
     const j  = await res.json().catch(() => ({}));
     const st = j?.state || j || {};
-    const labels = arrify(st.labels, "label").filter((k) => OPTIONS.includes(k)).length || 0;
-    const jibs   = arrify(st.jibs?.collected, "jib").length || 0;
-    return { labels, jibs, source: "server" };
+    const labelsArr = arrify(st.labels, "label").filter((k) => OPTIONS.includes(k));
+    const jibsArr   = extractJibListFromState(st);
+
+    // 아무 것도 못 읽으면 null (로컬에 맡김)
+    const hasAny = (labelsArr.length + jibsArr.length) > 0;
+    if (!hasAny) return null;
+
+    return { labels: labelsArr.length, jibs: jibsArr.length, source: "server" };
   }
 
+  // 3) 병합 로직: 로컬 먼저 계산 → 서버가 유효하면만 덮어쓰기
   async function getQuickCounts() {
-    const ns = getNS();
+    // 로컬(스토어/세션) 먼저 안정화
+    let localCounts;
+    try { localCounts = await settleInitialCounts(1000, 40); }
+    catch { localCounts = { labels: readLabels().length, jibs: readJibs().length }; }
+
+    // 로그인 상태면 서버도 시도
     if (sessionAuthed()) {
+      const ns = getNS();
       const s = await fetchCountsFromServer(ns).catch(() => null);
-      if (s && (s.labels || s.jibs || s.source)) return s;
+      if (s) {
+        // 규칙: 서버값이 명확히 유효(>=0)하되, **0은 덮어쓰지 않음**(로컬 보존)
+        const labels = (typeof s.labels === "number" && s.labels > 0) ? s.labels : localCounts.labels;
+        const jibs   = (typeof s.jibs   === "number" && s.jibs   > 0) ? s.jibs   : localCounts.jibs;
+        return { labels, jibs, source: s.source };
+      }
     }
-    try { return await settleInitialCounts(1000, 40); }
-    catch { return { labels: readLabels().length, jibs: readJibs().length }; }
+    return localCounts;
   }
 
   let __countsBusy = false;
