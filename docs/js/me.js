@@ -1211,7 +1211,30 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 4.5) Missed-notice reconciliation (부팅 시 놓친 알림 복구)
+   * 
+// === [ADD] SW → 페이지 브릿지: 푸시/백로그를 Alarm 패널에 반영 ===
+if ('serviceWorker' in navigator) {
+  try {
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      const m = e?.data || {};
+      if (m.__fromSW !== 'push') return;
+
+      const kind   = String(m.kind || '');
+      const itemId = String(m.itemId || '');
+      let tag      = String(m.tag || '');
+      if (!tag) {
+        if (/^item:like$/i.test(kind) || /^like$/i.test(kind)) tag = itemId ? `like:${itemId}` : 'like';
+        else if (/^vote(?::update)?$/i.test(kind))             tag = itemId ? `vote:${itemId}` : 'vote';
+      }
+
+      const title = m.title || (tag.startsWith('like:') ? 'My post got liked'
+                                                        : 'My post votes have been updated');
+      const body  = m.body  || '';
+      try { pushNotice(title, body, { tag, data: { id: itemId } }); } catch {}
+    });
+  } catch {}
+}
+4.5) Missed-notice reconciliation (부팅 시 놓친 알림 복구)
    *  - 페이지가 닫혀 있던 동안(로그아웃/다른 계정 활동 포함) 증가한 좋아요/투표를
    *    '카운트 스냅샷' 비교로 합성해서 알림(ON이면 토스트, OFF면 큐)에 넣는다.
    * ──────────────────────────────────────────────────────────────────────────── */
