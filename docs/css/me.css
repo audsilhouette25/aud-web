@@ -604,9 +604,9 @@ progress#m-rate-bar::-webkit-progress-value{
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 10px 14px 50px 14px;               /* 내부 여백 */
+    padding: 10px 14px 60px 14px;               /* 내부 여백 */
     background: transparent;
-    gap: 15px;
+    gap: 20px;
   }
   .quick > .panel:first-child .kpi b{ font-size: 22px; }
   .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
