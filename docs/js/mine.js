@@ -3848,8 +3848,6 @@
   })();
   /* [PATCH][ADD-ONLY] mine.html 진입 시 푸시 구독 업서트 */
   (function ensureMinePushSubscription(){
-  if (window.NOTIFY_ALLOWED === false) return;  // mine: never upsert push subscription when not allowed
-
     // 브라우저/권한/키 → 구독 → 서버 업서트까지 한 번에 처리
     const toAPI = (p) => {
       try { return new URL(p, window.API_BASE || location.origin).toString(); }
