@@ -1149,8 +1149,13 @@
   }
 
   async function api(path, opt = {}) {
+    const url = toAPI(path);
+    const method = String(opt?.method || "GET").toUpperCase();
+    const base = { credentials: "include", cache: "no-store", ...opt }; // why: 크로스 오리진 쿠키
+    const needsToken = !["GET","HEAD","OPTIONS"].includes(method);
+    const withT = needsToken ? (await withCSRF(base)) : base;
     const fn = window.auth?.apiFetch || fetch;
-    return fn(toAPI(path), opt);
+    try { return await fn(url, withT); } catch { return null; }
   }
 
   // === Like endpoint resolver (gallery 우선, 실패 시 items로 1회 폴백; 메서드 폴백은 POST {like}) ===
@@ -1512,8 +1517,7 @@
   const _fmtCount = (typeof window.fmtCount === 'function') ? window.fmtCount : (n)=>String(n||0);
   const _fmtInt   = (typeof window.fmtInt   === 'function') ? window.fmtInt   : (n)=>String(n||0);
   const _likeWord = (typeof window.likeWordOf=== 'function') ? window.likeWordOf : (n)=> (Number(n)<=1?'like':'likes');
-
-  const api = (p,o)=> (window.auth?.apiFetch ? window.auth.apiFetch(p,o) : fetch(p,o));
+  
   const withCSRF = window.withCSRF || (async (opt)=>opt);
 
   const getNS = (window.getNS ? window.getNS : ()=>'default');
