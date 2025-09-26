@@ -605,7 +605,7 @@ progress#m-rate-bar::-webkit-progress-value{
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 30px 14px;               /* 내부 여백 */
+    padding: 35px 14px;               /* 내부 여백 */
     border-radius: 12px;
     background: transparent;
     gap: 12px;
