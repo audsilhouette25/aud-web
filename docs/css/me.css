@@ -586,7 +586,7 @@ progress#m-rate-bar::-webkit-progress-value{
 /* High-contrast focus for a11y */
 #aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
 
-@media (min-width: 861px){
+@media (min-width: 1001px){
   .quick > .panel:first-child .grid-3{
     grid-template-columns: 1fr;  /* 1열: 세로 나열 */
     gap: 10px;
