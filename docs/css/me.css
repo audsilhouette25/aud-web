@@ -586,7 +586,7 @@ progress#m-rate-bar::-webkit-progress-value{
 /* High-contrast focus for a11y */
 #aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
 
-/* ★ 넓은 화면(≥861px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
+/* ★ 넓은 화면(≥1001px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
 @media (min-width: 1001px){
   .quick > .panel:first-child{
     display: flex;
@@ -597,7 +597,7 @@ progress#m-rate-bar::-webkit-progress-value{
     flex-direction: column;
     justify-content: flex-start;      /* ⬅ space-between 제거 */
     gap: 18px;                        /* 라인 사이 간격 */
-    padding-block: 14px;              /* 위/아래 패딩 */
+    padding-block: 5px;              /* 위/아래 패딩 */
     min-height: 240px;                /* 너무 납작 방지(옵션) */
   }
   .quick > .panel:first-child .kpi{
@@ -605,17 +605,17 @@ progress#m-rate-bar::-webkit-progress-value{
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 35px 14px;               /* 내부 여백 */
+    padding: 30px 14px;               /* 내부 여백 */
     border-radius: 12px;
     background: transparent;
-    gap: 12px;
+    gap: 15px;
   }
   .quick > .panel:first-child .kpi b{ font-size: 22px; }
   .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
 }
 
 
-/* ★ 좁은 화면(≤860px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
+/* ★ 좁은 화면(≤1000px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
 @media (max-width: 1000px){
   .quick{
     grid-template-columns: 1fr;               /* 스택 */
