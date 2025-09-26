@@ -916,9 +916,22 @@
   const sessionAuthed = () => hasAuthedFlag() || serverAuthed();
 
   async function api(path, opt = {}) {
-    const fn = window.auth?.apiFetch || fetch;
+    // ★ 모든 API 호출을 API_BASE로 강제 라우팅
+    const toAPI = (typeof window.__toAPI === "function")
+      ? window.__toAPI
+      : (u) => {
+          const s = String(u || "");
+          if (!s) return s;
+          if (/^https?:\/\//i.test(s)) return s;
+          const base = window.API_BASE || location.origin + "/";
+          return new URL(s.replace(/^\/+/, ""), base).toString();
+        };
+
+    const url = toAPI(path);
+    const fn  = window.auth?.apiFetch || fetch;
+    const opt2 = { credentials: "include", ...opt }; // why: 쿠키 누락 방지
     try {
-      const res = await fn(path, opt);
+      const res = await fn(url, opt2);
       if (res && res.status === 401) {
         try { sessionStorage.removeItem("auth:flag"); } catch {}
         try { localStorage.removeItem("auth:flag"); } catch {}
