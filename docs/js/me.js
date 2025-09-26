@@ -1474,56 +1474,57 @@
     return { counts: emptyCounts(), my: null, total: 0 };
   }
 
-  async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
-    if (!sessionAuthed()) return [];
+async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
+  if (!sessionAuthed()) return [];
 
-    const myns = getNS();
-    const nsCandidates = [myns];
-    // 이메일 NS이면 내 uid(ns 대안)도 후보에 추가
-    if (myns && myns.includes("@") && (MY_UID != null)) {
-      nsCandidates.push(String(MY_UID).toLowerCase());
-    }
-
-    const seen = new Set();
-    const out  = [];
-
-    async function fetchByNs(nsVal) {
-      let cursor = null;
-      for (let p = 0; p < maxPages; p++) {
-        const qs = new URLSearchParams({ limit: String(Math.min(pageSize, 60)), ns: nsVal });
-        if (cursor) { qs.set("after", String(cursor)); qs.set("cursor", String(cursor)); }
-        const r = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include", cache: "no-store" });
-        if (!r || !r.ok) break;
-
-        const j = await r.json().catch(() => ({}));
-        const items = Array.isArray(j?.items) ? j.items : [];
-        for (const it of items) {
-          const id = String(it?.id || "");
-          if (!id || seen.has(id)) continue;
-          // 나와의 관계: ns 매치 또는 mine 플래그 또는 오너 uid 매치
-          const nsMatch    = String(it?.ns || "").toLowerCase() === nsVal;
-          const mineFlag   = (it?.mine === true);
-          const ownerMatch = (MY_UID != null) && (String(it?.user?.id || "").toLowerCase() === String(MY_UID).toLowerCase());
-          if (nsMatch || mineFlag || ownerMatch) {
-            seen.add(id);
-            out.push(it);
-          }
-        }
-        cursor = j?.nextCursor || null;
-        if (!cursor || items.length === 0) break;
-      }
-    }
-
-    // 1) 이메일 ns 우선
-    await fetchByNs(nsCandidates[0]);
-
-    // 2) 결과가 없고 uid 대안이 있으면 보강 조회
-    if (out.length === 0 && nsCandidates[1]) {
-      await fetchByNs(nsCandidates[1]);
-    }
-
-    return out;
+  const myns = getNS();
+  const nsCandidates = [myns];
+  // 이메일 NS이면 내 uid(ns 대안)도 후보에 추가
+  if (myns && myns.includes("@") && (MY_UID != null)) {
+    nsCandidates.push(String(MY_UID).toLowerCase());
   }
+
+  const seen = new Set();
+  const out  = [];
+
+  async function fetchByNs(nsVal) {
+    let cursor = null;
+    for (let p = 0; p < maxPages; p++) {
+      const qs = new URLSearchParams({ limit: String(Math.min(pageSize, 60)), ns: nsVal });
+      if (cursor) { qs.set("after", String(cursor)); qs.set("cursor", String(cursor)); }
+      const r = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include", cache: "no-store" });
+      if (!r || !r.ok) break;
+
+      const j = await r.json().catch(() => ({}));
+      const items = Array.isArray(j?.items) ? j.items : [];
+      for (const it of items) {
+        const id = String(it?.id || "");
+        if (!id || seen.has(id)) continue;
+        // 나와의 관계: ns 매치 또는 mine 플래그 또는 오너 uid 매치
+        const nsMatch    = String(it?.ns || "").toLowerCase() === nsVal;
+        const mineFlag   = (it?.mine === true);
+        const ownerMatch = (MY_UID != null) && (String(it?.user?.id || "").toLowerCase() === String(MY_UID).toLowerCase());
+        if (nsMatch || mineFlag || ownerMatch) {
+          seen.add(id);
+          out.push(it);
+        }
+      }
+      cursor = j?.nextCursor || null;
+      if (!cursor || items.length === 0) break;
+    }
+  }
+
+  // 1) 이메일 ns 우선
+  await fetchByNs(nsCandidates[0]);
+
+  // 2) 결과가 없고 uid 대안이 있으면 보강 조회
+  if (out.length === 0 && nsCandidates[1]) {
+    await fetchByNs(nsCandidates[1]);
+  }
+
+  return out;
+}
+
 
   async function mapLimit(arr, limit, worker) {
     const ret = new Array(arr.length);
