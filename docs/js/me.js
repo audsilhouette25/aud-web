@@ -1507,7 +1507,6 @@
   }
 
 async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
-  if (!sessionAuthed()) return [];
 
   const myns = getNS();
   const nsCandidates = [myns];
@@ -2154,6 +2153,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         avatarUrl:   meResp.avatarUrl || me.avatarUrl,
       };
       quick.authed = true;
+      try { sessionStorage.setItem("auth:flag", "1"); localStorage.setItem("auth:flag", "1"); } catch {}
     }
 
     // 2) 초기 카운트(server-first → fallback)
