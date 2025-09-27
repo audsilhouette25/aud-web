@@ -661,16 +661,6 @@
     return false;
   }
 
-  function wireAdminButton() {
-    const btn = document.querySelector("#btn-admin");
-    if (!btn) return;
-    isAdmin().then((ok) => {
-      if (!ok) return;
-      btn.hidden = false;
-      btn.addEventListener("click", openAdminLabModal, { once:false });
-    });
-  }
-
   /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
   function ensureAdminLabModal() {
     let wrap = document.querySelector("#admin-lab");
@@ -1802,8 +1792,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       computeAndRenderInsights().catch(() => {});
     }
   }
-
-  wireAdminButton();  
  
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot, { once: true });
