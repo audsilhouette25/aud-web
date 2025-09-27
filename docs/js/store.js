@@ -238,8 +238,8 @@ window.LABEL_VOTES_SYNC_KEY = LABEL_VOTES_SYNC_KEY;
         } catch {}
         // 폴백: 레거시 전역 NS
         try {
-          const ns = localStorage.getItem("auth:userns");
-          if (ns && ns.trim()) return ns.trim().toLowerCase();
+          const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+          if (ns && isEmailNS(ns)) return ns;
         } catch {}
         return "default";
       })();
@@ -1392,7 +1392,8 @@ function rebindNS(){
 
     // 폴백: 전역 NS
     try {
-      return (localStorage.getItem("auth:userns") || "default").toLowerCase();
+      const raw = (localStorage.getItem("auth:userns") || "").toLowerCase();
+      return isEmailNS(raw) ? raw : "default";
     } catch { return "default"; }
   })();
 

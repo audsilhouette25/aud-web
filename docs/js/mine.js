@@ -85,23 +85,21 @@
 
   // [ADD] NS helpers
   const safeLower = v => (v ?? '').toString().trim().toLowerCase();
+  const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+  const isEmailNS = (v) => EMAIL_RE.test((v ?? '').toString().trim().toLowerCase());
   const nsOf = (item) => {
     const u = item && item.user ? item.user : null;
-    // 우선순위: user.email → user.id(이게 이메일일 수도 있음) → item.ns → 'default'
-    const emailLike = safeLower(u?.email || u?.id);
-    return emailLike || safeLower(item?.ns) || 'default';
+    const em = safeLower(u?.email);
+    return isEmailNS(em) ? em : '';
   };
 
   // ── NS helper (계정별 namespace)
   const getNS = () => {
     try {
-      const s1 = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-      const s2 = (window.__STORE_NS ?? "").toString().trim().toLowerCase();
-      const isEmail = (v)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v||"");
-      // 이메일이면 무조건 최우선
-      if (isEmail(s1)) return s1;
-      // 이메일이 아니면, __STORE_NS가 문자열로 유효할 때만 사용
-      if (s2 && s2 !== "default") return s2;
+      const s1 = safeLower(localStorage.getItem("auth:userns") || "");
+      const s2 = safeLower((window.__STORE_NS ?? "").toString());
+      if (isEmailNS(s1)) return s1;
+      if (isEmailNS(s2)) return s2;
       return "default";
     } catch { return "default"; }
   };
@@ -950,20 +948,18 @@
       const idx = FEED.idxById.get(sid);
       if (typeof idx === "number" && FEED.items[idx]) {
         let it = FEED.items[idx];
-        const ns =
-          it?.owner?.ns ||
-          it?.ns ||
-          it?.meta?.ns ||
-          null;
-        if (ns) return String(ns);
+        const ns1 = safeLower(it?.owner?.ns || it?.ns || it?.meta?.ns || "");
+        if (isEmailNS(ns1)) return ns1;
+        const em = safeLower(it?.user?.email || "");
+        if (isEmailNS(em)) return em;
       }
     } catch {}
 
     // 2) DOM 카드 data-*에서 시도 (카드에는 data-id / data-ns 가 이미 있음)
     try {
       const card = document.querySelector(`.feed-card[data-id="${CSS.escape(sid)}"]`);
-      const ns = card?.dataset?.ns || null;
-      if (ns) return String(ns);
+      const ns = safeLower(card?.dataset?.ns || "");
+      if (isEmailNS(ns)) return ns;
     } catch {}
 
     return null;
@@ -1264,19 +1260,13 @@
 
       // ★ NS 백스탑: 카드에 data-ns가 비어 있으면 FEED/유추로 보정
       (() => {
-        const id = String(it.id || "");
-        const nsInDom = card?.dataset?.ns || "";
+        const nsInDom = safeLower(card?.dataset?.ns || "");
+        if (nsInDom && !isEmailNS(nsInDom)) { card.dataset.ns = ""; return; }
         if (!nsInDom) {
-          // 1) 아이템에서 가장 신뢰되는 필드 순서로 추출
-          const nsFromItem =
-            (it?.owner && it.owner.ns) ||
-            it?.ns ||
-            it?.meta?.ns ||
-            (it?.user && (it.user.email || it.user.id)) ||
-            "";
-          // 2) 최종 보정
-          const ns = String(nsFromItem || "default").trim().toLowerCase();
-          card.dataset.ns = ns;
+          const cand =
+            safeLower(it?.user?.email) ||
+            safeLower(it?.owner?.ns || it?.ns || it?.meta?.ns || "");
+          if (isEmailNS(cand)) card.dataset.ns = cand;
         }
       })();
 
@@ -1418,11 +1408,10 @@
 
   function likeTargetOf(card){
     const id = card?.dataset?.id; if (!id) return null;
-    const ns =
-      card?.dataset?.ns
-      || (typeof ownerNSOf === 'function' && ownerNSOf(String(id)))
-      || getNS();
-    return { id:String(id), ns:String(ns) };
+    const fromDom = safeLower(card?.dataset?.ns || "");
+    const fromIdx = (typeof ownerNSOf === 'function' && ownerNSOf(String(id))) || "";
+    const use = isEmailNS(fromDom) ? fromDom : (isEmailNS(fromIdx) ? fromIdx : getNS());
+    return { id:String(id), ns:String(use) };
   }
 
   // --- Server I/O -----------------------------------------------------------
@@ -1757,10 +1746,6 @@
     // 내 식별자
     const meId     = (typeof getMeId === "function" && getMeId()) || (window.__ME_ID || null);
     const myEmail  = normEmail((typeof getMeEmail === "function" && getMeEmail()) || (window.__ME_EMAIL || null));
-    const myNsHint = (()=>{
-      try { return String(localStorage.getItem("auth:userns") || "").trim().toLowerCase(); }
-      catch { return ""; }
-    })();
     // 상대 식별자
     const theirId     = pickUserId(item);
     const theirEmail  = normEmail(pickUserEmail(item));
@@ -1771,14 +1756,6 @@
     // 2) email 일치
     if (myEmail && theirEmail && myEmail === theirEmail) return true;
 
-    // 3) ns는 '이메일' 또는 'user:ID'만 신뢰 (공유 ns 오판 방지)
-    const ns = String(item?.ns || item?.meta?.ns || "").trim().toLowerCase();
-    if (ns) {
-      if (myEmail && /@/.test(ns) && ns === myEmail) return true;                 // ns가 이메일
-      if (meId && (ns === `user:${String(meId).toLowerCase()}`)) return true;     // ns가 user:{id}
-      if (meId && (ns === String(meId).toLowerCase())) return true;               // ns가 그냥 {id}
-      if (myNsHint && ns === myNsHint) return true;                               // 로컬 보조 힌트
-    }
     return false;
   }
 
@@ -3318,7 +3295,7 @@
    * 12) BROADCAST CHANNEL (aud:sync:<ns>)
    * ========================================================= */
   try {
-    const __NS = (typeof getNS === "function" ? getNS() : (window.__STORE_NS || "default"));
+    const __NS = (typeof getNS === "function" ? getNS() : "default");
     const __K_LABEL = LABEL_SYNC_KEY;
     const __K_JIB   = JIB_SYNC_KEY;
     const __bc = new BroadcastChannel(`aud:sync:${__NS}`);

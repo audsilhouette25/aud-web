@@ -8,7 +8,9 @@
 /* ---- user namespace (per-account) ---- */
 const USER_NS = (() => {
   try {
-    return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
+    const ns = (typeof getNS === "function") ? getNS() : (localStorage.getItem("auth:userns") || "default");
+    const v  = String(ns || "default").trim().toLowerCase();
+    return /^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$/i.test(v) ? v : "default";
   } catch { return "default"; }
 })();
 window.SDF_NS = USER_NS; // 다른 모듈들이 참조
