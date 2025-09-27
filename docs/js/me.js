@@ -792,7 +792,6 @@
         </div>
         <div class="row row--spaced">
           <button class="btn" data-act="hear">Hear</button>
-          <button class="btn ghost" data-act="copy-owner">Copy UID</button>
         </div>
       </div>
     `.trim();
