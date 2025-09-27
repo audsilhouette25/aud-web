@@ -375,7 +375,10 @@
           if (me?.user?.email) eml = me.user.email;
           try { await window.__flushStoreSnapshot?.({ server:true }); } catch {}
           try {
-            const ns = uid != null ? `user:${uid}` : `email:${String(eml).toLowerCase()}`;
+            const ns =
+              (me?.emailNS ? `email:${String(me.emailNS).toLowerCase()}` :
+               uid != null ? `user:${uid}` :
+               `email:${String(eml).toLowerCase()}`);
             localStorage.setItem("auth:userns", ns);
             window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed:true, ready:true, ns } }));
           } catch {}
@@ -396,7 +399,9 @@
      try {
        const me = await fetch(toAPI("/auth/me"), { credentials:"include", cache:"no-store" }).then(r => r.json());
        const eml = me?.user?.email || email;
-       onLoginSuccess({ id: me?.user?.id ?? out.id, email: eml });
+       // ✅ emailNS를 우선 사용 (onLoginSuccess는 email을 기반으로 ns를 만들어요)
+       const effectiveEmail = (me?.emailNS || eml || "").toString().toLowerCase();
+       onLoginSuccess({ id: me?.user?.id ?? out.id, email: effectiveEmail || eml });
      } catch {
        onLoginSuccess({ id: out.id, email });
      }
