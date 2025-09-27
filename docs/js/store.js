@@ -369,6 +369,7 @@ window.getNSIdentity = getNSIdentity;
 window.setNSIdentity = setNSIdentity;
 
 
+// ===== /store.js (getUserNS 부분만 교체; 나머지 유지) =====
 function getUserNS(){
   // 인증 안됐으면 항상 default
   try { if (!(hasAuthedFlag() || (window.auth?.isAuthed?.()))) return "default"; } catch {}
@@ -376,13 +377,19 @@ function getUserNS(){
   // 1순위: 세션(탭) 스코프 NS
   try {
     const ss = sessionStorage.getItem(SESSION_USER_NS_KEY);
-    if (ss && ss.trim()) return ss.trim().toLowerCase();
+    if (ss && ss.trim()) {
+      const v = ss.trim().toLowerCase();
+      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
+    }
   } catch {}
 
   // 2순위: 레거시 폴백 (다른 탭과 공유됨)
   try {
     const ns = localStorage.getItem("auth:userns");
-    if (ns && ns.trim()) return ns.trim().toLowerCase();
+    if (ns && ns.trim()) {
+      const v = ns.trim().toLowerCase();
+      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
+    }
   } catch {}
 
   return "default";
