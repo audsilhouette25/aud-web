@@ -710,27 +710,54 @@
 
     return wrap;
   }
+  // 모달 열기: 포커스 트랩 시작 & inert 해제
   function openAdminLabModal(){
     const m = ensureAdminLabModal();
+    // 이전 포커스 저장 (닫힐 때 복원)
+    m.__prevFocus = document.activeElement && document.activeElement instanceof HTMLElement
+      ? document.activeElement : null;
+
+    m.removeAttribute('inert');                // 포커스 가능
     m.classList.add("open");
     m.setAttribute("aria-hidden","false");
     document.body.classList.add("modal-open");
+
+    // 첫 포커스 이동(시트나 닫기 버튼)
+    const first =
+      m.querySelector("#admin-lab-q") ||
+      m.querySelector("#admin-lab-close") ||
+      m.querySelector(".sheet");
+    if (first && first instanceof HTMLElement) first.focus({ preventScroll: true });
 
     if (m.__onEsc && !m.__escAttached) {
       document.addEventListener("keydown", m.__onEsc);
       m.__escAttached = true;
     }
-
     loadAdminLab().catch(()=>{});
   }
 
+  // 모달 닫기: 포커스 밖으로 이동 → aria-hidden/inert 적용
   function closeAdminLabModal(){
     const m = document.querySelector("#admin-lab");
     if (!m) return;
+
+    // 1) 모달 내부에 포커스가 있으면 먼저 밖으로 빼기
+    const active = document.activeElement;
+    if (active && m.contains(active)) {
+      // 트리거 버튼이 있으면 복원, 없으면 body로 이동
+      const target = (m.__prevFocus && document.contains(m.__prevFocus)) ? m.__prevFocus : document.body;
+      if (target && target instanceof HTMLElement) target.focus({ preventScroll: true });
+      // 그래도 남아있으면 강제 blur
+      if (active instanceof HTMLElement) active.blur();
+    }
+
+    // 2) 시각/접근성 상태 업데이트
     m.classList.remove("open");
     m.setAttribute("aria-hidden","true");
+    m.setAttribute("inert", "");               // 포커스/탭 막기 (권고)
     document.body.classList.remove("modal-open");
 
+    // 3) ESC 핸들러 해제
     if (m.__onEsc && m.__escAttached) {
       document.removeEventListener("keydown", m.__onEsc);
       m.__escAttached = false;
