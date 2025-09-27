@@ -2245,12 +2245,29 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       };
       const res = await fetch(API("/api/audlab/submit"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      const j = await res.json();
-      if (!j?.ok) throw new Error(j?.error || "submit_failed");
+      // ── Robust: content-type 검사 후 파싱, 상태코드 처리
+      const ct = res.headers.get("content-type") || "";
+      const isJSON = /\bapplication\/json\b/i.test(ct);
+      let j = null, text = null;
+      if (!res.ok) {
+        // 비정상 상태: 본문을 text로만 읽어서 힌트 제공
+        text = await res.text().catch(()=> "");
+        const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
+        throw new Error(`submit_api_${res.status}${hint}`);
+      }
+      j = isJSON ? await res.json().catch(()=>null) : null;
+      if (!j || j.ok === false) {
+        // JSON이 아니거나 ok=false인 경우 방어
+        if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
+        throw new Error(j?.error || "submit_failed");
+      }
       if (btnSubmit){
         btnSubmit.textContent = "Submitted ✓";
         setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
@@ -2260,7 +2277,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         if (m && m.classList.contains("open")) loadAdminLab();
       } catch {}
     } catch (e) {
-      alert("제출 실패: " + (e?.message || e));
+      const msg = String(e?.message || e);
+      if (msg.startsWith("submit_api_404")) {
+        alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
+      } else if (msg.startsWith("submit_api_401")) {
+        alert("제출 실패: 로그인이 필요합니다(401).");
+      } else if (msg.startsWith("submit_api_")) {
+        alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
+      } else {
+        alert("제출 실패: " + msg);
+      }
     } finally {
       if (btnSubmit) btnSubmit.disabled = strokes.length===0;
     }
