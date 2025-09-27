@@ -664,43 +664,49 @@
   /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
   function ensureAdminLabModal() {
     let wrap = document.querySelector("#admin-lab");
-    if (wrap) return wrap;
 
-    wrap = document.createElement("div");
-    wrap.id = "admin-lab";
-    wrap.className = "modal";
-    wrap.setAttribute("role","dialog");
-    wrap.setAttribute("aria-modal","true");
-    wrap.innerHTML = `
-      <button type="button" class="overlay" aria-label="Close"></button>
-      <div class="sheet" role="document" aria-labelledby="admin-lab-title">
-        <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
-
-        <div class="admin-toolbar">
-          <div class="nsbar" id="admin-lab-nsbar" aria-label="namespaces"></div>
-          <div class="spacer"></div>
-          <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
-          <button class="btn" id="admin-lab-refresh">Refresh</button>
-          <button class="btn" id="admin-lab-close">Close</button>
+    // 없으면 생성
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "admin-lab";
+      wrap.className = "modal";
+      wrap.setAttribute("role","dialog");
+      wrap.setAttribute("aria-modal","true");
+      wrap.innerHTML = `
+        <button type="button" class="overlay" aria-label="Close"></button>
+        <div class="sheet" role="document" aria-labelledby="admin-lab-title">
+          <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
+          <div class="admin-toolbar">
+            <div class="nsbar" id="admin-lab-nsbar" aria-label="namespaces"></div>
+            <div class="spacer"></div>
+            <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
+            <button class="btn" id="admin-lab-refresh">Refresh</button>
+            <button class="btn" id="admin-lab-close">Close</button>
+          </div>
+          <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
+          <p class="msg" id="admin-lab-msg" aria-live="polite"></p>
         </div>
+      `.trim();
+      document.body.appendChild(wrap);
+    }
 
-        <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
-        <p class="msg" id="admin-lab-msg" aria-live="polite"></p>
-      </div>
-    `.trim();
-    document.body.appendChild(wrap);
+    // 이미 있어도 바인딩은 한 번 보장
+    if (!wrap.__bound) {
+      wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
+      wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
 
-    wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
-    wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
-    wrap.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeAdminLabModal(); });
+      // 입력/리프레시
+      wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", () => loadAdminLab());
+      wrap.querySelector("#admin-lab-q")?.addEventListener("input", (e) => {
+        const v = (e.target.value||"").trim().toLowerCase();
+        filterAdminCards(v);
+      });
 
+      // ESC 핸들러를 저장만 해두고, 실제 add/remove는 open/close에서
+      wrap.__onEsc = (e) => { if (e.key === "Escape") closeAdminLabModal(); };
 
-    // events
-    wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", ()=>loadAdminLab());
-    wrap.querySelector("#admin-lab-q")?.addEventListener("input", (e)=>{
-      const v = (e.target.value||"").trim().toLowerCase();
-      filterAdminCards(v);
-    });
+      wrap.__bound = true;
+    }
 
     return wrap;
   }
@@ -708,7 +714,13 @@
     const m = ensureAdminLabModal();
     m.classList.add("open");
     m.setAttribute("aria-hidden","false");
-    document.body.classList.add("modal-open");   // 추가
+    document.body.classList.add("modal-open");
+
+    if (m.__onEsc && !m.__escAttached) {
+      document.addEventListener("keydown", m.__onEsc);
+      m.__escAttached = true;
+    }
+
     loadAdminLab().catch(()=>{});
   }
 
@@ -717,9 +729,13 @@
     if (!m) return;
     m.classList.remove("open");
     m.setAttribute("aria-hidden","true");
-    document.body.classList.remove("modal-open"); // 추가
-  }
+    document.body.classList.remove("modal-open");
 
+    if (m.__onEsc && m.__escAttached) {
+      document.removeEventListener("keydown", m.__onEsc);
+      m.__escAttached = false;
+    }
+  }
   async function fetchAdminNamespaces(){
     const base = window.PROD_BACKEND || window.API_BASE || location.origin;
     const u = new URL("/api/audlab/admin/nses", base).toString();
