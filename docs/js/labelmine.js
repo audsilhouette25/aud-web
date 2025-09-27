@@ -1,9 +1,70 @@
 /* ========================================================================== *
  * 0) CONSTANTS
  * ========================================================================== */
-// === store.js API (authed 동기화) ===
-// ---- store adapter (safe) ----
-// 이 블록으로 기존 storeTsGet/Set, storeHeartGet/Inc 를 대체하세요.
+(() => {
+  "use strict";
+  if (window.__authGuardInstalled) return;
+  window.__authGuardInstalled = true;
+
+  const isLoginPage = () => /\/login\.html$/i.test(location.pathname);
+  let redirecting = false, lastAt = 0;
+  const COOLDOWN = 2000;
+
+  async function isSessionValid() {
+    try {
+      const base = (window.PROD_BACKEND || window.API_BASE || location.origin);
+      const r = await fetch(new URL("/auth/me", base).toString(), {
+        credentials: "include", cache: "no-store"
+      });
+      if (!r.ok) return false;
+      const j = await r.json().catch(() => null);
+      return !!(j && j.authenticated === true);
+    } catch { return false; }
+  }
+
+  window.__safeLoginRedirect = async function __safeLoginRedirect() {
+    if (redirecting || isLoginPage()) return;
+    const now = Date.now();
+    if (now - lastAt < COOLDOWN) return;
+    lastAt = now;
+
+    if (await isSessionValid()) return; // 이미 유효 → 이동 금지
+
+    redirecting = true;
+    try { sessionStorage.removeItem("auth:flag"); } catch {}
+    const ret = encodeURIComponent(location.href);
+    // pageHref 사용을 유지
+    location.replace(`${pageHref('login.html')}?next=${ret}`);
+  };
+
+  // 401 전역 가드
+  const origFetch = window.fetch?.bind(window) || fetch;
+  window.fetch = async (...args) => {
+    const res = await origFetch(...args);
+    try { if (res && res.status === 401) window.__safeLoginRedirect(); } catch {}
+    return res;
+  };
+
+  // 부트 시 /auth/me 짧게 대기 → 계정 인식 안정화
+  window.__authBoot = async function __authBoot(timeout = 1200) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const base = (window.PROD_BACKEND || window.API_BASE || location.origin);
+      const r = await fetch(new URL("/auth/me", base).toString(), {
+        credentials: "include", cache: "no-store", signal: ctrl.signal
+      });
+      if (r.ok) {
+        const j = await r.json().catch(() => null);
+        if (j?.authenticated && j?.email) {
+          // 왜: NS를 이메일로 고정해 계정별 로컬키 분리
+          try { localStorage.setItem("auth:userns", String(j.email).toLowerCase()); } catch {}
+          try { window.dispatchEvent(new CustomEvent("user:updated", { detail: j })); } catch {}
+        }
+      }
+    } catch {} finally { clearTimeout(t); }
+  };
+})();
 
 /* ---- user namespace (per-account) ---- */
 const USER_NS = (() => {
@@ -691,10 +752,10 @@ function syncAll(){
 
 // ✅ 초기 부팅 시 store 준비 후 렌더/바인딩
 ensureReady(() => whenStoreReady(async () => {
+  await (window.__authBoot?.(1200)); // 부트 대기
   const me = await (window.auth?.getUser?.().catch(() => null));
   if (!me) {
-    const ret = encodeURIComponent(location.href);
-    location.replace(`${pageHref('login.html')}?next=${ret}`);
+    await window.__safeLoginRedirect();
     return;
   }
   syncAll();
@@ -1181,10 +1242,10 @@ btnSave?.addEventListener("click", async (e) => {
   e.stopPropagation();
   if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
   try { window.__SDF_SAVING_TS = performance.now(); } catch {}
+await (window.__authBoot?.(1200)); // 부트 대기
   const me = await (window.auth?.getUser?.().catch(() => null));
   if (!me) {
-    const ret = encodeURIComponent(location.href);
-    location.replace(`${pageHref('login.html')}?next=${ret}`);
+    await window.__safeLoginRedirect();
     return;
   }
   try { onSaveToGallery(); } catch {}
@@ -1403,12 +1464,12 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         if (typeof e.stopImmediatePropagation === "function") {
           e.stopImmediatePropagation();      // 동일 타겟의 다른 click 리스너도 차단
         }
-      const me = await (window.auth?.getUser?.().catch(() => null));
-      if (!me) {
-        const ret = encodeURIComponent(location.href);
-        location.replace(`${pageHref('login.html')}?next=${ret}`);
-        return;
-      }onSaveToGallery();
+        await (window.__authBoot?.(1200)); // 부트 대기
+        const me = await (window.auth?.getUser?.().catch(() => null));
+        if (!me) {
+          await window.__safeLoginRedirect();
+          return;
+        }onSaveToGallery();
       });
       btnReset?.addEventListener("click", onResetCanvas);
 
@@ -3621,9 +3682,7 @@ function goMineAfterShare(label = getLabel()) {
   });
 })();
 
-
 // 만료(401) 즉시 전환
-window.addEventListener("auth:logout", ()=>{
-  const ret = encodeURIComponent(location.href);
-  location.replace(`${pageHref('login.html')}?next=${ret}`);
+window.addEventListener("auth:logout", () => {
+  window.__safeLoginRedirect();
 });
