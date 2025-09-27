@@ -700,22 +700,13 @@
     const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
     const accepted = !!it.accepted;
 
-    // keep raw ids separate for actions (copy-owner, etc.)
-    const ownerId = String(it.ownerId || it.user?.id || it.ns || "").trim(); // why: data-owner는 id 유지
-    const ns      = String(it.ns || "").toLowerCase();
+    const ownerId   = String(it.ownerId || it.ns || "").trim();
+    const ns        = String(it.ns || "").toLowerCase();
+    const ownerName = String(it.ownerName || ownerId || "—");
 
-    // preferred visual name
-    const emailLocal = (it.user?.email || "").includes("@")
-      ? it.user.email.split("@")[0]
-      : (it.user?.email || "");
-
-    const ownerName =
-      (it.user?.displayName && String(it.user.displayName).trim()) ||
-      (emailLocal && String(emailLocal).trim()) ||
-      ownerId || "—";
-
-    // XSS escape
-    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
 
     return `
       <div class="card"
@@ -725,7 +716,7 @@
           ${accepted ? 'data-accepted="1"' : ''}>
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
-          <span class="owner" title="${esc(ownerName)}">${esc(ownerName)}</span>
+          <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
@@ -735,7 +726,6 @@
       </div>
     `.trim();
   }
-
   function wireCardActions(root){
     root.querySelectorAll(".card").forEach(card => {
       card.addEventListener("click", async (e) => {
@@ -928,8 +918,17 @@
     const msg  = document.querySelector("#admin-lab-msg");
     const grid = document.querySelector("#admin-lab-grid");
 
+    // 로딩 상태
     if (msg)  msg.textContent = "Loading…";
     if (grid) grid.innerHTML = "";
+
+    // 표시명 파생(지역 헬퍼)
+    const nameFrom = (snap) => {
+      if (!snap || typeof snap !== "object") return "";
+      const username    = (snap.username    ?? snap.user?.username    ?? "").toString().trim();
+      const displayName = (snap.displayName ?? snap.user?.displayName ?? snap.name ?? snap.user?.name ?? "").toString().trim();
+      return username || displayName;
+    };
 
     try {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
@@ -939,28 +938,49 @@
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
       const j = await r.json().catch(() => ({}));
-      const items = Array.isArray(j?.items) ? j.items.map(it => ({
-        id: it.id,
-        ns: it.ns || it.owner?.ns || "",
-        ownerId: (it.user?.id ?? it.owner?.id ?? it.ns ?? ""), // 카드에 표시할 사용자 식별자
-        preview: (typeof window.__toAPI === "function")
-                  ? window.__toAPI(it.image || it.preview || it.png || "")
-                  : (it.image || it.preview || it.png || ""),
-        createdAt: it.createdAt ?? it.created_at ?? null,
-        accepted: !!it.accepted
-      })) : [];
 
+      // 원본 → 카드 모델 매핑
+      const items = Array.isArray(j?.items) ? j.items.map(src => {
+        const ns       = src.ns || src.owner?.ns || "";
+        const ownerId  = (src.user?.id ?? src.owner?.id ?? ns ?? "");
+        const email    = (src.user?.email ?? src.owner?.email ?? "").toString();
+        const emailLocal = email.includes("@") ? email.split("@")[0] : email;
+
+        const ownerName =
+          nameFrom(src.user) ||
+          nameFrom(src.owner) ||
+          emailLocal ||
+          ownerId || "—";
+
+        const preview =
+          (typeof window.__toAPI === "function")
+            ? window.__toAPI(src.image || src.preview || src.png || "")
+            : (src.image || src.preview || src.png || "");
+
+        return {
+          id: src.id,
+          ns,
+          ownerId: String(ownerId || ""),
+          ownerName: String(ownerName || ""),
+          preview,
+          createdAt: src.createdAt ?? src.created_at ?? null,
+          accepted: !!src.accepted
+        };
+      }) : [];
+
+      // 비어있음 처리
       if (!items.length) {
         if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
-        if (msg) msg.textContent = "";
+        if (msg)  msg.textContent = "";
         return;
       }
 
+      // 렌더 + 액션 와이어링
       if (grid) {
         grid.innerHTML = items.map(cardHTML).join("");
         wireCardActions(grid);
 
-        // 관리자면 카드에 Accept 버튼 주입
+        // 관리자면 Accept 버튼 주입
         try {
           const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
           if (admin) {
@@ -981,7 +1001,6 @@
     } catch (err) {
       if (grid) grid.innerHTML = `<div class="empty">Failed to load.</div>`;
       if (msg)  msg.textContent = "Error";
-      // 콘솔 힌트
       try { console.error("[admin-lab] load failed:", err); } catch {}
     }
   }
@@ -2090,6 +2109,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     bindDeleteButtonForMe();
   }
 
+  /* ==== PATCH: append to bottom of public/js/me.js ==== */
 /* aud laboratory inlined into me.js (isolated via IIFE). 
    Why: keep single-file page JS without polluting globals. */
 (() => {
