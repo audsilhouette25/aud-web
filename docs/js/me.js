@@ -9,7 +9,14 @@
    * ──────────────────────────────────────────────────────────────────────────── */
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
-  window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+  (function(){
+    const cand = (window.PROD_BACKEND || window.API_BASE || "").toString().trim();
+    try {
+      window.API_BASE = cand ? new URL("/", cand).toString() : (location.origin + "/");
+    } catch {
+      window.API_BASE = cand || (location.origin + "/");
+    }
+  })();
 
   // [ADD] admin allowlist
   const ADMIN_EMAILS = ["finelee03@naver.com"]; // 운영자 이메일

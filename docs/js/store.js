@@ -5,6 +5,34 @@
 /* ────────────────────────────────────────────────────────────
    공통: 상수/유틸
 ──────────────────────────────────────────────────────────── */
+/* PATCH: fingerprint-based purge to avoid stale local data after server/build changes */
+(function(){
+  try {
+    const base = (window.PROD_BACKEND || window.API_BASE || location.origin).toString();
+    const build = (window.APP_VERSION || window.__BUILD_ID__ || "").toString();
+    const fp = `${new URL(base, location.href).origin}|${build}`;
+    const KEY = "app:fingerprint";
+    const prev = localStorage.getItem(KEY) || "";
+
+    if(prev && prev !== fp){
+      // 선별 purge: 라벨/지빗/프로필/마인 관련 캐시만 제거
+      const rm = (k)=>{ try{ localStorage.removeItem(k); }catch{} };
+      const prefixes = [
+        "me:profile","insights:","mine:","aud:label:","label:sync","jib:sync",
+        "aud:selectedLabel","label:votes","collectedLabels","jib:collected","auth:flag"
+      ];
+      for(let i = localStorage.length - 1; i >= 0; i--){
+        const k = localStorage.key(i);
+        if(!k) continue;
+        if(prefixes.some(p => k.startsWith(p))) rm(k);
+      }
+      try{ sessionStorage.removeItem("auth:flag"); }catch{}
+      try{ window.dispatchEvent(new Event("store:purged")); }catch{}
+    }
+    localStorage.setItem(KEY, fp);
+  } catch(e){}
+})();
+
 const ALL_LABELS = /** @type {const} */ (["thump","miro","whee","track","echo","portal"]);
 const isLabel = (x) => typeof x === "string" && ALL_LABELS.includes(x);
 
