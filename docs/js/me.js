@@ -765,7 +765,7 @@
   }
   async function fetchAdminNamespaces(){
     const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL("/api/audlab/admin/nses", base).toString();
+    const u = new URL("/admin/audlab/nses", base).toString();
     const r = await fetch(u, { credentials:"include" });
     const j = await r.json().catch(()=>({}));
     // 기대 형태: { ok:true, nses:[ "...", ... ] }
@@ -774,7 +774,7 @@
   }
   async function fetchAdminSubmits(ns){
     const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const url = new URL("/api/audlab/list", base);
+    const url = new URL("/admin/audlab/list", base);
     if (ns) url.searchParams.set("ns", ns);
     url.searchParams.set("limit","100");
     const r = await fetch(url.toString(), { credentials:"include" });
