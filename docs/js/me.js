@@ -788,6 +788,8 @@
       id: it.id,
       ns: active,
       preview: it.image || it.preview || it.png || "",
+      audio: it.audio || "",             // ← 서버가 돌려주면 바로 사용
+      json: it.json  || "",              // ← 메타(JSON) 바로 접근
       createdAt: null
     }));
   }
@@ -823,7 +825,7 @@
           <span>${when}</span>
         </div>
         <div class="row row--spaced">
-          <button class="btn" data-act="open">Open</button>
+          <button class="btn" data-act="hear">Hear</button>>
         </div>
       </div>
     `.trim();
@@ -836,11 +838,14 @@
         if (!act) return;
         const id = card.dataset.id;
         const ns = card.dataset.ns;
-
-        if (act==="open"){
-          const img = card.querySelector("img");
-          if (img?.src) window.open(img.src, "_blank", "noopener");
-        } else if (act==="accept"){
+       if (act==="hear"){
+          try {
+            e.target.disabled = true;
+            await hearSubmission({ id, ns, card });
+          } finally {
+            e.target.disabled = false;
+          }
+       } else if (act==="accept"){
           const btn = e.target;
           btn.disabled = true;
           try{
@@ -863,6 +868,114 @@
         }
       });
     });
+  }
+
+  // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
+  async function hearSubmission({ id, ns, card }) {
+    // 1) 오디오 URL 우선
+    let audioUrl = card.__audioUrl || "";
+    let jsonUrl  = card.__jsonUrl  || "";
+
+    // 카드에 없으면 서버에서 한 번 조회 (가벼운 단건 메타)
+    if (!audioUrl || !jsonUrl) {
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        const u = new URL("/api/admin/audlab/item", base);
+        u.searchParams.set("ns", ns);
+        u.searchParams.set("id", id);
+        const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
+        const j = await r?.json?.().catch?.(()=>({}));
+        if (j?.ok) {
+          audioUrl = j.audioUrl || "";
+          jsonUrl  = j.jsonUrl  || jsonUrl || "";
+        }
+      } catch {}
+    }
+
+    // 2) 녹음이 있으면 그것부터 재생
+    if (audioUrl) {
+      const url = (typeof window.__toAPI === "function") ? window.__toAPI(audioUrl) : audioUrl;
+      await playHTMLAudioOnce(url, { card });
+      card.__audioUrl = audioUrl; // 캐시
+      return;
+    }
+
+    // 3) 폴백: strokes 합성
+    // jsonUrl이 없으면 규칙대로 유추
+    if (!jsonUrl) {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
+    }
+    try {
+      const r = await fetch(jsonUrl, { credentials:"include", cache:"no-store" });
+      const meta = await r.json();
+      const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
+      if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
+      await synthPlayFromStrokes(strokes);
+      card.__jsonUrl = jsonUrl; // 캐시
+    } catch {
+      alert("재생 데이터(JSON)를 불러오지 못했습니다.");
+    }
+  }
+
+  function playHTMLAudioOnce(url, { card } = {}) {
+    return new Promise((resolve) => {
+      try {
+        const a = new Audio(url);
+        a.preload = "auto";
+        a.onended = () => resolve();
+        a.onerror = () => resolve();
+        a.play().catch(()=>resolve());
+      } catch { resolve(); }
+    });
+  }
+
+  // strokes 합성 재생기 (me 페이지 캔버스와 동일한 매핑 사용)
+  async function synthPlayFromStrokes(strokes) {
+    const AC = new (window.AudioContext || window.webkitAudioContext)();
+    const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
+    const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
+
+    const fMin = 110, fMax = 1760; // A2 ~ A6
+    const freqFromY = (y) => fMin * Math.pow(fMax / fMin, 1 - Math.max(0, Math.min(1, y)));
+
+    // 모든 포인트를 시간축으로 펴기
+    const pts = [];
+    for (const st of strokes) {
+      const arr = Array.isArray(st?.points) ? st.points : [];
+      for (const p of arr) {
+        const t = Number(p.t || 0);
+        const x = Number(p.x || 0);
+        const y = Number(p.y || 0);
+        if (Number.isFinite(t)) pts.push({ t, x, y });
+      }
+    }
+    if (!pts.length) { AC.close(); return; }
+    pts.sort((a,b)=> a.t - b.t);
+    const t0 = pts[0].t;
+    const T  = pts[pts.length-1].t - t0;
+    const port = 0.04;
+
+    const startAt = AC.currentTime + 0.05;
+    let lastGainEnd = startAt;
+    for (let i=0; i<pts.length; i++) {
+      const p   = pts[i];
+      const at  = startAt + Math.max(0, (p.t - t0)/1000);
+      const fq  = Math.max(40, freqFromY(p.y));
+      osc.frequency.cancelScheduledValues(at);
+      osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+
+      // 간단한 게이트(좌우로 legato 가정 없이 짧게)
+      const a = 0.01, r = 0.08;
+      master.gain.cancelScheduledValues(at);
+      master.gain.setValueAtTime(0.0, at);
+      master.gain.linearRampToValueAtTime(0.8, at + a);
+      master.gain.linearRampToValueAtTime(0.0, at + a + r);
+      lastGainEnd = at + a + r;
+    }
+    // 끝나면 종료
+    await new Promise((res)=> setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime)*1000 + 80)));
+    try { AC.close(); } catch {}
   }
 
   function filterAdminCards(q){
