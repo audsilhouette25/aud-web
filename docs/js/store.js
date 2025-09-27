@@ -655,15 +655,64 @@ onGuest((m)=>{
 /* ────────────────────────────────────────────────────────────
    서버 통신 유틸
 ──────────────────────────────────────────────────────────── */
-async function apiFetch(path, init){
-  try{
-    // window.auth.apiFetch가 있으면 우선 사용
+// === CSRF helpers (apiFetch 바로 위에 추가) ===
+let __csrfToken = null;
+let __csrfFetchedAt = 0;
+const __CSRF_TTL_MS = 10 * 60 * 1000; // 10분
+
+async function __fetchCsrf() {
+  try {
+    const r = await fetch("/auth/csrf", { credentials: "include", cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    const t = j?.csrfToken || null;
+    if (t) { __csrfToken = t; __csrfFetchedAt = Date.now(); }
+    return __csrfToken;
+  } catch {
+    return null;
+  }
+}
+
+async function __getCsrf() {
+  if (__csrfToken && (Date.now() - __csrfFetchedAt) < __CSRF_TTL_MS) return __csrfToken;
+  return await __fetchCsrf();
+}
+
+// === 새 apiFetch (기존 것을 이걸로 '교체') ===
+async function apiFetch(path, init) {
+  try {
+    // 커스텀 훅 있으면 우선 사용
     if (window.auth && typeof window.auth.apiFetch === "function") {
       return await window.auth.apiFetch(path, init);
     }
-    // 없으면 일반 fetch (쿠키 포함)
-    return await fetch(path, { credentials: "include", ...init });
-  }catch{
+
+    init = { ...(init || {}) };
+    if (!init.credentials) init.credentials = "include";
+
+    const method = String(init.method || "GET").toUpperCase();
+    const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
+
+    if (needsCsrf) {
+      const tok = await __getCsrf();
+      const H = new Headers(init.headers || {});
+      if (tok && !H.has("csrf-token") && !H.has("x-csrf-token") && !H.has("X-CSRF-Token")) {
+        // fetch-sanitizer.js가 자동으로 X-CSRF-Token 으로 승격시킴
+        H.set("csrf-token", tok);
+      }
+      init.headers = H;
+    }
+
+    let res = await fetch(path, init);
+
+    // 토큰 만료 등으로 403이면 1회 재시도
+    if (res && res.status === 403 && needsCsrf) {
+      await __fetchCsrf();
+      const H2 = new Headers(init.headers || {});
+      if (__csrfToken) H2.set("csrf-token", __csrfToken);
+      res = await fetch(path, { ...init, headers: H2 });
+    }
+
+    return res;
+  } catch {
     return null;
   }
 }
