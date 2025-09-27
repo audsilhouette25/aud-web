@@ -811,18 +811,20 @@
     });
   }
   function cardHTML(it){
-    const thumb = it.preview || it.previewDataURL || it.thumbnail || "";
+    const raw = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
+    const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
     const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
+    const accepted = !!it.accepted;
     return `
-      <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}">
+      <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}" ${accepted ? 'data-accepted="1"' : ''}>
         <img alt="" src="${thumb}" />
         <div class="meta">
           <span title="${it.ns||""}">${it.ns||"—"}</span>
           <span>${when}</span>
         </div>
-        <div class="row" style="margin-top:6px; gap:6px">
+        <div class="row row--spaced">
           <button class="btn" data-act="open">Open</button>
-          <button class="btn ghost" data-act="download">PNG</button>
+          <button class="btn ${accepted ? 'ghost' : 'primary'}" data-act="accept" ${accepted ? 'disabled' : ''}>${accepted ? 'Accepted ✓' : 'Accept'}</button>
         </div>
       </div>
     `.trim();
@@ -830,18 +832,35 @@
 
   function wireCardActions(root){
     root.querySelectorAll(".card").forEach(card=>{
-      card.addEventListener("click",(e)=>{
+      card.addEventListener("click", async (e)=>{
         const act = e.target?.dataset?.act;
         if (!act) return;
         const id = card.dataset.id;
         const ns = card.dataset.ns;
+
         if (act==="open"){
           const img = card.querySelector("img");
           if (img?.src) window.open(img.src, "_blank", "noopener");
-        } else if (act==="download"){
-          const img = card.querySelector("img"); if (!img) return;
-          const a = document.createElement("a");
-          a.href = img.src; a.download = `audlab-${ns}-${id}.png`; a.click();
+        } else if (act==="accept"){
+          const btn = e.target;
+          btn.disabled = true;
+          try{
+            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const r = await fetch(new URL("/api/admin/audlab/accept", base), {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json", "Accept":"application/json" },
+              body: JSON.stringify({ ns, id })
+            });
+            const j = await r.json().catch(()=> ({}));
+            if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
+            btn.textContent = "Accepted ✓";
+            btn.classList.remove("primary"); btn.classList.add("ghost");
+            card.setAttribute("data-accepted","1");
+          } catch (err){
+            alert("Accept 실패: " + (err?.message || err));
+            btn.disabled = false;
+          }
         }
       });
     });
@@ -867,12 +886,41 @@
     if (msg)  msg.textContent = "Loading…";
     if (grid) grid.innerHTML = "";
 
-    // ns 목록 그리기
+    // ns 목록
     const nsList = await fetchAdminNamespaces().catch(()=>[]);
     renderNSBar(nsList, __ADMIN_ACTIVE_NS || null);
 
     // 항목 로드
-    const items = await fetchAdminSubmits(__ADMIN_ACTIVE_NS).catch(()=>[]);
+    let items = [];
+    if (!__ADMIN_ACTIVE_NS) {
+      // 시도 1: /all
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      let gotAll = false;
+      try {
+        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials:"include" });
+        if (r?.ok) {
+          const j = await r.json().catch(()=>({}));
+          if (Array.isArray(j?.items)) {
+            items = j.items.map(it => ({
+              id: it.id,
+              ns: it.ns || (it.owner?.ns) || "",
+              preview: (typeof window.__toAPI === "function") ? window.__toAPI(it.image || it.preview || it.png || "") : (it.image || it.preview || it.png || ""),
+              createdAt: it.createdAt ?? it.created_at ?? null
+            }));
+            gotAll = true;
+          }
+        }
+      } catch {}
+
+      // 시도 2(폴백): nses 전체를 병렬로 조회
+      if (!gotAll) {
+        const merged = await Promise.all(nsList.map(ns => fetchAdminSubmits(ns).catch(()=>[])));
+        items = merged.flat();
+      }
+    } else {
+      items = await fetchAdminSubmits(__ADMIN_ACTIVE_NS).catch(()=>[]);
+}
+
     if (!items.length){
       if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
       if (msg) msg.textContent = "";
@@ -2052,6 +2100,39 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   let playing = false;
   let lastNoteAt = 0;
 
+  /* === Recorder (NEW) === */
+  let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
+
+  function startRecorder(){
+    if (!AC) return;
+    if (!recDest) recDest = AC.createMediaStreamDestination();
+    if (master && recDest && !master.__recWired){
+      master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
+      master.__recWired = true;
+    }
+    if (!mediaRecorder) {
+      const mtype = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus" : "audio/webm";
+      mediaRecorder = new MediaRecorder(recDest.stream, {
+        mimeType: mtype,
+        audioBitsPerSecond: 128000
+      });
+      mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
+      mediaRecorder.onstop = ()=>{
+        try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
+        catch { lastRecording = null; }
+        recChunks = [];
+      };
+    }
+    if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+  }
+
+  function stopRecorder(){
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  }
+
   // --- Helpers ---
   function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
   function now(){ return performance.now(); }
@@ -2109,13 +2190,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     master = AC.createGain();
     master.gain.value = 0.0;
-    master.connect(AC.destination);
+    master.connect(AC.destination);   // 스피커
 
     osc = AC.createOscillator();
     osc.type = "sine";
     osc.frequency.value = 440;
     osc.connect(master);
     osc.start();
+
+    // (NEW) 녹음 경로도 준비
+    startRecorder();
   }
 
   function freqFromY(yNorm){
@@ -2236,45 +2320,74 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       btnPlay.setAttribute("aria-pressed", String(playing));
       btnPlay.textContent = playing ? "Pause" : "Play";
     }
-    if (playing) startAudio(); else noteOff();
+    if (playing) {
+      startAudio();
+      startRecorder();
+    } else {
+      noteOff();
+      stopRecorder();
+    }
   }
 
   // --- Submit ---
+  function blobToDataURL(blob){
+    return new Promise((resolve,reject)=>{
+      const fr = new FileReader();
+      fr.onload = ()=> resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+  }
+
   async function submitLab(){
     if (btnSubmit) btnSubmit.disabled = true;
     try {
+      // 1) 캔버스 → PNG dataURL
       const dataURL = cvs.toDataURL("image/png", 0.92);
+
+      // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
+      if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
+      // stop 이벤트가 비동기라 아주 잠깐 대기
+      await new Promise(r => setTimeout(r, 120));
+
+      // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
+      let audioDataURL = "";
+      if (lastRecording && lastRecording.size > 0) {
+        audioDataURL = await blobToDataURL(lastRecording);
+      }
+
+      // 4) 페이로드 구성
       const payload = {
         ns: (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")),
         width: W, height: H,
         strokes,
         previewDataURL: dataURL,
+        audioDataURL    // ← NEW
       };
+
+      // 5) 전송
       const res = await fetch(API("/api/audlab/submit"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      // ── Robust: content-type 검사 후 파싱, 상태코드 처리
+
+      // 6) 응답 처리(기존 로직 유지)
       const ct = res.headers.get("content-type") || "";
       const isJSON = /\bapplication\/json\b/i.test(ct);
       let j = null, text = null;
       if (!res.ok) {
-        // 비정상 상태: 본문을 text로만 읽어서 힌트 제공
         text = await res.text().catch(()=> "");
         const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
         throw new Error(`submit_api_${res.status}${hint}`);
       }
       j = isJSON ? await res.json().catch(()=>null) : null;
       if (!j || j.ok === false) {
-        // JSON이 아니거나 ok=false인 경우 방어
         if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
         throw new Error(j?.error || "submit_failed");
       }
+
       if (btnSubmit){
         btnSubmit.textContent = "Submitted ✓";
         setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
