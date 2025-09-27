@@ -1,17 +1,3 @@
-/* === shim: safe globals for parseJSON/normalizeId/dedupList (me.js early users) === */
-(() => {
-  try {
-    const H = (window.__meHelpers = window.__meHelpers || {});
-    H.parseJSON   = H.parseJSON   || function (s, d = null) { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return d; } };
-    H.normalizeId = H.normalizeId || function (v) { return String(v ?? '').trim().toLowerCase(); };
-    H.dedupList   = H.dedupList   || function (arr) { return Array.isArray(arr) ? [...new Set(arr.map(H.normalizeId).filter(Boolean))] : []; };
-    // expose globals (backward compat with older code paths)
-    window.parseJSON   = window.parseJSON   || H.parseJSON;
-    window.normalizeId = window.normalizeId || H.normalizeId;
-    window.dedupList   = window.dedupList   || H.dedupList;
-  } catch {}
-})();
-
 // me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
 // 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
 
@@ -35,47 +21,6 @@
     const base = window.API_BASE || location.origin + "/"; // 폴백: 현재 사이트
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
-
-  // === Watched NS (로그인 없이도 '내 글'로 간주할 네임스페이스 목록) ==================
-  const WATCHED_NS_KEY = "me:watched-ns";   // 로컬 퍼시스턴스 키
-  function readWatchedNS() {
-    try { const arr = JSON.parse(localStorage.getItem(WATCHED_NS_KEY) || "[]"); return Array.isArray(arr) ? arr.map(s=>String(s).toLowerCase()) : []; }
-    catch { return []; }
-  }
-  function writeWatchedNS(list) {
-    try { localStorage.setItem(WATCHED_NS_KEY, JSON.stringify(Array.from(new Set((list||[]).map(s=>String(s).toLowerCase()))))); } catch {}
-  }
-  function addWatchedNS(ns) { const cur = readWatchedNS(); cur.push(String(ns||"").toLowerCase()); writeWatchedNS(cur); }
-  function isOwnerWatched(ownerNS) {
-    const v = String(ownerNS||"").toLowerCase();
-    if (!v) return false;
-    const mine = (typeof window.__STORE_NS === "string" ? window.__STORE_NS.toLowerCase() : "default");
-    if (v === mine) return true;
-    return readWatchedNS().includes(v);
-  }
-
-  // 프로필 캐시/최근 로그인 정보에서 NS 추정 → 최초 1회 자동 추가(게스트 대비)
-  (function seedWatchedNSFromProfile(){
-    try {
-      const cached = (function() {
-        const keys = ["me:profile", `me:profile:${(localStorage.getItem("auth:userns")||"default").toLowerCase()}`];
-        for (const k of keys) { const v = sessionStorage.getItem(k) || localStorage.getItem(k); if (v) return JSON.parse(v); }
-        return null;
-      })();
-      const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-      if (ns) addWatchedNS(ns);
-      if (cached?.ns) addWatchedNS(String(cached.ns).toLowerCase());
-    } catch {}
-  })();
-
-  function isMineOrWatchedFromPayload(data) {
-    // mine.js에서 보내주는 payload에는 보통 owner.ns 또는 ns가 들어있음
-    const ownerNS = String(data?.owner?.ns || data?.ns || "").toLowerCase();
-    // mine:true 플래그 최우선
-    if (data?.mine === true) return true;
-    // NS 일치/감시 여부 체크
-    return isOwnerWatched(ownerNS);
-  }
 
   const $  = (sel, root = document) => root.querySelector(sel);
 
@@ -262,9 +207,6 @@
   const JIB_SYNC_KEY   = (window.JIB_SYNC_KEY   || "jib:sync");
   const EVT_LABEL      = (window.LABEL_COLLECTED_EVT || "label:collected-changed");
   const EVT_JIB        = (window.JIB_COLLECTED_EVT   || "jib:collection-changed");
-
-  let __LIKES_PREV = {};  
-  let __VOTES_PREV = {}; 
 
   const toAPI = (u) =>
   (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
@@ -600,6 +542,15 @@
     try { window.dispatchEvent(new CustomEvent("user:updated", { detail })); } catch {}
   }
 
+  // 재생 헬퍼
+  function playRecording(el, src){
+    if (!el) return;
+    el.preload = "auto";
+    el.crossOrigin = "anonymous";
+    el.src = src;
+    // iOS 자동재생 방지 우회는 사용자 제스처에서 play 호출
+  }
+
   /* ─────────────────────────────────────────────────────────────────────────────
    * 3) API helpers & rendering
    * ──────────────────────────────────────────────────────────────────────────── */
@@ -608,20 +559,9 @@
   const sessionAuthed = () => hasAuthedFlag() || serverAuthed();
 
   async function api(path, opt = {}) {
-    // ★ 모든 API 호출을 API_BASE로 강제 라우팅
-    const toAPI = (typeof window.__toAPI === "function")
-      ? window.__toAPI
-      : (u) => {
-          const s = String(u || "");
-          if (!s) return s;
-          if (/^https?:\/\//i.test(s)) return s;
-          const base = window.API_BASE || location.origin + "/";
-          return new URL(s.replace(/^\/+/, ""), base).toString();
-        };
-
-    const url = toAPI(path);
+    const url = (typeof window.__toAPI === "function") ? window.__toAPI(path) : String(path || "");
     const fn  = window.auth?.apiFetch || fetch;
-    const opt2 = { credentials: "include", ...opt }; // why: 쿠키 누락 방지
+    const opt2 = { credentials: "include", ...opt };
     try {
       const res = await fn(url, opt2);
       if (res && res.status === 401) {
@@ -630,9 +570,7 @@
         return null;
       }
       return res;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
 
   async function fetchMe() {
@@ -678,7 +616,6 @@
         <div class="sheet" role="document" aria-labelledby="admin-lab-title">
           <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
           <div class="admin-toolbar">
-            <div class="nsbar" id="admin-lab-nsbar" aria-label="namespaces"></div>
             <div class="spacer"></div>
             <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
             <button class="btn" id="admin-lab-refresh">Refresh</button>
@@ -764,65 +701,33 @@
       m.__escAttached = false;
     }
   }
-  async function fetchAdminNamespaces(){
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const url  = new URL("/api/admin/audlab/nses", base).toString();
-    const r = await fetch(url, { credentials:"include" }).catch(()=>null);
-    const j = await r?.json?.().catch?.(()=>({}));
-    const items = Array.isArray(j?.items) ? j.items : [];
-    // 서버가 없다면 내 NS라도 보여주기(안전 폴백)
-    if (!items.length) {
-      try { return [ (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase() ]; }
-      catch { return ["default"]; }
-    }
-    return items;
-  }
-  async function fetchAdminSubmits(ns){
-    const active = String(ns || (window.getNS ? window.getNS() : localStorage.getItem("auth:userns") || "default")).toLowerCase();
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL("/api/admin/audlab/list", base);
-    u.searchParams.set("ns", active);
-    const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
-    const j = await r?.json?.().catch?.(()=>({}));
-    return (Array.isArray(j?.items) ? j.items : []).map(it => ({
-      id: it.id,
-      ns: active,
-      preview: it.image || it.preview || it.png || "",
-      audio: it.audio || "",             // ← 서버가 돌려주면 바로 사용
-      json: it.json  || "",              // ← 메타(JSON) 바로 접근
-      createdAt: null
-    }));
-  }
-  function renderNSBar(nsList, active){
-    const bar = document.querySelector("#admin-lab-nsbar");
-    if (!bar) return;
-    bar.innerHTML = "";
-    const all = document.createElement("button");
-    all.className = "pill" + (!active ? " active" : "");
-    all.textContent = "All";
-    all.addEventListener("click", ()=>{ loadAdminLab(null); });
-    bar.appendChild(all);
 
-    nsList.forEach(ns=>{
-      const b = document.createElement("button");
-      b.className = "pill" + (active===ns ? " active" : "");
-      b.textContent = ns;
-      b.title = ns;
-      b.addEventListener("click", ()=>{ loadAdminLab(ns); });
-      bar.appendChild(b);
-    });
-  }
-  function cardHTML(it){
-    const raw = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
+  // 1) Replace the existing cardHTML(...) with the version below
+  function cardHTML(it) {
+    const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
-    const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
+    const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
     const accepted = !!it.accepted;
+
+    const ownerId   = String(it.ownerId || it.ns || "").trim();
+    const ns        = String(it.ns || "").toLowerCase();
+    const ownerName = String(it.ownerName || ownerId || "—");
+
+    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+
     return `
-      <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}" ${accepted ? 'data-accepted="1"' : ''}>
-        <img alt="" src="${thumb}" />
+      <div class="card"
+          data-id="${esc(it.id)}"
+          data-ns="${esc(ns)}"
+          data-owner="${esc(ownerId)}"
+          ${accepted ? 'data-accepted="1"' : ''}>
+        <img alt="" src="${esc(thumb)}" />
         <div class="meta">
-          <span title="${it.ns||""}">${it.ns||"—"}</span>
-          <span>${when}</span>
+          <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
+          ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
+          <span class="time">${esc(when)}</span>
         </div>
         <div class="row row--spaced">
           <button class="btn" data-act="hear">Hear</button>
@@ -832,43 +737,67 @@
   }
 
   function wireCardActions(root){
-    root.querySelectorAll(".card").forEach(card=>{
-      card.addEventListener("click", async (e)=>{
+    root.querySelectorAll(".card").forEach(card => {
+      card.addEventListener("click", async (e) => {
         const act = e.target?.dataset?.act;
         if (!act) return;
+
         const id = card.dataset.id;
         const ns = card.dataset.ns;
-       if (act==="hear"){
+
+        if (act === "hear") {
           try {
             e.target.disabled = true;
             await hearSubmission({ id, ns, card });
           } finally {
             e.target.disabled = false;
           }
-       } else if (act==="accept"){
+        } else if (act === "accept") {
           const btn = e.target;
           btn.disabled = true;
-          try{
+          try {
             const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
+            const headers = {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
+            };
             const r = await fetch(new URL("/api/admin/audlab/accept", base), {
               method: "POST",
               credentials: "include",
-              headers: { "Content-Type": "application/json", "Accept":"application/json" },
+              headers,
               body: JSON.stringify({ ns, id })
             });
-            const j = await r.json().catch(()=> ({}));
+            const j = await r.json().catch(() => ({}));
             if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
             btn.textContent = "Accepted ✓";
-            btn.classList.remove("primary"); btn.classList.add("ghost");
-            card.setAttribute("data-accepted","1");
-          } catch (err){
+            btn.classList.remove("primary");
+            btn.classList.add("ghost");
+            card.setAttribute("data-accepted", "1");
+          } catch (err) {
             alert("Accept 실패: " + (err?.message || err));
             btn.disabled = false;
+          }
+        } else if (act === "copy-owner") {
+          const btn = e.target;
+          const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
+          if (!owner) { alert("owner id가 없습니다."); return; }
+          try {
+            await navigator.clipboard.writeText(owner);
+            const prev = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+          } catch {
+            // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
+            prompt("Copy this owner id:", owner);
           }
         }
       });
     });
-  }
+}
 
   // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
   async function hearSubmission({ id, ns, card }) {
@@ -907,7 +836,10 @@
       jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
     }
     try {
-      const r = await fetch(jsonUrl, { credentials:"include", cache:"no-store" });
+      const url = (typeof window.__toAPI === "function")
+        ? window.__toAPI(jsonUrl)
+        : jsonUrl;
+      const r = await fetch(url, { credentials:"include", cache:"no-store" });
       const meta = await r.json();
       const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
       if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
@@ -985,78 +917,102 @@
     grid.querySelectorAll(".card").forEach(c=>{
       const ns = c.dataset.ns || "";
       const id = c.dataset.id || "";
-      const match = !query || ns.includes(query) || id.includes(query);
+      const owner = c.querySelector(".meta span")?.getAttribute("title")?.toLowerCase() || "";
+      const match = !query || ns.includes(query) || id.includes(query) || owner.includes(query);
       c.style.display = match ? "" : "none";
     });
   }
 
-  let __ADMIN_ACTIVE_NS = null;
-  async function loadAdminLab(ns = __ADMIN_ACTIVE_NS){
-    __ADMIN_ACTIVE_NS = ns || null;
+  // 탭/NS 비활성화: 전체 목록 한 번에 로드
+  async function loadAdminLab() {
     const msg  = document.querySelector("#admin-lab-msg");
     const grid = document.querySelector("#admin-lab-grid");
+
+    // 로딩 상태
     if (msg)  msg.textContent = "Loading…";
     if (grid) grid.innerHTML = "";
 
-    // ns 목록
-    const nsList = await fetchAdminNamespaces().catch(()=>[]);
-    renderNSBar(nsList, __ADMIN_ACTIVE_NS || null);
+    // 표시명 파생(지역 헬퍼)
+    const nameFrom = (snap) => {
+      if (!snap || typeof snap !== "object") return "";
+      const username    = (snap.username    ?? snap.user?.username    ?? "").toString().trim();
+      const displayName = (snap.displayName ?? snap.user?.displayName ?? snap.name ?? snap.user?.name ?? "").toString().trim();
+      return username || displayName;
+    };
 
-    // 항목 로드
-    let items = [];
-    if (!__ADMIN_ACTIVE_NS) {
-      // 시도 1: /all
+    try {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      let gotAll = false;
-      try {
-        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials:"include" });
-        if (r?.ok) {
-          const j = await r.json().catch(()=>({}));
-          if (Array.isArray(j?.items)) {
-            items = j.items.map(it => ({
-              id: it.id,
-              ns: it.ns || (it.owner?.ns) || "",
-              preview: (typeof window.__toAPI === "function") ? window.__toAPI(it.image || it.preview || it.png || "") : (it.image || it.preview || it.png || ""),
-              createdAt: it.createdAt ?? it.created_at ?? null
-            }));
-            gotAll = true;
-          }
-        }
-      } catch {}
+      const url  = new URL("/api/admin/audlab/all", base).toString();
 
-      // 시도 2(폴백): nses 전체를 병렬로 조회
-      if (!gotAll) {
-        const merged = await Promise.all(nsList.map(ns => fetchAdminSubmits(ns).catch(()=>[])));
-        items = merged.flat();
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      const j = await r.json().catch(() => ({}));
+
+      // 원본 → 카드 모델 매핑
+      const items = Array.isArray(j?.items) ? j.items.map(src => {
+        const ns       = src.ns || src.owner?.ns || "";
+        const ownerId  = (src.user?.id ?? src.owner?.id ?? ns ?? "");
+        const email    = (src.user?.email ?? src.owner?.email ?? "").toString();
+        const emailLocal = email.includes("@") ? email.split("@")[0] : email;
+
+        const ownerName =
+          nameFrom(src.user) ||
+          nameFrom(src.owner) ||
+          emailLocal ||
+          ownerId || "—";
+
+        const preview =
+          (typeof window.__toAPI === "function")
+            ? window.__toAPI(src.image || src.preview || src.png || "")
+            : (src.image || src.preview || src.png || "");
+
+        return {
+          id: src.id,
+          ns,
+          ownerId: String(ownerId || ""),
+          ownerName: String(ownerName || ""),
+          preview,
+          createdAt: src.createdAt ?? src.created_at ?? null,
+          accepted: !!src.accepted
+        };
+      }) : [];
+
+      // 비어있음 처리
+      if (!items.length) {
+        if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
+        if (msg)  msg.textContent = "";
+        return;
       }
-    } else {
-      items = await fetchAdminSubmits(__ADMIN_ACTIVE_NS).catch(()=>[]);
-}
 
-    if (!items.length){
-      if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
-      if (msg) msg.textContent = "";
-      return;
+      // 렌더 + 액션 와이어링
+      if (grid) {
+        grid.innerHTML = items.map(cardHTML).join("");
+        wireCardActions(grid);
+
+        // 관리자면 Accept 버튼 주입
+        try {
+          const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
+          if (admin) {
+            grid.querySelectorAll(".card .row--spaced").forEach((row) => {
+              if (!row.querySelector('[data-act="accept"]')) {
+                const b = document.createElement("button");
+                b.className = "btn primary";
+                b.setAttribute("data-act", "accept");
+                b.textContent = "Accept";
+                row.appendChild(b);
+              }
+            });
+          }
+        } catch {}
+      }
+
+      if (msg) msg.textContent = `${items.length} item(s)`;
+    } catch (err) {
+      if (grid) grid.innerHTML = `<div class="empty">Failed to load.</div>`;
+      if (msg)  msg.textContent = "Error";
+      try { console.error("[admin-lab] load failed:", err); } catch {}
     }
-    if (grid) {
-      grid.innerHTML = items.map(cardHTML).join("");
-      wireCardActions(grid);
-      try {
-        const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
-        if (admin) {
-          grid.querySelectorAll(".card .row--spaced").forEach((row) => {
-            if (!row.querySelector('[data-act="accept"]')) {
-              const b = document.createElement("button");
-              b.className = "btn primary";
-              b.setAttribute("data-act", "accept");
-              b.textContent = "Accept";
-              row.appendChild(b);
-            }
-          });
-        }
-      } catch {}
-    }
-    if (msg) msg.textContent = `${items.length} item(s)`;
   }
 
   function renderProfile({ name, displayName, email, avatarUrl }) {
@@ -1394,7 +1350,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     const myItems = await fetchAllMyItems();
     const postCount = myItems.length;
-    updateMyItemRooms(myItems.map((it) => it?.id).filter(Boolean));
 
     const votes = await mapLimit(myItems, 6, async (it) => {
       if (it?.votes || it?.counts || it?.totals) {
@@ -1955,10 +1910,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     await broadcastMyProfile({});
     renderQuick(quick);
 
-    // 4) 로컬 스냅샷 준비(좋아요/투표 이전 상태)
-    try { __LIKES_PREV = (window.readLikesMap   && window.readLikesMap())   ? window.readLikesMap()   : {}; } catch { __LIKES_PREV = {}; }
-    try { __VOTES_PREV = (window.readLabelVotes && window.readLabelVotes()) ? window.readLabelVotes() : {}; } catch { __VOTES_PREV = {}; }
-
     // 5) store 안정화되면 세션 한 번 동기화 + 카운트 보정 타이머
     syncSessionFromStoreIfReady();
     refreshQuickCounts();
@@ -1996,24 +1947,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
-
-    // 9-5) BroadcastChannel 경로(다른 탭 mine → me) 연결
-    try {
-      const ns = getNS();
-      const bc = new BroadcastChannel(`aud:sync:${ns}`);
-      bc.addEventListener("message", (e) => {
-        const m = e?.data; if (!m || m.kind !== "feed:event") return;
-        const { type, data } = m.payload || {};
-        const evtTs = Number(data?.ts || data?.time || data?.updated_at || data?.created_at || 0);
-        const BASE  = (window.__CONNECTED_AT || window.__PAGE_AT || Date.now());
-        if (!evtTs || evtTs < BASE) return;
-
-        // mine 쪽 1차 필터 외, 여기서도 2차 방어
-        if (!isMineOrWatchedFromPayload(data)) return;
-        if (MY_UID && (String(data?.by) === String(MY_UID) || String(data?.actor) === String(MY_UID))) return;
-
-      });
-    } catch {}
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) {
@@ -2241,8 +2174,17 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
         MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
         "audio/webm";
+      // why: 브라우저별 지원 코덱 선택(사파리 우선 mp4, 그 외 webm/ogg)
+      const cand = [
+        "audio/webm;codecs=opus",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",       // iOS Safari
+        "audio/mpeg",      // 호환용
+        "audio/wav"
+      ].filter(Boolean);
+      const pick = cand.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
       mediaRecorder = new MediaRecorder(recDest.stream, {
-        mimeType: mtype,
+        mimeType: pick || undefined,
         audioBitsPerSecond: 128000
       });
       mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
@@ -2252,7 +2194,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         recChunks = [];
       };
     }
-    if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+    if (mediaRecorder.state !== "recording") mediaRecorder.start(0);
   }
 
   function stopRecorder(){
