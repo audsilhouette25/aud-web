@@ -138,19 +138,17 @@
   schedule(); // 타이머는 항상
   (async function bootProbe(){
     try {
-        const res = await fetch(
-          toAPI("/auth/me"),
-          {
-            method: "GET",
-            credentials: API_ORIGIN ? "include" : "omit",
-            cache: "no-store",
-            mode: API_ORIGIN ? "cors" : "no-cors"
-          }
-        );
+      const url = toAPI("/auth/me");
+      const req = { method: "GET", credentials: "include", cache: "no-store" };
+      const res = (window.auth?.apiFetch)
+        ? await window.auth.apiFetch(url, req)
+        : await fetch(url, req);
+
       if (res && res.ok) {
-        const j = await res.json().catch(()=>null);
+        const j = await (res.json ? res.json() : null);
         if (j && j.authenticated === true) {
           sessionStorage.setItem("auth:flag","1");   // 플래그 재보증
+          try { localStorage.setItem("auth:flag","1"); } catch {}
           backoff = 0; reschedule();
           window.dispatchEvent(new CustomEvent("auth:state", { detail:{ ready:true, authed:true, user:j.user||null } }));
         }
