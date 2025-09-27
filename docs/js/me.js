@@ -787,7 +787,7 @@
     return (Array.isArray(j?.items) ? j.items : []).map(it => ({
       id: it.id,
       ns: active,
-      preview: it.png,
+      preview: it.image || it.preview || it.png || "",
       createdAt: null
     }));
   }
@@ -824,7 +824,6 @@
         </div>
         <div class="row row--spaced">
           <button class="btn" data-act="open">Open</button>
-          <button class="btn ${accepted ? 'ghost' : 'primary'}" data-act="accept" ${accepted ? 'disabled' : ''}>${accepted ? 'Accepted ✓' : 'Accept'}</button>
         </div>
       </div>
     `.trim();
@@ -2111,8 +2110,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       master.__recWired = true;
     }
     if (!mediaRecorder) {
-      const mtype = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/webm";
+      const mtype =
+        MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
+        MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
+        "audio/webm";
       mediaRecorder = new MediaRecorder(recDest.stream, {
         mimeType: mtype,
         audioBitsPerSecond: 128000
