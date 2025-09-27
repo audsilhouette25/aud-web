@@ -22,16 +22,25 @@
     } catch { return false; }
   }
 
+  // why: transient 401 방지 — confirm twice within window before redirect
+  let __failCount = 0, __winStart = 0;
+  const FAIL_WINDOW_MS = 5000;
   window.__safeLoginRedirect = async function __safeLoginRedirect() {
     if (redirecting || isLoginPage()) return;
     const now = Date.now();
     if (now - lastAt < COOLDOWN) return;
     lastAt = now;
 
-    if (await isSessionValid()) return; // 이미 유효 → 이동 금지
+    if (await isSessionValid()) {
+      __failCount = 0; __winStart = 0;
+      return; // 이미 유효 → 이동 금지
+    }
+    // windowed failure counting
+    if (!__winStart || (now - __winStart) > FAIL_WINDOW_MS) { __winStart = now; __failCount = 0; }
+    __failCount++;
+    if (__failCount < 2) return; // require 2 failures within window
 
     redirecting = true;
-    try { sessionStorage.removeItem("auth:flag"); } catch {}
     const ret = encodeURIComponent(location.href);
     // pageHref 사용을 유지
     location.replace(`${pageHref('login.html')}?next=${ret}`);

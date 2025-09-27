@@ -19,14 +19,13 @@
       const rm = (k)=>{ try{ localStorage.removeItem(k); }catch{} };
       const prefixes = [
         "me:profile","insights:","mine:","aud:label:","label:sync","jib:sync",
-        "aud:selectedLabel","label:votes","collectedLabels","jib:collected","auth:flag"
+        "aud:selectedLabel","label:votes","collectedLabels","jib:collected"
       ];
       for(let i = localStorage.length - 1; i >= 0; i--){
         const k = localStorage.key(i);
         if(!k) continue;
         if(prefixes.some(p => k.startsWith(p))) rm(k);
       }
-      try{ sessionStorage.removeItem("auth:flag"); }catch{}
       try{ window.dispatchEvent(new Event("store:purged")); }catch{}
     }
     localStorage.setItem(KEY, fp);
