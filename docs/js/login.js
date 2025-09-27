@@ -488,28 +488,36 @@
       if (v.field === "pw2")   setFieldError(els.signupPw2,   suPw2Err,   v.msg);
       return;
     }
-
     setBusy(els.signupBtn, true, "Creating account…");
-    const out = await doSignup(v.email, v.pw1);
-    setBusy(els.signupBtn, false);
+    try {
+      const res = await auth.signup(
+        v.email,
+        v.pw1,
+        { autoLogin: true, redirect: true, next: resolveNextUrl() }
+      );
 
-    if (!out.ok){
-      if (out.field === "email") setFieldError(els.signupEmail, suEmailErr, out.msg);
-      else if (out.field === "pw") setFieldError(els.signupPw, suPwErr, out.msg);
-      else showError(els.signupErr, out.msg);
-      return;
+      if (!res?.ok) {
+        // 서버가 { ok:false, error|code } 형태로 줄 때를 대비
+        const code = String(res.error || res.code || "").toUpperCase();
+        if (code === "DUPLICATE_EMAIL") {
+          setFieldError(els.signupEmail, $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email"), "This email is already registered.");
+        } else if (code === "INVALID_EMAIL") {
+          setFieldError(els.signupEmail, $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email"), "Please enter a valid email address.");
+        } else if (code === "WEAK_PASSWORD") {
+          setFieldError(els.signupPw, $("#su-err-pw") || ensureErrBelow(els.signupPw, "su-err-pw"), "Please choose a stronger password.");
+        } else {
+          showError(els.signupErr, res.message || "Sign-up failed. Please try again.");
+        }
+        setBusy(els.signupBtn, false);
+        return;
+      }
+
+      // 성공 + redirect:true 면 여기 오기 전에 이미 이동됨.
+    } catch (e) {
+      showError(els.signupErr, "Network error. Please try again.");
+      setBusy(els.signupBtn, false);
     }
 
-    // Auto-login right after sign-up
-    if (els.loginEmail) els.loginEmail.value = v.email;
-    if (els.loginPw)    els.loginPw.value    = v.pw1;
-    const r2 = await doLogin(v.email, v.pw1);
-    if (!r2.ok){
-      const target = r2.field === "email" ? "email" : "pw";
-      if (target === "email") setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), r2.msg || "Automatic sign-in failed.");
-      else                    setFieldError(els.loginPw,    $("#err-pw")    || ensureErrBelow(els.loginPw,    "err-pw"),    r2.msg || "Automatic sign-in failed.");
-      return;
-    }
   }
 
   /* =============================================================

@@ -12,7 +12,7 @@
 
   const TAB_ID_KEY   = "auth:tab-id";
   const TAB_REG_KEY  = "auth:open-tabs";         // 모든 탭 레지스트리
-  const TAB_AUThed_KEY = "auth:open-tabs:authed"; // 인증된 탭 레지스트리
+  const TAB_AUTHED_KEY = "auth:open-tabs:authed";
   const TAB_HB_MS    = 15_000;
   const TAB_STALE_MS = 5 * 60_000;
 
@@ -43,15 +43,6 @@
       const ORI = apiOrigin();               // ← 매번 최신값 사용
       if (ORI && /^\/(?:auth|api)\//.test(u.pathname)) {
         return new URL(u.pathname + u.search + u.hash, ORI).toString();
-      }
-      return u.toString();
-    } catch { return p; }
-  }
-  function toAPI(p) {
-    try {
-      const u = new URL(p, location.href);
-      if (API_ORIGIN && /^\/(?:auth|api)\//.test(u.pathname)) {
-        return new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString();
       }
       return u.toString();
     } catch { return p; }
@@ -113,11 +104,11 @@
   function unregisterTab() {
     const id = getTabId();
     regUpdate(TAB_REG_KEY, reg => (delete reg[id], reg));
-    regUpdate(TAB_AUThed_KEY, reg => (delete reg[id], reg));
+    regUpdate(TAB_AUTHED_KEY, reg => (delete reg[id], reg));
   }
   function registerAuthedTab() {
     const id = getTabId();
-    regUpdate(TAB_AUThed_KEY, reg => (reg[id] = now(), reg));
+    regUpdate(TAB_AUTHED_KEY, reg => (reg[id] = now(), reg));
   }
   let hbTimer = null;
   function startHeartbeat() {
@@ -125,7 +116,7 @@
     const beat = () => {
       const id = getTabId();
       regUpdate(TAB_REG_KEY, reg => (reg[id] = now(), reg));
-      if (state.authed) regUpdate(TAB_AUThed_KEY, reg => (reg[id] = now(), reg));
+      if (state.authed) regUpdate(TAB_AUTHED_KEY, reg => (reg[id] = now(), reg));
     };
     beat();
     hbTimer = setInterval(beat, TAB_HB_MS);
@@ -138,20 +129,6 @@
     const bases = ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"];
     for (const b of bases) localStorage.removeItem(`${b}::${ns.toLowerCase()}`);
   }
-
-  // 로그인/회원가입 성공 처리 직후
-  // 예: auth-boot.js 의 login()/signup() 성공 분기 또는 login.js 의 doLogin/doSignup 성공 후
-  const ns = (me?.email || me?.ns || "").toLowerCase(); // me 응답이나 이메일 변수
-  if (ns) {
-    localStorage.setItem("auth:ns", ns); // 현재 사용자 네임스페이스 보관
-    wipeLocalForNs(ns);                  // 같은 이메일 재가입시 이전 캐시 제거
-  }
-
-  // 보너스: 레거시 전역 키가 남아 있으면 없애기(안전)
-  ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"].forEach(k=>{
-    if (localStorage.getItem(k) != null) localStorage.removeItem(k);
-  });
-
   /* =========================
    * Navigation marking (broad)
    * ========================= */
@@ -538,29 +515,62 @@
    * ========================= */
   async function refreshMe(){
     try {
-      const r = await fetch(toAPI("/auth/me"), { credentials:"include", headers:{ "Accept":"application/json" }});
+      const r = await fetch(toAPI("/auth/me"), {
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
       const j = await r.json().catch(()=>null);
+
       state.authed = !!j?.authenticated;
-      state.user   = state.authed ? (j.user || null) : null;
+      state.user   = state.authed ? (j?.user || null) : null;
       state.bootId = j?.bootId || null;
 
       if (state.authed) {
-        setAuthedFlag(); registerAuthedTab();
+        setAuthedFlag();
+        registerAuthedTab();
         try { await getCSRF(); } catch {}
-        // === userns 고정 저장 (uid 우선, 없으면 email)
+
+        // ✅ ns는 이메일 기반으로 고정 (서버가 j.ns로 내려줌)
         try {
-          const ns = String(j?.ns || j?.user?.id || j?.user?.uid || "").trim().toLowerCase()
-                  || String(j?.user?.email || "").trim().toLowerCase();
-          if (ns) localStorage.setItem(USERNS_KEY, ns);
+          const nsPersist =
+            String(j?.ns || j?.user?.email || "")
+              .trim()
+              .toLowerCase();
+
+          if (nsPersist) {
+            // 보관
+            localStorage.setItem(USERNS_KEY, nsPersist);
+            localStorage.setItem("auth:ns", nsPersist);
+
+            // ✅ 같은 이메일로 재가입해도 이전 캐시가 섞이지 않도록 '1회만' 정리
+            const wipedKey = `auth:wiped:${nsPersist}`;
+            if (!localStorage.getItem(wipedKey)) {
+              wipeLocalForNs(nsPersist);
+              // 레거시 전역 키도 정리(있다면)
+              ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"]
+                .forEach(k => localStorage.removeItem(k));
+              localStorage.setItem(wipedKey, "1");
+            }
+          }
         } catch {}
       } else {
         clearAuthedFlag();
-        regUpdate(TAB_AUThed_KEY, reg => (delete reg[getTabId()], reg));
+        regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
       }
     } finally {
       state.ready = true;
-      let nsDetail = null; try { nsDetail = localStorage.getItem(USERNS_KEY) || null; } catch {}
-      try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed: state.authed, user: state.user, bootId: state.bootId, ns: nsDetail }})); } catch {}
+      let nsDetail = null;
+      try { nsDetail = localStorage.getItem(USERNS_KEY) || null; } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent("auth:state", {
+          detail: {
+            authed: state.authed,
+            user: state.user,
+            bootId: state.bootId,
+            ns: nsDetail
+          }
+        }));
+      } catch {}
       notify();
     }
   }
@@ -570,7 +580,7 @@
     function parseMap(v){ try { return (JSON.parse(v||"{}")||{}); } catch { return {}; } }
 
     window.addEventListener("storage", (ev) => {
-      if (ev.key !== TAB_AUThed_KEY) return;
+      if (ev.key !== TAB_AUTHED_KEY) return;
 
       const oldMap = parseMap(ev.oldValue);
       const newMap = parseMap(ev.newValue);
@@ -579,7 +589,7 @@
       if (!removed.length) return;
 
       setTimeout(() => {
-        const nowMap = prune(readKV(TAB_AUThed_KEY));
+        const nowMap = prune(readKV(TAB_AUTHED_KEY));
         const stillMissing = removed.filter(id => !(id in nowMap));
         if (!stillMissing.length) return;
 
@@ -616,26 +626,81 @@
    * Public actions
    * ========================= */
   async function login(email, password) {
+    const normEmail = String(email || "").trim().toLowerCase();
+
     const r = await apiFetch("/auth/login", {
-      method:"POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ email: String(email||"").trim(), password: String(password||"") })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normEmail, password: String(password || "") })
     });
-    const j = await r.json().catch(()=> ({}));
-    if (j && j.ok) {
-      state.csrf = null; await refreshMe(); setAuthedFlag(); registerAuthedTab();
-      try { if (j.id) localStorage.setItem(USERNS_KEY, String(j.id).toLowerCase()); } catch {}
+
+    const j = await r.json().catch(() => ({}));
+    if (j?.ok) {
+      // 세션/상태 갱신
+      state.csrf = null;
+      setAuthedFlag();
+      registerAuthedTab();
+      await refreshMe();              // /auth/me로 user/bootId 동기화
+      try { await getCSRF(true); } catch {}
+
+      // ✅ ns는 "이메일"로만 고정 저장 (id 쓰지 않음)
+      try {
+        localStorage.setItem(USERNS_KEY, normEmail);
+        localStorage.setItem("auth:ns",  normEmail);
+
+        // ✅ 같은 이메일로 재가입했을 때 섞이지 않도록 ns별 1회 캐시 정리
+        const wipedKey = `auth:wiped:${normEmail}`;
+        if (!localStorage.getItem(wipedKey)) {
+          wipeLocalForNs(normEmail);
+          ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"]
+            .forEach(k => localStorage.removeItem(k)); // 레거시 전역키 정리
+          localStorage.setItem(wipedKey, "1");
+        }
+      } catch {}
     }
+
     return j;
   }
+  // 회원가입 → (성공 시) 자동 로그인 → (옵션) 리다이렉트
+  async function signup(email, password, opts = {}) {
+    const {
+      autoLogin = true,     // true면 가입 성공 후 자동 로그인
+      redirect  = true,     // true면 로그인까지 성공하면 즉시 이동
+      next      = null,     // 지정 없으면 ?next=... 쿼리나 /mine.html 로 이동
+    } = opts;
 
-  async function signup(email, password) {
+    const normEmail = String(email || "").trim().toLowerCase();
+
+    // 1) 회원가입
     const r = await apiFetch("/auth/signup", {
-      method:"POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ email: String(email||"").trim(), password: String(password||"") })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normEmail, password: String(password || "") })
     });
-    return r.json().catch(()=> ({}));
+    const sign = await r.json().catch(() => ({}));
+
+    if (!sign?.ok) {
+      // 가입 실패 (중복 등) — 그대로 반환
+      return sign;
+    }
+
+    // 2) 자동 로그인 옵션이 아니면 여기서 종료
+    if (!autoLogin) return { ...sign, autologin: false };
+
+    // 3) 자동 로그인
+    const loginRes = await login(normEmail, password);
+    try { password = ""; } catch {}         // 메모리에 남은 비번 최대한 비움
+
+    // 4) (선택) 리다이렉트
+    if (redirect && loginRes?.ok) {
+      const to =
+        next ||
+        new URLSearchParams(location.search).get("next") ||
+        "/mine.html";
+      try { markNavigate(); } catch {}
+      location.replace(to);                 // 히스토리 깔끔
+    }
+    return { ...loginRes, autologin: true };
   }
 
   async function onLogoutClick(e){
@@ -652,7 +717,7 @@
     clearAuthedFlag();
     try { localStorage.removeItem(USERNS_KEY); } catch {}
     try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed:false, user:null, ns:"default" } })); } catch {}
-    regUpdate(TAB_AUThed_KEY, reg => (delete reg[getTabId()], reg));
+    regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
     state.csrf=null; state.authed=false; state.user=null;
     notify(); try { window.dispatchEvent(new Event("auth:logout")); } catch {}
     markNavigate();
