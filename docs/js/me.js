@@ -765,23 +765,30 @@
     }
   }
   async function fetchAdminNamespaces(){
-    // 서버에 nses 엔드포인트가 없으므로 '내 NS' 하나만 보여줍니다.
-    try { return [ (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase() ]; }
-    catch { return ["default"]; }
+    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+    const url  = new URL("/api/admin/audlab/nses", base).toString();
+    const r = await fetch(url, { credentials:"include" }).catch(()=>null);
+    const j = await r?.json?.().catch?.(()=>({}));
+    const items = Array.isArray(j?.items) ? j.items : [];
+    // 서버가 없다면 내 NS라도 보여주기(안전 폴백)
+    if (!items.length) {
+      try { return [ (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase() ]; }
+      catch { return ["default"]; }
+    }
+    return items;
   }
   async function fetchAdminSubmits(ns){
-    // 실제 구현된 엔드포인트는 /api/audlab/list 하나뿐(내 NS만)
+    const active = String(ns || (window.getNS ? window.getNS() : localStorage.getItem("auth:userns") || "default")).toLowerCase();
     const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const url  = new URL("/api/audlab/list", base).toString();
-    const r = await fetch(url, { credentials:"include" });
-    const j = await r.json().catch(()=>({}));
-    // 서버는 {id, json, png}만 줍니다 → 그에 맞게 카드 데이터로 변환
-    const myns = (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase();
+    const u = new URL("/api/admin/audlab/list", base);
+    u.searchParams.set("ns", active);
+    const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
+    const j = await r?.json?.().catch?.(()=>({}));
     return (Array.isArray(j?.items) ? j.items : []).map(it => ({
       id: it.id,
-      ns: myns,
-      preview: it.png,           // 카드 썸네일/다운로드에 사용
-      createdAt: null            // 서버가 시간 안 주니 일단 비움
+      ns: active,
+      preview: it.png,
+      createdAt: null
     }));
   }
   function renderNSBar(nsList, active){
