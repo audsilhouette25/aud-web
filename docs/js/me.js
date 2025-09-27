@@ -850,10 +850,18 @@
           btn.disabled = true;
           try{
             const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            // 1) CSRF 토큰 취득
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(()=>null);
+            const csrf = await csrfRes?.json?.().catch(()=>null);
+            const headers = {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
+            };
             const r = await fetch(new URL("/api/admin/audlab/accept", base), {
               method: "POST",
               credentials: "include",
-              headers: { "Content-Type": "application/json", "Accept":"application/json" },
+              headers,
               body: JSON.stringify({ ns, id })
             });
             const j = await r.json().catch(()=> ({}));
@@ -907,7 +915,10 @@
       jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
     }
     try {
-      const r = await fetch(jsonUrl, { credentials:"include", cache:"no-store" });
+      const url = (typeof window.__toAPI === "function")
+        ? window.__toAPI(jsonUrl)
+        : jsonUrl;
+      const r = await fetch(url, { credentials:"include", cache:"no-store" });
       const meta = await r.json();
       const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
       if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
