@@ -2074,29 +2074,15 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (btn.dataset.busy === "1") return;   // re-entrancy guard
-      btn.dataset.busy = "1";
-      btn.disabled = true;
-      btn.setAttribute("aria-busy", "true");
 
       const res = await __confirmAndDeleteAccount();
 
       // ⬇️ 확인 취소 시 즉시 중단 (아무 변화 없음)
-      if (!res?.ok && res?.msg === "cancelled") {
-        btn.disabled = false;
-        btn.removeAttribute("aria-busy");
-        delete btn.dataset.busy;
-        return;
-      }
+      if (!res?.ok && res?.msg === "cancelled") return;
 
       // ⬇️ 서버 실패 시: 알림만 띄우고 현재 페이지 유지 (로컬은 이미 정리됨)
       if (!res?.ok) {
         alert("Failed to delete your account on the server. Local data has been cleared; please try again later.");
-        // 세션 잔존 방지(쿠키·다른 탭 정합성)
-        try { await __safeBeaconLogout(); } catch {}
-        btn.disabled = false;
-        btn.removeAttribute("aria-busy");
-        delete btn.dataset.busy;
         return;
       }
 

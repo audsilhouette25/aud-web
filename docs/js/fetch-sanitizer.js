@@ -1,7 +1,7 @@
 // docs/js/fetch-sanitizer.js
-// CORS-safe: plain "csrf-token" â†’ "X-CSRF-Token" ìŠ¹ê²© + í¬ë¡œìŠ¤ì‚¬ì´íŠ¸ ì¿ í‚¤ ë™ë´‰
+// CORS-safe: plain "csrf-token" → "X-CSRF-Token" 승격 + 크로스사이트 쿠키 동봉
 (() => {
-  // URL ë‚´ ID ì ‘ë‘ì‚¬ ì •ë¦¬ (ì˜ˆ: /api/gallery/g_123 â†’ /api/gallery/123)
+  // URL 내 ID 접두사 정리 (예: /api/gallery/g_123 → /api/gallery/123)
   function normalizeIdInUrl(u) {
     try {
       const url = new URL(u, location.href);
@@ -30,22 +30,22 @@
     }
   }
 
-  // === [ì¶”ê°€] API ì˜¤ë¦¬ì§„ ë¦¬ë¼ì´íŠ¸ ===========================================
-  // - window.PROD_BACKEND > window.API_BASE > ê·¸ëŒ€ë¡œ
-  // - /api/... ìƒëŒ€ê²½ë¡œë§Œ ëŒ€ìƒ, ì ˆëŒ€ URLì´ë‚˜ ë‹¤ë¥¸ ê²½ë¡œëŠ” ê±´ë“œë¦¬ì§€ ì•ŠìŒ
-  function rewriteApiOrigin(u) {                // â¬… ì¶”ê°€
+  // === [추가] API 오리진 리라이트 ===========================================
+  // - window.PROD_BACKEND > window.API_BASE > 그대로
+  // - /api/... 상대경로만 대상, 절대 URL이나 다른 경로는 건드리지 않음
+  function rewriteApiOrigin(u) {                // ⬅ 추가
     try {
       const api = (window.PROD_BACKEND || window.API_BASE || "").trim();
       if (!api) return u;
 
       const inUrl = new URL(u, location.href);
       const path  = inUrl.pathname.replace(/^\//, "");
-      const looksApi = /^(api|auth)\//.test(path); // "/api/..." ì™€ "/auth/..." ëª¨ë‘ ë¦¬ë¼ì´íŠ¸
+      const looksApi = /^(api|auth)\//.test(path); // "/api/..." 와 "/auth/..." 모두 리라이트
 
       if (!looksApi) return u;
 
-      const base = api.replace(/\/+$/, "");     // ë ìŠ¬ëž˜ì‹œ ì œê±°
-      const out  = new URL(base, inUrl);        // ì˜¤ë¦¬ì§„ë§Œ êµì²´
+      const base = api.replace(/\/+$/, "");     // 끝 슬래시 제거
+      const out  = new URL(base, inUrl);        // 오리진만 교체
       out.pathname = inUrl.pathname;
       out.search   = inUrl.search;
       out.hash     = inUrl.hash;
@@ -56,34 +56,34 @@
   }
   // ========================================================================
 
-  // â”€â”€ fetch íŒ¨ì¹˜
+  // ── fetch 패치
   const _fetch = window.fetch.bind(window);
   window.fetch = function(input, init) {
     init = init || {};
 
-    // URL ì •ê·œí™” + ì˜¤ë¦¬ì§„ ë¦¬ë¼ì´íŠ¸
+    // URL 정규화 + 오리진 리라이트
     if (typeof input === "string") {
-      input = rewriteApiOrigin(normalizeIdInUrl(input));      // â¬… ì¶”ê°€: ë¦¬ë¼ì´íŠ¸
+      input = rewriteApiOrigin(normalizeIdInUrl(input));      // ⬅ 추가: 리라이트
     } else if (input instanceof Request) {
-      const nu = rewriteApiOrigin(normalizeIdInUrl(input.url)); // â¬… ì¶”ê°€: ë¦¬ë¼ì´íŠ¸
+      const nu = rewriteApiOrigin(normalizeIdInUrl(input.url)); // ⬅ 추가: 리라이트
       input = new Request(nu, input);
     }
 
-    // í—¤ë” ìŠ¹ê²©
+    // 헤더 승격
     if (init.headers) init = { ...init, headers: promote(init.headers) };
     if (input instanceof Request) {
       const ph = promote(input.headers);
       input = new Request(input, { headers: ph });
     }
 
-    // í¬ë¡œìŠ¤ì‚¬ì´íŠ¸ ì¿ í‚¤/ì„¸ì…˜ ë™ë´‰ + CORS ëª¨ë“œ
+    // 크로스사이트 쿠키/세션 동봉 + CORS 모드
     if (!init.credentials) init.credentials = "include";
     if (!init.mode) init.mode = "cors";
 
     return _fetch(input, init);
   };
 
-  // â”€â”€ XHR íŒ¨ì¹˜
+  // ── XHR 패치
   const X = XMLHttpRequest.prototype;
   const _set = X.setRequestHeader;
   X.setRequestHeader = function(name, value) {

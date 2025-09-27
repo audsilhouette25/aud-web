@@ -1,4 +1,4 @@
-// /public/js/login.js â€” unified, robust, and CSRF-safe (2025-09-05)
+// /public/js/login.js — unified, robust, and CSRF-safe (2025-09-05)
 (() => {
   "use strict";
 
@@ -67,7 +67,7 @@
   const setAuthedFlag = () => {
     try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
     try { localStorage.setItem(AUTH_FLAG_KEY,  "1"); }  catch {}
-    // íƒ­ ë™ê¸°í™” ì¦‰ì‹œ ë°˜ì˜
+    // 탭 동기화 즉시 반영
     try {
       localStorage.setItem("auth:ping", String(Date.now()));
       localStorage.removeItem("auth:ping");
@@ -163,20 +163,20 @@
    *  4) UI HELPERS (busy states, field errors)
    * ============================================================= */
 
-  // [ADD] í•„ë“œ ì•„ëž˜ì— .field-error spanì„ ë³´ìž¥(ì—†ìœ¼ë©´ ìƒì„±)
+  // [ADD] 필드 아래에 .field-error span을 보장(없으면 생성)
   function ensureErrBelow(inputEl, id){
     if (!inputEl) return null;
     const exist = document.getElementById(id);
     if (exist) return exist;
     const span = document.createElement("div");
-    span.className = "field-error";   // CSSì—ì„œ visibilityë¡œ ì œì–´
+    span.className = "field-error";   // CSS에서 visibility로 제어
     span.id = id;
-    // inputì˜ ë°”ë¡œ ë‹¤ìŒ í˜•ì œ ìœ„ì¹˜ì— ì‚½ìž…(ë ˆì´ì•„ì›ƒ ì•ˆì •)
+    // input의 바로 다음 형제 위치에 삽입(레이아웃 안정)
     inputEl.insertAdjacentElement("afterend", span);
     return span;
   }
 
-  function setBusy(btn, on, txtBusy = "Signing inâ€¦"){
+  function setBusy(btn, on, txtBusy = "Signing in…"){
     if (!btn) return;
     btn.disabled = !!on;
     btn.setAttribute("aria-busy", on ? "true" : "false");
@@ -190,7 +190,7 @@
     }
   }
 
-  // display í† ê¸€ ì—†ì´ í´ëž˜ìŠ¤/visibilityë¡œë§Œ ì œì–´
+  // display 토글 없이 클래스/visibility로만 제어
   function setFieldError(inputEl, errEl, msg){
     if (!inputEl || !errEl) return;
     const has = !!msg;
@@ -208,7 +208,7 @@
   }
 
   function clearFieldErrors(){
-    // ë¡œê·¸ì¸
+    // 로그인
     setFieldError(
       els.loginEmail,
       $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"),
@@ -221,7 +221,7 @@
     );
     showError(els.loginErr, "");
 
-    // íšŒì›ê°€ìž…(í•„ë“œë³„)
+    // 회원가입(필드별)
     const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
     const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
     const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
@@ -233,18 +233,18 @@
   }
 
   function mountErrorPlaceholders(){
-    // ë¡œê·¸ì¸
+    // 로그인
     ensureErrBelow(els.loginEmail, "err-email");
     ensureErrBelow(els.loginPw,    "err-pw");
 
-    // íšŒì›ê°€ìž…
+    // 회원가입
     ensureErrBelow(els.signupEmail, "su-err-email");
     ensureErrBelow(els.signupPw,    "su-err-pw");
     ensureErrBelow(els.signupPw2,   "su-err-pw2");
   }
 
   /* =============================================================
-   *  5) ERROR TRANSLATION (server codes â†’ user text)
+   *  5) ERROR TRANSLATION (server codes → user text)
    * ============================================================= */
   function translateError(codeLike){
     const code = String(codeLike || "").toUpperCase();
@@ -284,9 +284,9 @@
   /* =============================================================
    *  7) SUCCESS HOOK
    * ============================================================= */
-  // public/js/login.js â€” replace onLoginSuccess fully
+  // public/js/login.js — replace onLoginSuccess fully
   function onLoginSuccess(user) {
-    /** why: ì´ì „ ê³„ì • í”ì ì´ ìƒˆ ì„¸ì…˜ìœ¼ë¡œ ì„žì´ëŠ” ê²ƒì„ ë°©ì§€ */
+    /** why: 이전 계정 흔적이 새 세션으로 섞이는 것을 방지 */
     try { window.store?.purgeAccount?.(); } catch {}
     try { window.store?.reset?.(); } catch {}
     try { window.jib?.reset?.(); } catch {}
@@ -310,7 +310,7 @@
       }
     } catch {}
 
-    // â†“ ìƒˆ ì„¸ì…˜ ê¸°ì¤€ìœ¼ë¡œ ns/í”Œëž˜ê·¸ë¥¼ ë‹¤ì‹œ ì„¤ì •
+    // ↓ 새 세션 기준으로 ns/플래그를 다시 설정
     const ns = (user?.id != null)
       ? `user:${String(user.id)}`
       : `email:${String(user?.email || "").toLowerCase()}`;
@@ -318,18 +318,18 @@
     try { localStorage.setItem("auth:userns", ns); } catch {}
     if (typeof setAuthedFlag === "function") setAuthedFlag();
 
-    // íƒ­ ë™ê¸°í™” ì‹ í˜¸
+    // 탭 동기화 신호
     try {
       localStorage.setItem("auth:ping", String(Date.now()));
       localStorage.removeItem("auth:ping");
     } catch {}
 
-    // ì•±ì— ë¡œê·¸ì¸ ìƒíƒœ ë¸Œë¡œë“œìºìŠ¤íŠ¸
+    // 앱에 로그인 상태 브로드캐스트
     try {
       window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready: true, authed: true, ns, user } }));
     } catch {}
 
-    // ê¸°ë³¸ í‘œì‹œëª… ìºì‹œ(ì´ë©”ì¼ local-part â†’ ì‚¬ìš©ìžê°€ ë°”ê¾¸ë©´ ì„œë²„/ë‹¤ë¥¸ íƒ­ì´ ë®ì–´ì”€)
+    // 기본 표시명 캐시(이메일 local-part → 사용자가 바꾸면 서버/다른 탭이 덮어씀)
     try {
       const eml = String(user?.email || "").trim().toLowerCase();
       const localPart = eml ? eml.split("@")[0].split("+")[0] : "member";
@@ -343,7 +343,7 @@
       window.dispatchEvent(new CustomEvent("user:updated", { detail }));
     } catch {}
 
-    // ì´ˆê¸°í™” ì™„ë£Œ ì‹ í˜¸(ì˜µì €ë²„ë“¤ì´ ìž¬êµ¬ë…/ë¦¬ì…‹í•˜ë„ë¡)
+    // 초기화 완료 신호(옵저버들이 재구독/리셋하도록)
     try { window.dispatchEvent(new Event("store:purged")); } catch {}
 
     if (typeof gotoNext === "function") gotoNext();
@@ -480,7 +480,7 @@
       return;
     }
 
-    setBusy(els.loginBtn, true, "Signing inâ€¦");
+    setBusy(els.loginBtn, true, "Signing in…");
     const res = await doLogin(v.email, v.pw);
     setBusy(els.loginBtn, false);
 
@@ -495,7 +495,7 @@
   async function onSubmitSignup(e){
     e.preventDefault();
 
-    // í•„ë“œ/ê³µí†µ ì—ëŸ¬ ì´ˆê¸°í™”
+    // 필드/공통 에러 초기화
     const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
     const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
     const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
@@ -504,7 +504,7 @@
     setFieldError(els.signupPw2,   suPw2Err,   "");
     showError(els.signupErr, "");
 
-    // í´ë¼ì´ì–¸íŠ¸ ê²€ì¦
+    // 클라이언트 검증
     const v = assertSignupInputs();
     if (!v.ok){
       if (v.field === "email") setFieldError(els.signupEmail, suEmailErr, v.msg);
@@ -513,7 +513,7 @@
       return;
     }
 
-    setBusy(els.signupBtn, true, "Creating accountâ€¦");
+    setBusy(els.signupBtn, true, "Creating account…");
     const out = await doSignup(v.email, v.pw1);
     setBusy(els.signupBtn, false);
 
@@ -541,7 +541,7 @@
    * ============================================================= */
   async function init(){
     try {
-      if (!FORCE_LOGIN && window.auth.isAuthed()) { log("already authed â†’ gotoNext()"); gotoNext(); return; }
+      if (!FORCE_LOGIN && window.auth.isAuthed()) { log("already authed → gotoNext()"); gotoNext(); return; }
     } catch {}
 
     mountErrorPlaceholders();
@@ -550,7 +550,7 @@
     on(els.panelLogin,  "submit", onSubmitLogin);
     on(els.panelSignup, "submit", onSubmitSignup);
 
-    // Clear field-level errors while typing (ë¡œê·¸ì¸)
+    // Clear field-level errors while typing (로그인)
     on(els.loginEmail, "input", () =>
       setFieldError(els.loginEmail, $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"), "")
     );
@@ -558,7 +558,7 @@
       setFieldError(els.loginPw, $("#err-pw") || ensureErrBelow(els.loginPw, "err-pw"), "")
     );
 
-    // íšŒì›ê°€ìž… ìž…ë ¥ ì‹œ í•„ë“œë³„ ì—ëŸ¬ ì‹¤ì‹œê°„ í´ë¦¬ì–´
+    // 회원가입 입력 시 필드별 에러 실시간 클리어
     on(els.signupEmail, "input", () => {
       const el = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
       setFieldError(els.signupEmail, el, "");
