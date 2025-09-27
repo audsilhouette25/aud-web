@@ -21,7 +21,7 @@ const AUTO_MIGRATE_GUEST_TO_USER = false;
 
 const SESSION_USER_NS_KEY = "auth:userns:session";
 
-const ADMIN_ALWAYS_OPEN_EMAIL = "finelee03@naver.com";ㄴ
+const ADMIN_ALWAYS_OPEN_EMAIL = "finelee03@naver.com";
 
 /* ── auth 세션 플래그: 탭 생존 동안 유지 ───────────────────*/
 const AUTH_FLAG_KEY = "auth:flag";
