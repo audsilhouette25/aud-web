@@ -1,6 +1,17 @@
 // docs/js/fetch-sanitizer.js
 // CORS-safe: plain "csrf-token" → "X-CSRF-Token" 승격 + 크로스사이트 쿠키 동봉
 (() => {
+
+  // "Key: Value" 줄들의 문자열을 안전하게 Headers로 변환
+  function headersFromString(s) {
+    const H = new Headers();
+    if (typeof s !== "string") return H;
+    s.split(/\r?\n/).forEach((line) => {
+      const m = line.match(/^\s*([^:]+)\s*:\s*(.*)\s*$/);
+      if (m) H.append(m[1], m[2]);
+    });
+    return H;
+  }
   // URL 내 ID 접두사 정리 (예: /api/gallery/g_123 → /api/gallery/123)
   function normalizeIdInUrl(u) {
     try {
@@ -16,7 +27,9 @@
 
   function promote(headersLike) {
     try {
-      const H = new Headers(headersLike || {});
+      const H = (typeof headersLike === "string")
+        ? headersFromString(headersLike)
+        : new Headers(headersLike || {});
       const v = H.get("csrf-token");
       if (v != null) {
         if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) {
@@ -26,7 +39,7 @@
       }
       return H;
     } catch {
-      return headersLike;
+      return new Headers();
     }
   }
 
@@ -40,7 +53,7 @@
 
       const inUrl = new URL(u, location.href);
       const path  = inUrl.pathname.replace(/^\//, "");
-      const looksApi = path.startsWith("api/"); // "/api/..." 만 리라이트
+      const looksApi = /^(api|auth)\//.test(path); // "/api/..." 와 "/auth/..." 모두 리라이트
 
       if (!looksApi) return u;
 
@@ -66,7 +79,7 @@
       input = rewriteApiOrigin(normalizeIdInUrl(input));      // ⬅ 추가: 리라이트
     } else if (input instanceof Request) {
       const nu = rewriteApiOrigin(normalizeIdInUrl(input.url)); // ⬅ 추가: 리라이트
-      input = new Request(nu, input);
+      if (nu !== input.url) input = new Request(nu, input);
     }
 
     // 헤더 승격
