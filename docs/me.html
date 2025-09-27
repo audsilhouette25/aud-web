@@ -41,6 +41,7 @@
       </div>
       <div class="ph-right">
         <button id="btn-edit" class="btn ghost" type="button" aria-label="프로필 편집">Edit</button>
+        <button id="btn-admin" class="btn ghost" type="button" hidden>Admin: aud lab</button>
       </div>
     </section>
 
@@ -123,5 +124,25 @@
     window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-dtd1.onrender.com";
   </script>
   <script src="./js/me.js" type="module"></script>
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('/auth/me', { credentials:'include' });
+        const me = await r.json();
+        const adminEmails = (window.ADMIN_EMAILS || 'finelee03@naver.com')
+          .split(',').map(s=>s.trim().toLowerCase());
+        if (adminEmails.includes(String(me?.email||'').toLowerCase())) {
+          const b = document.getElementById('btn-admin');
+          if (b) {
+            b.hidden = false;
+            b.addEventListener('click', () => {
+              location.assign('/api/admin/audlab/nses');
+            });
+          }
+        }
+      } catch {}
+    })();
+  </script>
+
 </body>
 </html>
