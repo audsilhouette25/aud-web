@@ -29,9 +29,8 @@
         : new Headers(headersLike || {});
       const v = H.get("csrf-token");
       if (v != null) {
-        if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) {
-          H.set("X-CSRF-Token", v);
-        }
+        if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) H.set("X-CSRF-Token", v);
+        if (!H.has("X-XSRF-Token") && !H.has("x-xsrf-token")) H.set("X-XSRF-Token", v);
         H.delete("csrf-token");
       }
       return H;
@@ -123,6 +122,16 @@
     if (ctx.headers.has("X-CSRF-Token") || ctx.headers.has("x-csrf-token")) return;
     const tok = await fetchCsrf(ctx.baseForCsrf);
     if (tok) ctx.headers.set("X-CSRF-Token", tok);
+  // 헤더 외에 쿼리에도 추가(백엔드 호환성 ↑)
+  if (tok) {
+    try {
+      const u = new URL(ctx.url);
+      if (!u.searchParams.has("_csrf")) {
+        u.searchParams.set("_csrf", tok);
+        ctx.url = u.toString();
+      }
+    } catch {}
+  }
   }
 
   window.fetch = async function(input, init) {
@@ -141,6 +150,7 @@
       ctx = makeRequest(input, init);
       ctx.headers = promote(ctx.headers); // 새 Headers
       await addCsrfIfNeeded(ctx);         // 새 토큰 부착
+      ctx.opts.headers = ctx.headers
       res = await _fetch(ctx.url, ctx.opts);
     }
     return res;
