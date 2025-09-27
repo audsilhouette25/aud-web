@@ -21,6 +21,8 @@ const AUTO_MIGRATE_GUEST_TO_USER = false;
 
 const SESSION_USER_NS_KEY = "auth:userns:session";
 
+const ADMIN_ALWAYS_OPEN_EMAIL = "finelee03@naver.com";ㄴ
+
 /* ── auth 세션 플래그: 탭 생존 동안 유지 ───────────────────*/
 const AUTH_FLAG_KEY = "auth:flag";
 function hasAuthedFlag(){ try{ return sessionStorage.getItem(AUTH_FLAG_KEY) === "1"; }catch{ return false; } }
@@ -28,6 +30,15 @@ function serverAuthed(){ try{ return !!(window.auth && window.auth.isAuthed && w
 function sessionAuthed(){ return hasAuthedFlag() || serverAuthed(); }
 
 // ===== 스냅샷 강제 저장(LS + 서버 keepalive) =====
+
+function __isAdminAlwaysOpen(){
+  try{
+    const ns = (typeof USER_NS !== "undefined" ? USER_NS : "default");
+    // identity가 있으면 우선 사용, 없으면 NS 자체(이메일 NS)로 비교
+    const email = String((window.getNSIdentity?.(ns)?.email ?? ns) || "").toLowerCase();
+    return email === ADMIN_ALWAYS_OPEN_EMAIL;
+  }catch{ return false; }
+}
 function __forceLsSet(key, obj){
   try { localStorage.setItem(key, JSON.stringify({ ...obj, t: Date.now() })); } catch {}
 }
@@ -757,6 +768,8 @@ async function pullStateFromServerOnce() {
 
 /* 라벨: 내부 읽기/쓰기 */
 function readLabelSet(){
+  // 관리자: 항상 전체 라벨 오픈
+  if (__isAdminAlwaysOpen()) return new Set(ALL_LABELS);
   try{
     const raw = S.getItem(LABEL_COLLECTED_KEY);
     if(!raw) return new Set();
@@ -778,6 +791,8 @@ function writeLabelSet(set){
 
 /* 라벨: 선택 상태 */
 function readSelectedLabel(){
+  // 관리자: 항상 전체 보기
+  if (__isAdminAlwaysOpen()) return null;
   try{
     const raw = S.getItem(LABEL_SELECTED_KEY);
     return (typeof raw==="string" && isLabel(raw)) ? raw : null;
@@ -1392,8 +1407,10 @@ window.addEventListener("logo-guard:ready", () => window.__storeAuthRefresh?.())
 
 /* 지비츠: 내부 유틸 */
 function readJibCollectedSet(){
+  // 관리자: 모든 지비츠 수집 처리
+  if (__isAdminAlwaysOpen()) return new Set(ALL_JIBS);
   try {
-    const raw = S.getItem(JIB_COLLECTED_KEY);        // ← NS 평면에서만 읽기
+    const raw = S.getItem(JIB_COLLECTED_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     return new Set(arr.filter(isJibKind));
   } catch { 
@@ -1411,6 +1428,8 @@ function writeJibCollectedSet(s){
   }catch{}
 }
 function readJibSelected(){
+  // 관리자: 특정 선택 없음(= 전체 오픈)
+  if (__isAdminAlwaysOpen()) return null;
   try{
     const raw = S.getItem(JIB_SELECTED_KEY);
     return raw && isJibKind(raw) ? raw : null;
