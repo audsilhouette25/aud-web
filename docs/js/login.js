@@ -284,28 +284,54 @@
   /* =============================================================
    *  7) SUCCESS HOOK
    * ============================================================= */
-  function onLoginSuccess(user){
+  // public/js/login.js — replace onLoginSuccess fully
+  function onLoginSuccess(user) {
+    /** why: 이전 계정 흔적이 새 세션으로 섞이는 것을 방지 */
+    try { window.store?.purgeAccount?.(); } catch {}
+    try { window.store?.reset?.(); } catch {}
+    try { window.jib?.reset?.(); } catch {}
+
+    try {
+      const wipe = (k) => {
+        try { sessionStorage.removeItem(k); } catch {}
+        try { localStorage.removeItem(k); } catch {}
+      };
+      // known keys
+      ["collectedLabels", "jib:collected", "auth:userns:session"].forEach(wipe);
+      // prefixed caches
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i); if (!k) continue;
+        if (
+          k.startsWith("me:profile") ||
+          k.startsWith("insights:")   ||
+          k.startsWith("mine:")       ||
+          k.startsWith("aud:label:")
+        ) wipe(k);
+      }
+    } catch {}
+
+    // ↓ 새 세션 기준으로 ns/플래그를 다시 설정
     const ns = (user?.id != null)
       ? `user:${String(user.id)}`
       : `email:${String(user?.email || "").toLowerCase()}`;
 
     try { localStorage.setItem("auth:userns", ns); } catch {}
-    setAuthedFlag();
+    if (typeof setAuthedFlag === "function") setAuthedFlag();
 
-    // 탭 동기화 신호 (선택이지만 권장)
+    // 탭 동기화 신호
     try {
       localStorage.setItem("auth:ping", String(Date.now()));
       localStorage.removeItem("auth:ping");
     } catch {}
 
+    // 앱에 로그인 상태 브로드캐스트
     try {
-      window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready:true, authed:true, ns, user } }));
+      window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready: true, authed: true, ns, user } }));
     } catch {}
 
-    // [ADD] 로그인 직후 이메일에서 이름 자동 생성 + 캐시 + 브로드캐스트
+    // 기본 표시명 캐시(이메일 local-part → 사용자가 바꾸면 서버/다른 탭이 덮어씀)
     try {
       const eml = String(user?.email || "").trim().toLowerCase();
-      // '+' 태그 제거 후 @ 앞부분만 추출 (e.g., 'john.doe+test@x.com' -> 'john.doe')
       const localPart = eml ? eml.split("@")[0].split("+")[0] : "member";
       const detail = {
         id: (user?.id ?? null),
@@ -313,13 +339,14 @@
         avatarUrl: "",
         rev: Date.now()
       };
-      // mine.js는 legacy 키('me:profile') 스토리지 이벤트를 이미 구독함
       localStorage.setItem("me:profile", JSON.stringify(detail));
-      // 즉시 반영을 원하는 현재 탭에도 이벤트 발행
       window.dispatchEvent(new CustomEvent("user:updated", { detail }));
     } catch {}
 
-    gotoNext();
+    // 초기화 완료 신호(옵저버들이 재구독/리셋하도록)
+    try { window.dispatchEvent(new Event("store:purged")); } catch {}
+
+    if (typeof gotoNext === "function") gotoNext();
   }
 
   /* =============================================================
