@@ -131,7 +131,7 @@
       body: JSON.stringify(payload)
     });
 
-    if (res.status === 403 && !retrying) {
+    if ((res.status === 403 || res.status === 400) && !retrying) {
       csrf.clear();
       try { await window.auth.getCSRF(true); } catch {}
       return postJSON(url, body, true);
@@ -150,7 +150,7 @@
       const t = new URL(n, location.href);       // relative or absolute both OK
       if (t.origin === location.origin) {
         const p = t.pathname;
-        if (/\/(mine|home|collect|gallery|labelmine)\.html$/i.test(p)) {
+        if (/\/(mine|home|collect|gallery|labelmine|index)\.html$/i.test(p)) {
           return p + t.search + t.hash;          // keep subpath (/aud-web/...)
         }
       }
@@ -249,6 +249,8 @@
   function translateError(codeLike){
     const code = String(codeLike || "").toUpperCase();
     const M = {
+     "UNAUTHORIZED":     { msg: "Please sign in again.", field: "pw" },
+     "FORBIDDEN":        { msg: "Not allowed. Please sign in and try again.", field: "pw" },
       "NO_USER":         { msg: "No account found for this email.",                       field: "email" },
       "BAD_CREDENTIALS": { msg: "Incorrect email or password.",                           field: "pw"    },
       "INVALID":         { msg: "Please check your inputs and try again.",                field: "pw"    },
@@ -311,9 +313,9 @@
     } catch {}
 
     // ↓ 새 세션 기준으로 ns/플래그를 다시 설정
-    const ns = (user?.id != null)
-      ? `user:${String(user.id)}`
-      : `email:${String(user?.email || "").toLowerCase()}`;
+    const eml = String(user?.email || "").trim().toLowerCase();
+    const ns  = eml ? `email:${eml}` :
+              (user?.id != null ? `user:${String(user.id)}` : "");
 
     try { localStorage.setItem("auth:userns", ns); } catch {}
     if (typeof setAuthedFlag === "function") setAuthedFlag();
@@ -390,7 +392,14 @@
         const t = translateError(out?.error || out?.code);
         return { ok:false, msg:t.msg, field:t.field, code:out?.error || out?.code };
       }
-      onLoginSuccess({ id: out.id, email });
+     // 🎯 정합성: 방금 세션으로 /auth/me를 읽어 emailNS/프로필 보강
+     try {
+       const me = await fetch(toAPI("/auth/me"), { credentials:"include", cache:"no-store" }).then(r => r.json());
+       const eml = me?.user?.email || email;
+       onLoginSuccess({ id: me?.user?.id ?? out.id, email: eml });
+     } catch {
+       onLoginSuccess({ id: out.id, email });
+     }
       return { ok:true };
     } catch (e) {
       const t = translateError(e?.code || e?.message);
