@@ -557,7 +557,7 @@ progress#m-rate-bar::-webkit-progress-value{
 #aud-canvas{
   display:block;
   width:100%;
-  height:auto;
+  height:flex;
   touch-action: none; /* pointer events for drawing */
   background: linear-gradient(180deg, #f8fafc, #eef2f7 50%, #e6ebf3);
 }
