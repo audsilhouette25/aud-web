@@ -5,48 +5,6 @@
   /* =========================================================
    * 0) KEYS / EVENTS / SHORTCUTS
    * ========================================================= */
-  /* PATCH: Global 401 redirect guard with cooldown and /auth/me recheck */
-  (function(){
-    try{
-      if(window.___401_guard_installed) return;
-      window.___401_guard_installed = true;
-
-      const isLoginPage = () => /\/login\.html$/i.test(location.pathname);
-      let redirecting = false, lastAt = 0;
-      const COOLDOWN = 2000;
-
-      async function handle401Once(){
-        if(redirecting || isLoginPage()) return;
-        const now = Date.now();
-        if(now - lastAt < COOLDOWN) return;
-        lastAt = now;
-
-        // 만료 재확인
-        let expired = true;
-        try{
-          const base = (window.PROD_BACKEND || window.API_BASE || location.origin);
-          const r = await fetch(new URL("/auth/me", base).toString(), {
-            credentials: "include", cache: "no-store"
-          });
-          const j = await r.json().catch(()=>null);
-          expired = !(r.ok && j && j.authenticated === true);
-        }catch{}
-
-        if(!expired) return;
-        redirecting = true;
-        try{ sessionStorage.removeItem("auth:flag"); }catch{}
-        const ret = encodeURIComponent(location.href);
-        location.replace(`./login.html?next=${ret}`);
-      }
-
-      const origFetch = window.fetch.bind(window);
-      window.fetch = async (...args) => {
-        const res = await origFetch(...args);
-        try{ if(res && res.status === 401) handle401Once(); }catch{}
-        return res;
-      };
-    }catch{}
-  })();
 
   const safeHref = (p) => (typeof window.pageHref === 'function' ? window.pageHref(p) : `./${p}`);
 
@@ -263,9 +221,8 @@
         if (res && res.status === 401) {
           let expired = false;
           try {
-            const check = await fetch(toAPI("/auth/me"), { credentials: "include", cache: "no-store" });
-            const jj = await check.json().catch(()=>null);
-            expired = !(check.ok && jj?.authenticated === true);
+            const check = await fetch("/auth/me", { credentials: "include", cache: "no-store" });
+            if (!check || check.status !== 200) expired = true;
           } catch {}
           if (expired) {
             try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
@@ -321,33 +278,6 @@
         : u.toString();
     } catch { return p; }
   };
-
-  // — auth soft probe (getUser 준비 기다렸다가, 안되면 서버로 최종 확인) —
-  async function probeAuth({ wait = 800 } = {}) {
-    // 1) getUser가 있으면 한 번 시도
-    if (window.auth?.getUser) {
-      try { const me = await window.auth.getUser(); if (me) return me; } catch {}
-    }
-
-    // 2) 짧게 기다렸다가(getUser 초기화 레이스) 재시도
-    const deadline = Date.now() + wait;
-    while (Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, 150));
-      if (window.auth?.getUser) {
-        try { const me2 = await window.auth.getUser(); if (me2) return me2; } catch {}
-        break;
-      }
-    }
-
-    // 3) 최종판정은 항상 서버(/auth/me)로
-    try {
-      const r = await fetch(toAPI("/auth/me"), { credentials: "include", cache: "no-store" });
-      const j = await r.json().catch(()=>null);
-      if (r.ok && j?.authenticated) return j.user || j;
-    } catch {}
-
-    return null;
-  }
 
   /* =========================================================
   * AVATAR UTIL (profile-ready; no 404; future-proof)
@@ -2802,13 +2732,14 @@
     }
 
     // server-side session probe
-    const me = await probeAuth({ wait: 800 });
+    let me = null; try { me = await (window.auth?.getUser?.().catch(() => null)); } catch {}
 
     if (me) {
       __ME_ID = String(me?.user?.id ?? me?.id ?? me?.uid ?? me?.sub ?? '') || null;
-      __ME_EMAIL = String(me?.user?.email ?? me?.email ?? me?.user?.emails?.[0]?.value ?? '')
-                    .trim().toLowerCase() || null;
-
+      __ME_EMAIL = String( 
+        me?.user?.email ?? me?.email ?? me?.user?.emails?.[0]?.value ?? ''
+      ).trim().toLowerCase() || null;
+      // me 페이지에서 저장해둔 최신 프로필(아바타/이름)을 즉시 적용
       try {
         const snap = readProfileCache();
         if (snap) {
@@ -2816,15 +2747,14 @@
           window.dispatchEvent(new CustomEvent("user:updated", { detail: snap }));
         }
       } catch {}
-
       try { if (__ME_ID) localStorage.setItem("auth:userns", String(__ME_ID).toLowerCase()); } catch {}
       migrateMineOnlyFlagToNS();
-
-      if (!hasAuthedFlag()) setAuthedFlag();
+      if (!flagged) setAuthedFlag();
       idle(() => rehydrateFromLocalStorageIfSessionAuthed());
       scheduleRender();
       heroIn();
 
+      // 초기 피드 로드 + 무한 스크롤 시작
       ensureMineFilterUI();
       await loadMore();
       await reconcileDeleteButtons();
@@ -2835,13 +2765,13 @@
         const ids = FEED.items.map(x => String(x.id)).filter(Boolean);
         if (ids.length) subscribeItems(ids);
       } catch {}
-    } else {
-      clearAuthedFlag(); // 서버 판단을 신뢰
-      const ret = encodeURIComponent(location.href);
-      try { window.auth?.markNavigate?.(); } catch {}
-      location.replace(`${safeHref('login.html')}?next=${ret}`);
-      return;
-    }
+      } else {
+        clearAuthedFlag(); // 서버 판단을 신뢰: stale flag 제거
+        const ret = encodeURIComponent(location.href);
+        try { window.auth?.markNavigate?.(); } catch {}
+        location.replace(`${safeHref('login.html')}?next=${ret}`);
+        return;
+      }
 
     try { ensureHeartCSS(); upgradeHeartIconIn(document); } catch {}
     bindTitleToMe();

@@ -20,8 +20,6 @@
 
   // ===== 설정 =====
   const AUTH_FLAG_KEY = "auth:flag";          // 로그인 성공 시 login.js가 "1"로 셋
-  const EXPIRE_THRESHOLD = 2; // why: transient 401 noise 방지
-  let consecutive401 = 0;
   const BASE_MS       = 5 * 60 * 1000;        // 기본 주기: 5분 (rolling cookie면 충분)
   const MAX_BACKOFF   = 4;                    // 최대 2^4 = 16배
   const USER_EVENTS   = ["visibilitychange", "focus", "online"];
@@ -59,12 +57,9 @@
 
       // 401 → 만료
       if (res.status === 401) {
-        consecutive401++;
-        if (consecutive401 >= EXPIRE_THRESHOLD) {
-          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-          window.dispatchEvent(new CustomEvent("auth:expired"));
-        }
-        return; // backoff/reschedule in finally/schedule
+        try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        window.dispatchEvent(new CustomEvent("auth:expired"));
+        return;
       }
 
       const ct = res.headers?.get?.("content-type") || "";
@@ -72,7 +67,6 @@
       // 204 또는 2xx & 비-JSON → 성공 처리
       if (res.status === 204 || (!ct.includes("application/json") && res.ok)) {
         backoff = 0; reschedule();
-        consecutive401 = 0;
         try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
         window.dispatchEvent(new CustomEvent("auth:keepalive-ok", { detail: { lightweight: true }}));
         return;
@@ -82,15 +76,11 @@
       const data = await res.json().catch(() => null);
       if (data && data.authenticated === true) {
         backoff = 0; reschedule();
-        consecutive401 = 0;
         try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
         window.dispatchEvent(new CustomEvent("auth:keepalive-ok", { detail: data }));
       } else if (data && data.authenticated === false) {
-        consecutive401++;
-        if (consecutive401 >= EXPIRE_THRESHOLD) {
-          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-          window.dispatchEvent(new CustomEvent("auth:expired", { detail: data }));
-        }
+        try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        window.dispatchEvent(new CustomEvent("auth:expired", { detail: data }));
       } else {
         // 애매하면 성공 취급 (네트워크 OK)
         backoff = 0; reschedule();
@@ -148,17 +138,19 @@
   schedule(); // 타이머는 항상
   (async function bootProbe(){
     try {
-      const url = toAPI("/auth/me");
-      const req = { method: "GET", credentials: "include", cache: "no-store" };
-      const res = (window.auth?.apiFetch)
-        ? await window.auth.apiFetch(url, req)
-        : await fetch(url, req);
-
+        const res = await fetch(
+          toAPI("/auth/me"),
+          {
+            method: "GET",
+            credentials: API_ORIGIN ? "include" : "omit",
+            cache: "no-store",
+            mode: API_ORIGIN ? "cors" : "no-cors"
+          }
+        );
       if (res && res.ok) {
-        const j = await (res.json ? res.json() : null);
+        const j = await res.json().catch(()=>null);
         if (j && j.authenticated === true) {
           sessionStorage.setItem("auth:flag","1");   // 플래그 재보증
-          try { localStorage.setItem("auth:flag","1"); } catch {}
           backoff = 0; reschedule();
           window.dispatchEvent(new CustomEvent("auth:state", { detail:{ ready:true, authed:true, user:j.user||null } }));
         }

@@ -5,33 +5,6 @@
 /* ────────────────────────────────────────────────────────────
    공통: 상수/유틸
 ──────────────────────────────────────────────────────────── */
-/* PATCH: fingerprint-based purge to avoid stale local data after server/build changes */
-(function(){
-  try {
-    const base = (window.PROD_BACKEND || window.API_BASE || location.origin).toString();
-    const build = (window.APP_VERSION || window.__BUILD_ID__ || "").toString();
-    const fp = `${new URL(base, location.href).origin}|${build}`;
-    const KEY = "app:fingerprint";
-    const prev = localStorage.getItem(KEY) || "";
-
-    if(prev && prev !== fp){
-      // 선별 purge: 라벨/지빗/프로필/마인 관련 캐시만 제거
-      const rm = (k)=>{ try{ localStorage.removeItem(k); }catch{} };
-      const prefixes = [
-        "me:profile","insights:","mine:","aud:label:","label:sync","jib:sync",
-        "aud:selectedLabel","label:votes","collectedLabels","jib:collected"
-      ];
-      for(let i = localStorage.length - 1; i >= 0; i--){
-        const k = localStorage.key(i);
-        if(!k) continue;
-        if(prefixes.some(p => k.startsWith(p))) rm(k);
-      }
-      try{ window.dispatchEvent(new Event("store:purged")); }catch{}
-    }
-    localStorage.setItem(KEY, fp);
-  } catch(e){}
-})();
-
 const ALL_LABELS = /** @type {const} */ (["thump","miro","whee","track","echo","portal"]);
 const isLabel = (x) => typeof x === "string" && ALL_LABELS.includes(x);
 
@@ -48,8 +21,6 @@ const AUTO_MIGRATE_GUEST_TO_USER = false;
 
 const SESSION_USER_NS_KEY = "auth:userns:session";
 
-const ADMIN_ALWAYS_OPEN_EMAIL = "finelee03@naver.com";
-
 /* ── auth 세션 플래그: 탭 생존 동안 유지 ───────────────────*/
 const AUTH_FLAG_KEY = "auth:flag";
 function hasAuthedFlag(){ try{ return sessionStorage.getItem(AUTH_FLAG_KEY) === "1"; }catch{ return false; } }
@@ -57,15 +28,6 @@ function serverAuthed(){ try{ return !!(window.auth && window.auth.isAuthed && w
 function sessionAuthed(){ return hasAuthedFlag() || serverAuthed(); }
 
 // ===== 스냅샷 강제 저장(LS + 서버 keepalive) =====
-
-function __isAdminAlwaysOpen(){
-  try{
-    const ns = (typeof USER_NS !== "undefined" ? USER_NS : "default");
-    // identity가 있으면 우선 사용, 없으면 NS 자체(이메일 NS)로 비교
-    const email = String((window.getNSIdentity?.(ns)?.email ?? ns) || "").toLowerCase();
-    return email === ADMIN_ALWAYS_OPEN_EMAIL;
-  }catch{ return false; }
-}
 function __forceLsSet(key, obj){
   try { localStorage.setItem(key, JSON.stringify({ ...obj, t: Date.now() })); } catch {}
 }
@@ -396,7 +358,6 @@ window.getNSIdentity = getNSIdentity;
 window.setNSIdentity = setNSIdentity;
 
 
-// ===== /store.js (getUserNS 부분만 교체; 나머지 유지) =====
 function getUserNS(){
   // 인증 안됐으면 항상 default
   try { if (!(hasAuthedFlag() || (window.auth?.isAuthed?.()))) return "default"; } catch {}
@@ -404,19 +365,13 @@ function getUserNS(){
   // 1순위: 세션(탭) 스코프 NS
   try {
     const ss = sessionStorage.getItem(SESSION_USER_NS_KEY);
-    if (ss && ss.trim()) {
-      const v = ss.trim().toLowerCase();
-      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
-    }
+    if (ss && ss.trim()) return ss.trim().toLowerCase();
   } catch {}
 
   // 2순위: 레거시 폴백 (다른 탭과 공유됨)
   try {
     const ns = localStorage.getItem("auth:userns");
-    if (ns && ns.trim()) {
-      const v = ns.trim().toLowerCase();
-      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
-    }
+    if (ns && ns.trim()) return ns.trim().toLowerCase();
   } catch {}
 
   return "default";
@@ -682,64 +637,15 @@ onGuest((m)=>{
 /* ────────────────────────────────────────────────────────────
    서버 통신 유틸
 ──────────────────────────────────────────────────────────── */
-// === CSRF helpers (apiFetch 바로 위에 추가) ===
-let __csrfToken = null;
-let __csrfFetchedAt = 0;
-const __CSRF_TTL_MS = 10 * 60 * 1000; // 10분
-
-async function __fetchCsrf() {
-  try {
-    const r = await fetch("/auth/csrf", { credentials: "include", cache: "no-store" });
-    const j = await r.json().catch(() => ({}));
-    const t = j?.csrfToken || null;
-    if (t) { __csrfToken = t; __csrfFetchedAt = Date.now(); }
-    return __csrfToken;
-  } catch {
-    return null;
-  }
-}
-
-async function __getCsrf() {
-  if (__csrfToken && (Date.now() - __csrfFetchedAt) < __CSRF_TTL_MS) return __csrfToken;
-  return await __fetchCsrf();
-}
-
-// === 새 apiFetch (기존 것을 이걸로 '교체') ===
-async function apiFetch(path, init) {
-  try {
-    // 커스텀 훅 있으면 우선 사용
+async function apiFetch(path, init){
+  try{
+    // window.auth.apiFetch가 있으면 우선 사용
     if (window.auth && typeof window.auth.apiFetch === "function") {
       return await window.auth.apiFetch(path, init);
     }
-
-    init = { ...(init || {}) };
-    if (!init.credentials) init.credentials = "include";
-
-    const method = String(init.method || "GET").toUpperCase();
-    const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
-
-    if (needsCsrf) {
-      const tok = await __getCsrf();
-      const H = new Headers(init.headers || {});
-      if (tok && !H.has("csrf-token") && !H.has("x-csrf-token") && !H.has("X-CSRF-Token")) {
-        // fetch-sanitizer.js가 자동으로 X-CSRF-Token 으로 승격시킴
-        H.set("csrf-token", tok);
-      }
-      init.headers = H;
-    }
-
-    let res = await fetch(path, init);
-
-    // 토큰 만료 등으로 403이면 1회 재시도
-    if (res && res.status === 403 && needsCsrf) {
-      await __fetchCsrf();
-      const H2 = new Headers(init.headers || {});
-      if (__csrfToken) H2.set("csrf-token", __csrfToken);
-      res = await fetch(path, { ...init, headers: H2 });
-    }
-
-    return res;
-  } catch {
+    // 없으면 일반 fetch (쿠키 포함)
+    return await fetch(path, { credentials: "include", ...init });
+  }catch{
     return null;
   }
 }
@@ -851,8 +757,6 @@ async function pullStateFromServerOnce() {
 
 /* 라벨: 내부 읽기/쓰기 */
 function readLabelSet(){
-  // 관리자: 항상 전체 라벨 오픈
-  if (__isAdminAlwaysOpen()) return new Set(ALL_LABELS);
   try{
     const raw = S.getItem(LABEL_COLLECTED_KEY);
     if(!raw) return new Set();
@@ -874,8 +778,6 @@ function writeLabelSet(set){
 
 /* 라벨: 선택 상태 */
 function readSelectedLabel(){
-  // 관리자: 항상 전체 보기
-  if (__isAdminAlwaysOpen()) return null;
   try{
     const raw = S.getItem(LABEL_SELECTED_KEY);
     return (typeof raw==="string" && isLabel(raw)) ? raw : null;
@@ -1490,10 +1392,8 @@ window.addEventListener("logo-guard:ready", () => window.__storeAuthRefresh?.())
 
 /* 지비츠: 내부 유틸 */
 function readJibCollectedSet(){
-  // 관리자: 모든 지비츠 수집 처리
-  if (__isAdminAlwaysOpen()) return new Set(ALL_JIBS);
   try {
-    const raw = S.getItem(JIB_COLLECTED_KEY);
+    const raw = S.getItem(JIB_COLLECTED_KEY);        // ← NS 평면에서만 읽기
     const arr = raw ? JSON.parse(raw) : [];
     return new Set(arr.filter(isJibKind));
   } catch { 
@@ -1511,8 +1411,6 @@ function writeJibCollectedSet(s){
   }catch{}
 }
 function readJibSelected(){
-  // 관리자: 특정 선택 없음(= 전체 오픈)
-  if (__isAdminAlwaysOpen()) return null;
   try{
     const raw = S.getItem(JIB_SELECTED_KEY);
     return raw && isJibKind(raw) ? raw : null;
