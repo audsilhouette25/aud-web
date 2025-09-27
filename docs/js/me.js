@@ -2119,409 +2119,386 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     bindDeleteButtonForMe();
   }
 
-  /* ==== PATCH: append to bottom of public/js/me.js ==== */
-/* aud laboratory inlined into me.js (isolated via IIFE). 
-   Why: keep single-file page JS without polluting globals. */
-(() => {
-  // --- fast exit if lab UI is not on this page ---
-  const $ = (s, r = document) => r.querySelector(s);
-  const cvs = $("#aud-canvas");
-  if (!cvs) return; // lab not present → do nothing
+  /* ==== PATCH: replace the aud laboratory block at bottom of public/js/me.js ==== */
+  /* aud laboratory inlined into me.js (isolated via IIFE). */
+  (() => {
+    const $ = (s, r = document) => r.querySelector(s);
+    const cvs = $("#aud-canvas");
+    if (!cvs) return;
 
-  // --- DOM refs ---
-  const btnPlay = $("#lab-play");
-  const btnUndo = $("#lab-undo");
-  const btnClear = $("#lab-clear");
-  const btnSubmit = $("#lab-submit");
-  const spanStrokes = $("#lab-strokes");
-  const spanPoints = $("#lab-points");
+    // DOM
+    const btnPlay = $("#lab-play");
+    const btnUndo = $("#lab-undo");
+    const btnClear = $("#lab-clear");
+    const btnSubmit = $("#lab-submit");
+    const spanStrokes = $("#lab-strokes");
+    const spanPoints = $("#lab-points");
 
-  // --- API base (reuse existing globals if present) ---
-  const API = (path) => {
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL(String(path).replace(/^\/+/, ""), base);
-    return u.toString();
-  };
+    // API base
+    const API = (path) => {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const u = new URL(String(path).replace(/^\/+/, ""), base);
+      return u.toString();
+    };
 
-  // --- Canvas & drawing state ---
-  const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-  let W = 900, H = 500;
-  const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
+    // Canvas
+    const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    let W = 900, H = 500;
+    const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
 
-  /** @typedef {{x:number,y:number,t:number}} Point */
-  /** @typedef {{points: Point[]}} Stroke */
-  const strokes = [];
-  let curStroke = null;
-  let isDrawing = false;
+    /** @typedef {{x:number,y:number,t:number}} Point */
+    /** @typedef {{points: Point[]}} Stroke */
+    const strokes = [];
+    let curStroke = null;
+    let isDrawing = false;
 
-  // --- Audio state ---
-  let AC = null, master = null, osc = null;
-  let playing = false;
-  let lastNoteAt = 0;
+    // Audio
+    let AC = null, master = null, osc = null;
+    let playing = false;
+    let lastNoteAt = 0;
 
-  /* === Recorder (NEW) === */
-  let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
+    // Recorder
+    let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
 
-  function startRecorder(){
-    if (!AC) return;
-    if (!recDest) recDest = AC.createMediaStreamDestination();
-    if (master && recDest && !master.__recWired){
-      master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
-      master.__recWired = true;
-    }
-    if (!mediaRecorder) {
-      const mtype =
-        MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
-        MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
-        "audio/webm";
-      // why: 브라우저별 지원 코덱 선택(사파리 우선 mp4, 그 외 webm/ogg)
-      const cand = [
-        "audio/webm;codecs=opus",
-        "audio/ogg;codecs=opus",
-        "audio/mp4",       // iOS Safari
-        "audio/mpeg",      // 호환용
-        "audio/wav"
-      ].filter(Boolean);
-      const pick = cand.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
-      mediaRecorder = new MediaRecorder(recDest.stream, {
-        mimeType: pick || undefined,
-        audioBitsPerSecond: 128000
-      });
-      mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
-      mediaRecorder.onstop = ()=>{
-        try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
-        catch { lastRecording = null; }
-        recChunks = [];
-      };
-    }
-    if (mediaRecorder.state !== "recording") mediaRecorder.start(0);
-  }
-
-  function stopRecorder(){
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-    }
-  }
-
-  // --- Helpers ---
-  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-  function now(){ return performance.now(); }
-
-  function resizeCanvas() {
-    const rect = cvs.getBoundingClientRect();
-    W = Math.max(320, Math.floor(rect.width * DPR));
-    H = Math.max(180, Math.floor(rect.height * DPR));
-    cvs.width = W; cvs.height = H;
-    drawAll();
-  }
-
-  function updateCounters(){
-    const p = strokes.reduce((s, st)=>s + st.points.length, 0);
-    if (spanStrokes) spanStrokes.textContent = String(strokes.length);
-    if (spanPoints)  spanPoints.textContent  = String(p);
-    if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
-    if (btnClear) btnClear.disabled = strokes.length === 0;
-    if (btnSubmit) btnSubmit.disabled = strokes.length === 0;
-  }
-
-  function drawAll() {
-    // background bands
-    ctx2d.fillStyle = "#eef2f7";
-    ctx2d.fillRect(0,0,W,H);
-    const bands = 8;
-    for (let i=0;i<bands;i++){
-      const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
-      ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
-      ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
-      if (i%2) {
-        ctx2d.fillStyle = "rgba(0,0,0,.03)";
-        ctx2d.fillRect(0, y0, W, 1);
-      }
-    }
-    // strokes
-    ctx2d.lineJoin = "round";
-    ctx2d.lineCap = "round";
-    for (const st of strokes) {
-      if (st.points.length < 2) continue;
-      ctx2d.strokeStyle = "#111";
-      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-      ctx2d.beginPath();
-      ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
-      for (let i=1;i<st.points.length;i++){
-        const p = st.points[i];
-        ctx2d.lineTo(p.x*W, p.y*H);
-      }
-      ctx2d.stroke();
-    }
-  }
-
-  function startAudio(){
-    if (AC) return;
-    AC = new (window.AudioContext || window.webkitAudioContext)();
-    master = AC.createGain();
-    master.gain.value = 0.0;
-    master.connect(AC.destination);   // 스피커
-
-    osc = AC.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = 440;
-    osc.connect(master);
-    osc.start();
-
-    // (NEW) 녹음 경로도 준비
-    startRecorder();
-  }
-
-  function freqFromY(yNorm){
-    // y=0(top) -> high, y=1(bottom) -> low
-    const fMin = 110;  // A2
-    const fMax = 1760; // A6
-    const inv = 1 - clamp(yNorm, 0, 1);
-    return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
-  }
-
-  function applySoundForPoint(pxNorm, pyNorm){
-    if (!AC) startAudio();
-    if (AC.state === "suspended") AC.resume();
-
-    const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
-    const f = freqFromY(pyNorm);
-
-    const t = AC.currentTime;
-    const portamento = 0.02 + 0.18 * legato; // smoother to the right
-    osc.frequency.cancelScheduledValues(t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
-
-    const nowMs = now();
-    const staccato = 1 - legato;
-    const retriggerGap = 18 + 120 * staccato; // ms
-    const a = 0.003 + 0.020 * legato; // attack
-    const r = 0.030 + 0.250 * (1 - legato); // release
-
-    // Left: chopped via retrigger; Right: sustained
-    if (staccato > 0.12) {
-      if (nowMs - lastNoteAt > retriggerGap) {
-        lastNoteAt = nowMs;
-        master.gain.cancelScheduledValues(t);
-        master.gain.setValueAtTime(0.0, t);
-        master.gain.linearRampToValueAtTime(0.9, t + a);
-        master.gain.linearRampToValueAtTime(0.0, t + a + r);
-      }
-    } else {
-      master.gain.cancelScheduledValues(t);
-      const g = 0.15 + 0.75 * legato;
-      master.gain.linearRampToValueAtTime(g, t + a);
-    }
-  }
-
-  function noteOff(){
-    if (!AC || !master) return;
-    const t = AC.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.linearRampToValueAtTime(0.0, t + 0.08);
-  }
-
-  // --- Pointer handlers ---
-  function getXY(e){
-    const rect = cvs.getBoundingClientRect();
-    const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
-    const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
-    return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
-  }
-  function toNorm({x,y}){
-    const rect = cvs.getBoundingClientRect();
-    return { x: x/rect.width, y: y/rect.height };
-  }
-
-  function beginStroke(e){
-    if (!playing) return; // only when play ON
-    isDrawing = true;
-    curStroke = { points: [] };
-    const p = toNorm(getXY(e));
-    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-    strokes.push(curStroke);
-    applySoundForPoint(p.x, p.y);
-    updateCounters();
-    drawAll();
-  }
-
-  function moveStroke(e){
-    if (!isDrawing || !curStroke) return;
-    const p = toNorm(getXY(e));
-    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-    applySoundForPoint(p.x, p.y);
-    // incremental draw
-    const lastTwo = curStroke.points.slice(-2);
-    if (lastTwo.length === 2){
-      ctx2d.strokeStyle = "#111";
-      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-      ctx2d.beginPath();
-      ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
-      ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
-      ctx2d.stroke();
-    }
-    if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
-  }
-
-  function endStroke(){
-    if (!isDrawing) return;
-    isDrawing = false;
-    curStroke = null;
-    if (!playing) noteOff();
-    updateCounters();
-  }
-
-  function undoStroke(){
-    if (!strokes.length) return;
-    strokes.pop();
-    drawAll();
-    updateCounters();
-  }
-
-  function clearAll(){
-    strokes.length = 0;
-    drawAll();
-    updateCounters();
-  }
-
-  function togglePlay(){
-    playing = !playing;
-    if (btnPlay) {
-      btnPlay.setAttribute("aria-pressed", String(playing));
-      btnPlay.textContent = playing ? "Pause" : "Play";
-    }
-    if (playing) {
-      startAudio();
-      startRecorder();
-    } else {
-      noteOff();
-      stopRecorder();
-    }
-  }
-
-  // --- Submit ---
-  function blobToDataURL(blob){
-    return new Promise((resolve,reject)=>{
-      const fr = new FileReader();
-      fr.onload = ()=> resolve(fr.result);
-      fr.onerror = reject;
-      fr.readAsDataURL(blob);
-    });
-  }
-
-  async function submitLab(){
-    if (btnSubmit) btnSubmit.disabled = true;
-    try {
-      // 1) 캔버스 → PNG dataURL
-      const dataURL = cvs.toDataURL("image/png", 0.92);
-
-      // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
-      if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
-      // stop 이벤트가 비동기라 아주 잠깐 대기
-      await new Promise(r => setTimeout(r, 120));
-
-      // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
-      let audioDataURL = "";
-      if (lastRecording && lastRecording.size > 0) {
-        audioDataURL = await blobToDataURL(lastRecording);
-      }
-
-      // 4) 페이로드 구성
-      const payload = {
-        ns: (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")),
-        width: W, height: H,
-        strokes,
-        previewDataURL: dataURL,
-        audioDataURL    // ← NEW
-      };
-
-      // 5) 전송
-      const res = await fetch(API("/api/audlab/submit"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      // 6) 응답 처리(기존 로직 유지)
-      const ct = res.headers.get("content-type") || "";
-      const isJSON = /\bapplication\/json\b/i.test(ct);
-      let j = null, text = null;
-      if (!res.ok) {
-        text = await res.text().catch(()=> "");
-        const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
-        throw new Error(`submit_api_${res.status}${hint}`);
-      }
-      j = isJSON ? await res.json().catch(()=>null) : null;
-      if (!j || j.ok === false) {
-        if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
-        throw new Error(j?.error || "submit_failed");
-      }
-
-      if (btnSubmit){
-        btnSubmit.textContent = "Submitted ✓";
-        setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
-      }
+    function startAudio(){
+      if (AC) return;
+      // why: 48kHz + interactive가 브라우저별 지터/글리치 완화
       try {
-        const m = document.querySelector("#admin-lab");
-        if (m && m.classList.contains("open")) loadAdminLab();
-      } catch {}
-    } catch (e) {
-      const msg = String(e?.message || e);
-      if (msg.startsWith("submit_api_404")) {
-        alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
-      } else if (msg.startsWith("submit_api_401")) {
-        alert("제출 실패: 로그인이 필요합니다(401).");
-      } else if (msg.startsWith("submit_api_")) {
-        alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
-      } else {
-        alert("제출 실패: " + msg);
+        AC = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 48000,
+          latencyHint: "interactive",
+        });
+      } catch {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
       }
-    } finally {
-      if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+
+      master = AC.createGain();
+      master.gain.value = 0.0;
+      master.connect(AC.destination);
+
+      osc = AC.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      osc.connect(master);
+      osc.start();
+
+      startRecorder();
     }
-  }
 
-  document.addEventListener("visibilitychange", () => {
-    try {
-      if (document.hidden && AC && master && AC.state !== "closed") {
-        master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
+    function startRecorder(){
+      if (!AC) return;
+      if (!recDest) recDest = AC.createMediaStreamDestination();
+      if (master && recDest && !master.__recWired){
+        master.connect(recDest);           // why: 재생과 녹음을 동일 체인에서 캡처
+        master.__recWired = true;
       }
-    } catch {}
-  });
+      if (!mediaRecorder) {
+        // why: 사파리 우선 mp4 → webm → ogg → mpeg → wav
+        const cand = ["audio/mp4","audio/webm;codecs=opus","audio/ogg;codecs=opus","audio/mpeg","audio/wav"];
+        const pick = cand.find(t => window.MediaRecorder?.isTypeSupported?.(t)) || "";
+        mediaRecorder = new MediaRecorder(recDest.stream, {
+          mimeType: pick || undefined,
+          audioBitsPerSecond: 128000,
+        });
+        mediaRecorder.onstart = () => { recChunks = []; }; // why: 잔여 방지
+        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
+        mediaRecorder.onstop = ()=>{
+          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
+          catch { lastRecording = null; }
+          recChunks = [];
+        };
+      }
+      if (mediaRecorder.state !== "recording") mediaRecorder.start(500); // why: 0ms 청크는 끊김 유발
+    }
 
-  // --- Wire up ---
-  window.addEventListener("resize", resizeCanvas);
-  resizeCanvas();
-  updateCounters();
+    function stopRecorder(){
+      if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+    }
 
-  cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
-  cvs.addEventListener("pointermove", moveStroke);
-  cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
-  cvs.addEventListener("pointercancel", endStroke);
-  cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+    // Utils
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const now = () => performance.now();
 
-  if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
-  if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
-  if (btnClear) btnClear.addEventListener("click", clearAll);
-  if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
- // 운영자면 캔버스 패널에도 바로 열기 버튼 붙이기
- (async()=>{ if (await (typeof isAdmin==="function" ? isAdmin() : Promise.resolve(false))) {
-   const ctrl = document.querySelector(".lab-controls .spacer");
-   if (ctrl && !document.querySelector("#lab-view-list")) {
-     const b = document.createElement("button");
-     b.id="lab-view-list"; b.className="btn ghost"; b.textContent="View submissions";
-     b.addEventListener("click", openAdminLabModal);
-     ctrl.after(b);
-   }
- }})();
+    function resizeCanvas() {
+      const rect = cvs.getBoundingClientRect();
+      W = Math.max(320, Math.floor(rect.width * DPR));
+      H = Math.max(180, Math.floor(rect.height * DPR));
+      cvs.width = W; cvs.height = H;
+      drawAll();
+    }
 
-  // a11y: space toggles play when canvas focused
-  cvs.tabIndex = 0;
-  cvs.addEventListener("keydown", (e)=>{
-    if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
-  });
-})(); 
+    function updateCounters(){
+      const p = strokes.reduce((s, st)=>s + st.points.length, 0);
+      if (spanStrokes) spanStrokes.textContent = String(strokes.length);
+      if (spanPoints)  spanPoints.textContent  = String(p);
+      if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
+      if (btnClear) btnClear.disabled = strokes.length === 0;
+      if (btnSubmit) btnSubmit.disabled = strokes.length === 0;
+    }
 
+    function drawAll() {
+      ctx2d.fillStyle = "#eef2f7";
+      ctx2d.fillRect(0,0,W,H);
+      const bands = 8;
+      for (let i=0;i<bands;i++){
+        const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
+        ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
+        ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
+        if (i%2) { ctx2d.fillStyle = "rgba(0,0,0,.03)"; ctx2d.fillRect(0, y0, W, 1); }
+      }
+      ctx2d.lineJoin = "round";
+      ctx2d.lineCap = "round";
+      for (const st of strokes) {
+        if (st.points.length < 2) continue;
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
+        for (let i=1;i<st.points.length;i++){
+          const p = st.points[i];
+          ctx2d.lineTo(p.x*W, p.y*H);
+        }
+        ctx2d.stroke();
+      }
+    }
+
+    function freqFromY(yNorm){
+      const fMin = 110, fMax = 1760;
+      const inv = 1 - clamp(yNorm, 0, 1);
+      return fMin * Math.pow(fMax / fMin, inv);
+    }
+
+    function applySoundForPoint(pxNorm, pyNorm){
+      if (!AC) startAudio();
+      if (AC.state === "suspended") AC.resume();
+
+      const legato = clamp(pxNorm, 0, 1);
+      const f = freqFromY(pyNorm);
+
+      const t = AC.currentTime;
+      const portamento = 0.02 + 0.18 * legato;
+      osc.frequency.cancelScheduledValues(t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
+
+      const nowMs = now();
+      const staccato = 1 - legato;
+      const retriggerGap = 18 + 120 * staccato;
+      const a = 0.003 + 0.020 * legato;
+      const r = 0.030 + 0.250 * (1 - legato);
+
+      if (staccato > 0.12) {
+        if (nowMs - lastNoteAt > retriggerGap) {
+          lastNoteAt = nowMs;
+          master.gain.cancelScheduledValues(t);
+          master.gain.setValueAtTime(0.0, t);
+          master.gain.linearRampToValueAtTime(0.9, t + a);
+          master.gain.linearRampToValueAtTime(0.0, t + a + r);
+        }
+      } else {
+        master.gain.cancelScheduledValues(t);
+        const g = 0.15 + 0.75 * legato;
+        master.gain.linearRampToValueAtTime(g, t + a);
+      }
+    }
+
+    function noteOff(){
+      if (!AC || !master) return;
+      const t = AC.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.linearRampToValueAtTime(0.0, t + 0.08);
+    }
+
+    // Pointer
+    function getXY(e){
+      const rect = cvs.getBoundingClientRect();
+      const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
+      const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
+      return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
+    }
+    function toNorm({x,y}){
+      const rect = cvs.getBoundingClientRect();
+      return { x: x/rect.width, y: y/rect.height };
+    }
+
+    function beginStroke(e){
+      if (!playing) return;
+      isDrawing = true;
+      curStroke = { points: [] };
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      strokes.push(curStroke);
+      applySoundForPoint(p.x, p.y);
+      updateCounters();
+      drawAll();
+    }
+
+    function moveStroke(e){
+      if (!isDrawing || !curStroke) return;
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      applySoundForPoint(p.x, p.y);
+      const lastTwo = curStroke.points.slice(-2);
+      if (lastTwo.length === 2){
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
+        ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
+        ctx2d.stroke();
+      }
+      if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
+    }
+
+    function endStroke(){
+      if (!isDrawing) return;
+      isDrawing = false;
+      curStroke = null;
+      if (!playing) noteOff();
+      updateCounters();
+    }
+
+    function undoStroke(){
+      if (!strokes.length) return;
+      strokes.pop();
+      drawAll();
+      updateCounters();
+    }
+
+    function clearAll(){
+      strokes.length = 0;
+      drawAll();
+      updateCounters();
+    }
+
+    function togglePlay(){
+      playing = !playing;
+      if (btnPlay) {
+        btnPlay.setAttribute("aria-pressed", String(playing));
+        btnPlay.textContent = playing ? "Pause" : "Play";
+      }
+      if (playing) {
+        startAudio();
+        startRecorder();
+      } else {
+        noteOff();
+        stopRecorder();
+      }
+    }
+
+    // Submit
+    function blobToDataURL(blob){
+      return new Promise((resolve,reject)=>{
+        const fr = new FileReader();
+        fr.onload = ()=> resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+    }
+
+    async function submitLab(){
+      if (btnSubmit) btnSubmit.disabled = true;
+      try {
+        const dataURL = cvs.toDataURL("image/png", 0.92);
+        if (playing) { togglePlay(); }
+        await new Promise(r => setTimeout(r, 120));
+
+        let audioDataURL = "";
+        if (lastRecording && lastRecording.size > 0) {
+          audioDataURL = await blobToDataURL(lastRecording);
+        }
+
+        const payload = {
+          ns: (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")),
+          width: W, height: H,
+          strokes,
+          previewDataURL: dataURL,
+          audioDataURL
+        };
+
+        const res = await fetch(API("/api/audlab/submit"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        const ct = res.headers.get("content-type") || "";
+        const isJSON = /\bapplication\/json\b/i.test(ct);
+        let j = null, text = null;
+        if (!res.ok) {
+          text = await res.text().catch(()=> "");
+          const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
+          throw new Error(`submit_api_${res.status}${hint}`);
+        }
+        j = isJSON ? await res.json().catch(()=>null) : null;
+        if (!j || j.ok === false) {
+          if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
+          throw new Error(j?.error || "submit_failed");
+        }
+
+        if (btnSubmit){
+          btnSubmit.textContent = "Submitted ✓";
+          setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
+        }
+        try {
+          const m = document.querySelector("#admin-lab");
+          if (m && m.classList.contains("open")) loadAdminLab();
+        } catch {}
+      } catch (e) {
+        const msg = String(e?.message || e);
+        if (msg.startsWith("submit_api_404")) {
+          alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포 확인.");
+        } else if (msg.startsWith("submit_api_401")) {
+          alert("제출 실패: 로그인이 필요합니다(401).");
+        } else if (msg.startsWith("submit_api_")) {
+          alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
+        } else {
+          alert("제출 실패: " + msg);
+        }
+      } finally {
+        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      try {
+        if (document.hidden && AC && master && AC.state !== "closed") {
+          master.gain.setValueAtTime(0, AC.currentTime); // why: 탭 전환 잔음 컷
+        }
+      } catch {}
+    });
+
+    // Wire up
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    updateCounters();
+
+    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
+    cvs.addEventListener("pointermove", moveStroke);
+    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
+    cvs.addEventListener("pointercancel", endStroke);
+    cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+
+    if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
+    if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
+    if (btnClear) btnClear.addEventListener("click", clearAll);
+    if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+
+    // Admin quick shortcut (optional)
+    (async()=>{ if (await (typeof isAdmin==="function" ? isAdmin() : Promise.resolve(false))) {
+      const ctrl = document.querySelector(".lab-controls .spacer");
+      if (ctrl && !document.querySelector("#lab-view-list")) {
+        const b = document.createElement("button");
+        b.id="lab-view-list"; b.className="btn ghost"; b.textContent="View submissions";
+        b.addEventListener("click", openAdminLabModal);
+        ctrl.after(b);
+      }
+    }})();
+
+    // a11y
+    cvs.tabIndex = 0;
+    cvs.addEventListener("keydown", (e)=>{
+      if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
+    });
+  })();
 })();
-
