@@ -40,7 +40,7 @@
 
       const inUrl = new URL(u, location.href);
       const path  = inUrl.pathname.replace(/^\//, "");
-      const looksApi = /^(api|auth)\//.test(path); // "/api/..." 와 "/auth/..." 모두 리라이트
+      const looksApi = path.startsWith("api/"); // "/api/..." 만 리라이트
 
       if (!looksApi) return u;
 
