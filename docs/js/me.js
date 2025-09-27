@@ -647,15 +647,16 @@
       const me = await fetchMe();            // 이미 있는 helper 재사용
       const email = (me?.email || me?.user?.email || "").toLowerCase();
       if (email && ADMIN_EMAILS.includes(email)) return true;
-
-      // 서버가 있으면 부트스트랩으로 2차 확인(없어도 무방)
-      const res = await fetch(
-        (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/audlab/admin/bootstrap",
-        { credentials: "include" }
-      ).catch(() => null);
-      if (res?.ok) {
-        const j = await res.json().catch(() => null);
-        if (j?.ok && (j.admin === true || j.role === "admin")) return true;
+      // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
+      if (window.ENABLE_ADMIN_BACKEND === true) {
+        const res = await fetch(
+          (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/audlab/admin/bootstrap",
+          { credentials: "include" }
+        ).catch(() => null);
+        if (res?.ok) {
+          const j = await res.json().catch(() => null);
+          if (j?.ok && (j.admin === true || j.role === "admin")) return true;
+        }
       }
     } catch {}
     return false;
@@ -764,25 +765,25 @@
     }
   }
   async function fetchAdminNamespaces(){
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL("/admin/audlab/nses", base).toString();
-    const r = await fetch(u, { credentials:"include" });
-    const j = await r.json().catch(()=>({}));
-    // 기대 형태: { ok:true, nses:[ "...", ... ] }
-    const arr = Array.isArray(j?.nses) ? j.nses : [];
-    return arr.map(String).filter(Boolean);
+    // 서버에 nses 엔드포인트가 없으므로 '내 NS' 하나만 보여줍니다.
+    try { return [ (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase() ]; }
+    catch { return ["default"]; }
   }
   async function fetchAdminSubmits(ns){
+    // 실제 구현된 엔드포인트는 /api/audlab/list 하나뿐(내 NS만)
     const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const url = new URL("/admin/audlab/list", base);
-    if (ns) url.searchParams.set("ns", ns);
-    url.searchParams.set("limit","100");
-    const r = await fetch(url.toString(), { credentials:"include" });
+    const url  = new URL("/api/audlab/list", base).toString();
+    const r = await fetch(url, { credentials:"include" });
     const j = await r.json().catch(()=>({}));
-    // 기대 형태: { ok:true, items:[ {id, ns, preview, createdAt, ...}, ... ] }
-    return Array.isArray(j?.items) ? j.items : [];
+    // 서버는 {id, json, png}만 줍니다 → 그에 맞게 카드 데이터로 변환
+    const myns = (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase();
+    return (Array.isArray(j?.items) ? j.items : []).map(it => ({
+      id: it.id,
+      ns: myns,
+      preview: it.png,           // 카드 썸네일/다운로드에 사용
+      createdAt: null            // 서버가 시간 안 주니 일단 비움
+    }));
   }
-
   function renderNSBar(nsList, active){
     const bar = document.querySelector("#admin-lab-nsbar");
     if (!bar) return;
@@ -802,10 +803,9 @@
       bar.appendChild(b);
     });
   }
-
   function cardHTML(it){
     const thumb = it.preview || it.previewDataURL || it.thumbnail || "";
-    const when = new Date(it.createdAt || it.ts || Date.now()).toLocaleString();
+    const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
     return `
       <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}">
         <img alt="" src="${thumb}" />
@@ -829,9 +829,8 @@
         const id = card.dataset.id;
         const ns = card.dataset.ns;
         if (act==="open"){
-          const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-          const url = new URL(`/admin/audlab/item/${encodeURIComponent(id)}?ns=${encodeURIComponent(ns)}`, base);
-          window.open(url.toString(), "_blank","noopener");
+          const img = card.querySelector("img");
+          if (img?.src) window.open(img.src, "_blank", "noopener");
         } else if (act==="download"){
           const img = card.querySelector("img"); if (!img) return;
           const a = document.createElement("a");
