@@ -1147,11 +1147,6 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       const btnImport  = document.getElementById("sdf-import-btn");
       const btnSave    = document.getElementById("sdf-save-btn");
       
-
-
-
-
-
 // If Save is inside a form, prevent its submit from propagating
 (function(){
   if (!btnSave) return;
