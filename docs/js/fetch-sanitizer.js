@@ -1,8 +1,6 @@
 // docs/js/fetch-sanitizer.js
-// CORS-safe: plain "csrf-token" → "X-CSRF-Token" 승격 + 크로스사이트 쿠키 동봉
 (() => {
-
-  // "Key: Value" 줄들의 문자열을 안전하게 Headers로 변환
+  // 문자열 → Headers
   function headersFromString(s) {
     const H = new Headers();
     if (typeof s !== "string") return H;
@@ -12,7 +10,8 @@
     });
     return H;
   }
-  // URL 내 ID 접두사 정리 (예: /api/gallery/g_123 → /api/gallery/123)
+
+  // g_ 접두사 정리
   function normalizeIdInUrl(u) {
     try {
       const url = new URL(u, location.href);
@@ -20,11 +19,10 @@
         .replace(/(\/api\/gallery\/)g_([A-Za-z0-9]+)/, "$1$2")
         .replace(/(\/api\/items\/)g_([A-Za-z0-9]+)/, "$1$2");
       return url.toString();
-    } catch {
-      return u;
-    }
+    } catch { return u; }
   }
 
+  // "csrf-token" → "X-CSRF-Token"
   function promote(headersLike) {
     try {
       const H = (typeof headersLike === "string")
@@ -32,71 +30,64 @@
         : new Headers(headersLike || {});
       const v = H.get("csrf-token");
       if (v != null) {
-        if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) {
-          H.set("X-CSRF-Token", v);
-        }
+        if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) H.set("X-CSRF-Token", v);
         H.delete("csrf-token");
       }
       return H;
-    } catch {
-      return new Headers();
-    }
+    } catch { return new Headers(); }
   }
 
-  // === [추가] API 오리진 리라이트 ===========================================
-  // - window.PROD_BACKEND > window.API_BASE > 그대로
-  // - /api/... 상대경로만 대상, 절대 URL이나 다른 경로는 건드리지 않음
-  function rewriteApiOrigin(u) {                // ⬅ 추가
+  // ⬇⬇⬇ 핵심 수정: "상대 경로 /api|/auth" 만 API_ORIGIN으로 교체
+  function rewriteApiOrigin(u) {
     try {
-      const api = (window.PROD_BACKEND || window.API_BASE || "").trim();
-      if (!api) return u;
+      const apiBase = (window.PROD_BACKEND || window.API_BASE || "").trim();
+      if (!apiBase) return u;
 
-      const inUrl = new URL(u, location.href);
-      const path  = inUrl.pathname.replace(/^\//, "");
-      const looksApi = /^(api|auth)\//.test(path); // "/api/..." 와 "/auth/..." 모두 리라이트
+      const inUrl  = new URL(u, location.href);
+      const apiUrl = new URL(apiBase, location.href);
 
-      if (!looksApi) return u;
+      // 절대 URL인데 이미 API 오리진이면 그대로
+      if (inUrl.origin === apiUrl.origin) return inUrl.toString();
 
-      const base = api.replace(/\/+$/, "");     // 끝 슬래시 제거
-      const out  = new URL(base, inUrl);        // 오리진만 교체
-      out.pathname = inUrl.pathname;
-      out.search   = inUrl.search;
-      out.hash     = inUrl.hash;
-      return out.toString();
-    } catch {
-      return u;
-    }
+      // 상대경로 또는 현재 오리진으로 향하는 /api|/auth 만 리라이트
+      const path = inUrl.pathname.replace(/^\//, "");
+      if (!/^(api|auth)\//.test(path)) return u;
+
+      return new URL(inUrl.pathname + inUrl.search + inUrl.hash, apiUrl).toString();
+    } catch { return u; }
   }
-  // ========================================================================
 
-  // ── fetch 패치
   const _fetch = window.fetch.bind(window);
   window.fetch = function(input, init) {
     init = init || {};
 
-    // URL 정규화 + 오리진 리라이트
+    // URL 정규화 + 리라이트 (문자열/Request 모두)
     if (typeof input === "string") {
-      input = rewriteApiOrigin(normalizeIdInUrl(input));      // ⬅ 추가: 리라이트
+      input = rewriteApiOrigin(normalizeIdInUrl(input));
     } else if (input instanceof Request) {
-      const nu = rewriteApiOrigin(normalizeIdInUrl(input.url)); // ⬅ 추가: 리라이트
-      if (nu !== input.url) input = new Request(nu, input);
+      const nu = rewriteApiOrigin(normalizeIdInUrl(input.url));
+      // ⚠ Request 복제 시 사파리/크로미움 크로스-쿠키 이슈 회피: init에만 헤더/옵션을 합칩니다.
+      if (nu !== input.url) input = new Request(nu, { method: input.method, headers: input.headers, body: input.body, mode: input.mode, credentials: input.credentials, cache: input.cache, redirect: input.redirect, referrer: input.referrer, integrity: input.integrity, keepalive: input.keepalive, signal: input.signal });
     }
 
     // 헤더 승격
-    if (init.headers) init = { ...init, headers: promote(init.headers) };
+    if (init.headers) init.headers = promote(init.headers);
     if (input instanceof Request) {
-      const ph = promote(input.headers);
-      input = new Request(input, { headers: ph });
+      // 기존 Request 헤더 + init 헤더 병합
+      const merged = new Headers(input.headers);
+      const add = init.headers instanceof Headers ? init.headers : new Headers(init.headers || {});
+      add.forEach((v, k) => merged.set(k, v));
+      init.headers = merged;
     }
 
-    // 크로스사이트 쿠키/세션 동봉 + CORS 모드
+    // ✅ 쿠키/세션 항상 동봉 + CORS
     if (!init.credentials) init.credentials = "include";
     if (!init.mode) init.mode = "cors";
 
     return _fetch(input, init);
   };
 
-  // ── XHR 패치
+  // XHR도 헤더 승격
   const X = XMLHttpRequest.prototype;
   const _set = X.setRequestHeader;
   X.setRequestHeader = function(name, value) {
