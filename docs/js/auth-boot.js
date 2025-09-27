@@ -53,6 +53,19 @@
     } catch { return p; }
   }
 
+  // 서버에 "방금 내비했다" 비콘 보내기 (CSRF 불필요)
+  function sendNavBeacon() {
+    try {
+      const url = toAPI("/auth/nav");
+      if (navigator.sendBeacon) {
+        const b = new Blob([], { type: "application/octet-stream" });
+        navigator.sendBeacon(url, b);
+      } else {
+        fetch(url, { method: "POST", credentials: "include", keepalive: true }).catch(() => {});
+      }
+    } catch {}
+  }
+
   try {
     window.COLLECTED_EVT     = "collectedLabels:changed";
     window.JIB_COLLECTED_EVT = "jib:collection-changed";
@@ -62,6 +75,7 @@
   function markNavigate() {
     try { sessionStorage.setItem(NAV_KEY, String(now())); } catch {}
     __lastNavPing = now();
+    sendNavBeacon();
   }
   function recentlyNavigated() {
     try {
@@ -155,6 +169,7 @@
 
   window.addEventListener("pagehide", () => {
     try {
+      sendNavBeacon();
       const id = tabId();
       writeTabRegistry(remove(readTabRegistry(), id));
       writeAuthedRegistry(remove(readAuthedRegistry(), id));
