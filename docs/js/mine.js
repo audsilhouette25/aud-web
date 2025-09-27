@@ -102,7 +102,7 @@
       if (isEmail(s1)) return s1;
       // 이메일이 아니면, __STORE_NS가 문자열로 유효할 때만 사용
       if (s2 && s2 !== "default") return s2;
-      return s1 || "default";
+      return "default";
     } catch { return "default"; }
   };
   try { window.getNS = getNS; } catch {}
@@ -611,7 +611,7 @@
     btn.addEventListener("click", () => {
       if (window.jib?.setSelected) window.jib.setSelected(kind);
       else {
-        const ns = (localStorage.getItem("auth:userns")||"").trim().toLowerCase() || "default";
+        const ns = (typeof getNS === 'function' ? getNS() : 'default');
         const key = `jib:selected:${ns}`;
         const plane = (ns === "default") ? sessionStorage : localStorage;
         try { plane.setItem(key, kind); window.dispatchEvent(new Event("jib:selected-changed")); } catch {}
@@ -2747,7 +2747,13 @@
           window.dispatchEvent(new CustomEvent("user:updated", { detail: snap }));
         }
       } catch {}
-      try { if (__ME_ID) localStorage.setItem("auth:userns", String(__ME_ID).toLowerCase()); } catch {}
+      try {
+        const em = (__ME_EMAIL || '').trim().toLowerCase();
+        // 간단한 이메일 검증 (이미 __ME_EMAIL 계산돼 있음)
+        if (em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+          localStorage.setItem("auth:userns", em);
+        }
+      } catch {}
       migrateMineOnlyFlagToNS();
       if (!flagged) setAuthedFlag();
       idle(() => rehydrateFromLocalStorageIfSessionAuthed());

@@ -5,6 +5,7 @@
 /* ────────────────────────────────────────────────────────────
    공통: 상수/유틸
 ──────────────────────────────────────────────────────────── */
+const isEmailNS = (s) => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim());
 const ALL_LABELS = /** @type {const} */ (["thump","miro","whee","track","echo","portal"]);
 const isLabel = (x) => typeof x === "string" && ALL_LABELS.includes(x);
 
@@ -48,7 +49,7 @@ async function __pushStateKeepalive(){
   const payload = {
     version: STATE_SCHEMA_VERSION,
     updatedAt: Date.now(),
-    ns: USER_NS,
+    ...(isEmailNS(USER_NS) ? { ns: USER_NS } : {}), // ★ 비이메일이면 ns 필드 자체 제외
     labels: [...readLabelSet()],
     labelSelected: readSelectedLabel(),
     timestamps: loadTimestamps(),
@@ -230,7 +231,10 @@ window.LABEL_VOTES_SYNC_KEY = LABEL_VOTES_SYNC_KEY;
         // 세션(탭) NS 우선
         try {
           const ss = sessionStorage.getItem(SESSION_USER_NS_KEY);
-          if (ss && ss.trim()) return ss.trim().toLowerCase();
+          if (ss && ss.trim()) {
+            const v = ss.trim().toLowerCase();
+            return isEmailNS(v) ? v : "default";
+          }
         } catch {}
         // 폴백: 레거시 전역 NS
         try {
@@ -296,8 +300,13 @@ window.LABEL_VOTES_SYNC_KEY = LABEL_VOTES_SYNC_KEY;
   window.addEventListener("auth:changed", refreshNS);
 
   function setSessionUserNS(ns){
-    try { sessionStorage.setItem(SESSION_USER_NS_KEY, String(ns||"").toLowerCase()); } catch {}
-    try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: String(ns||"").toLowerCase() })); } catch {}
+    const v = String(ns||"").toLowerCase();
+    const next = isEmailNS(v) ? v : "default";
+    try {
+      if (next === "default") sessionStorage.removeItem(SESSION_USER_NS_KEY);
+      else sessionStorage.setItem(SESSION_USER_NS_KEY, next);
+    } catch {}
+    try { window.dispatchEvent(new CustomEvent("store:ns-changed", { detail: next })); } catch {}
   }
   window.setSessionUserNS = setSessionUserNS;
 })();
@@ -379,7 +388,7 @@ function getUserNS(){
     const ss = sessionStorage.getItem(SESSION_USER_NS_KEY);
     if (ss && ss.trim()) {
       const v = ss.trim().toLowerCase();
-      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
+      return isEmailNS(v) ? v : "default";
     }
   } catch {}
 
@@ -388,7 +397,7 @@ function getUserNS(){
     const ns = localStorage.getItem("auth:userns");
     if (ns && ns.trim()) {
       const v = ns.trim().toLowerCase();
-      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : "default";
+      return isEmailNS(v) ? v : "default";
     }
   } catch {}
 
@@ -674,6 +683,7 @@ async function apiFetch(path, init){
 let serverSyncTimer = null;
 function scheduleServerSync(delay = 350) {
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
+  if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 동기화
   if (serverSyncTimer) clearTimeout(serverSyncTimer);
   serverSyncTimer = setTimeout(pushStateToServer, delay);
 }
@@ -681,7 +691,7 @@ function scheduleServerSync(delay = 350) {
 async function pushStateToServer() {
   serverSyncTimer = null;
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
-
+  if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 Pull
   const state = {
     version: STATE_SCHEMA_VERSION,
     updatedAt: Date.now(),
@@ -718,7 +728,7 @@ async function pullStateFromServerOnce() {
   if (pulledOnceFromServer) return;
   pulledOnceFromServer = true;
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
-
+  if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 Pull
   try {
     let data = null;
     if (window.auth?.loadState) {
@@ -1123,7 +1133,7 @@ const labels = {
         fd.append("width", String(meta.width));
         fd.append("height", String(meta.height));
         fd.append("thumbDataURL", meta.thumbDataURL);
-        fd.append("ns", USER_NS);
+        if (isEmailNS(USER_NS)) fd.append("ns", USER_NS);
         fd.append("file", blob, `${id}.png`);
         const up = await apiFetch(SERVER_ENDPOINT_G_UPLOAD, { method: "POST", body: fd });
         if (!up || !up.ok) console.warn("[gallery] server upload failed");
@@ -1374,7 +1384,10 @@ function rebindNS(){
     // 세션(탭) NS 우선
     try {
       const ss = sessionStorage.getItem(SESSION_USER_NS_KEY);
-      if (ss && ss.trim()) return ss.trim().toLowerCase();
+          if (ss && ss.trim()) {
+            const v = ss.trim().toLowerCase();
+            return isEmailNS(v) ? v : "default";
+          }
     } catch {}
 
     // 폴백: 전역 NS

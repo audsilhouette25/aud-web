@@ -41,7 +41,9 @@
       s = s.slice(1, -1);
     }
     s = s.replace(/^user:/, ""); // legacy shapes
-    return s;
+
+    // ★ 변경: 이메일만 통과, 아니면 빈값
+    return isEmailNS(s) ? s : "";
   }
 
   function __readProfileCacheSafe() {
@@ -69,13 +71,16 @@
   }
   function writeNs(ns) {
     try {
-      let next = normalizeNs(ns);
+      let next = normalizeNs(ns);        // ★ 여기서 이미 비이메일 → ""
       // Try to upgrade to email from profile if provided value is not an email.
       if (!isEmailNS(next)) {
         const snap = __readProfileCacheSafe();
         const cand = deriveNSFromProfile(snap);
         if (isEmailNS(cand)) next = cand;
       }
+
+      // ★ 추가: 여전히 이메일이 아니면 기록 금지
+      if (!isEmailNS(next)) return;
 
       const prev = readNs();
       const prevIsEmail = isEmailNS(prev);
@@ -96,20 +101,14 @@
         return;
       }
 
-      // Same or non-upgrade change: only persist if actually different & both non-email.
-      if (!prevIsEmail && !nextIsEmail && next && prev !== next) {
-        localStorage.setItem("auth:userns", next);
-      }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
+
   function deriveNSFromProfile(snap) {
     if (!snap || typeof snap !== "object") return null;
     const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
-    const username = (snap.username ?? snap.user?.username ?? "").toString().trim().toLowerCase();
-    const id       = (snap.id       ?? snap.user?.id       ?? snap.uid ?? snap.sub ?? "").toString().trim().toLowerCase();
-    return email || username || id || null; // email first
+    // ★ 변경: 이메일만 허용
+    return isEmailNS(email) ? email : null;
   }
 
   function getNS() {
@@ -133,13 +132,10 @@
         return email;
       }
 
-      // 4) Fall back to any non-empty candidate (username/id) or keep current normalized value
-      const fallback = candFromCache || cur || (window.__ME_ID ? String(window.__ME_ID).toLowerCase() : "") || "default";
-      const norm = normalizeNs(fallback);
-      if (norm && norm !== cur) writeNs(norm); // store normalized fallback (no email, so non-upgrade)
-      return norm || "default";
+      // ★ 변경: 비이메일 fallback 완전 제거. 저장하지 않고 "default"만 반환.
+      return "";
     } catch {
-      return "default";
+      return "";
     }
   }
 
@@ -155,7 +151,8 @@
       if (isEmailNS(cand)) writeNs(cand);
     }
     ns = readNs();
-    if (ns) {
+    // ★ 변경: 이메일일 때만 브로드캐스트
+    if (ns && isEmailNS(ns)) {
       window.dispatchEvent(new CustomEvent("user:updated", { detail: { email: ns, username: ns, id: ns, ns } }));
     }
   })();
@@ -164,12 +161,11 @@
   (() => {
     function pickNSFrom(detail) {
       const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim().toLowerCase();
-      const username = (detail?.username ?? detail?.user?.username ?? "").toString().trim().toLowerCase();
-      const id       = (detail?.id       ?? detail?.user?.id       ?? "").toString().trim().toLowerCase();
-      return (email || username || id || "") || null;
+      // ★ 변경: 이메일만 반환
+      return isEmailNS(email) ? email : null;
     }
     const isEmail = (s)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||'').trim());
-    // 부팅 시 1회 보정
+
     (async () => {
       try {
         const cached = (typeof window.readProfileCache === "function") ? window.readProfileCache() : null;
@@ -179,6 +175,11 @@
           cand = pickNSFrom(me);
         }
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
+
+        // ★ 변경: 비이메일 cand는 무시
+        if (!isEmail(cand)) return;
+
+        // 아래는 기존 업그레이드/차등 저장 로직 그대로
         if (isEmail(prev) && !isEmail(cand)) return; // don't downgrade
         if (cand && (!prev || prev === "default" || prev !== cand)) {
           localStorage.setItem("auth:userns", cand);
@@ -186,11 +187,12 @@
         }
       } catch {}
     })();
+
     // 이후 업데이트에도 다운그레이드 금지
     window.addEventListener("user:updated", (ev) => {
       try {
         const cand = pickNSFrom(ev?.detail || {});
-        if (!cand) return;
+        if (!cand) return;                  // ★ 비이메일이면 null → 저장 안 함
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
         if (isEmail(prev) && !isEmail(cand)) return;
         if (!prev || prev === "default" || prev !== cand) localStorage.setItem("auth:userns", cand);
@@ -368,7 +370,7 @@
   /** Clear session collections when user or namespace changes. */
   function purgeCollectionsIfUserChanged(prevProfile, meProfileNow) {
     const ns = getNS();
-    const lastUIDKey = `me:last-uid:${ns}`;
+    const lastUIDKey = isEmailNS(ns) ? `me:last-uid:${ns}` : `me:last-uid`;
     const lastNSKey  = `me:last-ns`;
 
     const lastUIDSeen = sessionStorage.getItem(lastUIDKey) || (prevProfile?.id ? String(prevProfile.id) : null);
@@ -389,7 +391,10 @@
     }
 
     if (currUID != null) { try { sessionStorage.setItem(lastUIDKey, String(currUID)); } catch {} }
-    try { sessionStorage.setItem(lastNSKey, ns); } catch {}
+    try {
+      if (isEmailNS(ns)) sessionStorage.setItem(lastNSKey, ns);
+      else sessionStorage.removeItem(lastNSKey);
+    } catch {}
   }
 
   /** When store becomes ready with values, snapshot into session once (to prevent residue). */
@@ -409,11 +414,11 @@
   const profileKeys = () => {
     const ns  = getNS();
     const uid = MY_UID || "anon";
-    return [
-      `${PROFILE_KEY_PREFIX}:${ns}:${uid}`,
-      `${PROFILE_KEY_PREFIX}:${ns}`,
-      PROFILE_KEY_PREFIX, // legacy
-    ];
+    const keys = [PROFILE_KEY_PREFIX]; // 기본 키
+    if (isEmailNS(ns)) {
+      keys.unshift(`${PROFILE_KEY_PREFIX}:${ns}`, `${PROFILE_KEY_PREFIX}:${ns}:${uid}`);
+    }
+    return keys;
   };
 
   function writeProfileCache(detail) {
@@ -425,13 +430,17 @@
     const displayName = detail?.displayName ?? detail?.name ?? ME_STATE?.displayName ?? "member";
     const payload = JSON.stringify({ ns, email, displayName, ...(detail || {}) });
 
-    const kUID = `${PROFILE_KEY_PREFIX}:${ns}:${uid}`;
-    const kNS  = `${PROFILE_KEY_PREFIX}:${ns}`;
-
-    try { sessionStorage.setItem(kUID, payload); } catch {}
-    try { localStorage.setItem(kUID,  payload); } catch {}
-    try { sessionStorage.setItem(kNS,  payload); } catch {}
-    try { localStorage.setItem(kNS,   payload); } catch {}
+    // 이메일이면 NS별 키 + 기본키, 아니면 기본키만
+    try {
+      if (isEmailNS(ns)) {
+        sessionStorage.setItem(`${PROFILE_KEY_PREFIX}:${ns}:${uid}`, payload);
+        localStorage.setItem(`${PROFILE_KEY_PREFIX}:${ns}:${uid}`,  payload);
+        sessionStorage.setItem(`${PROFILE_KEY_PREFIX}:${ns}`,       payload);
+        localStorage.setItem(`${PROFILE_KEY_PREFIX}:${ns}`,         payload);
+      }
+      sessionStorage.setItem(PROFILE_KEY_PREFIX, payload);
+      localStorage.setItem(PROFILE_KEY_PREFIX,  payload);
+    } catch {}
   }
 
   function readProfileCache() {
@@ -1013,8 +1022,8 @@
 
     // ☆ 전역 아이덴티티 맵에 기록 (ns = auth:userns)
     try {
-      const ns = (typeof readNs === "function" ? readNs() : (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
-      if (window.setNSIdentity && ns && ns !== "default") {
+      const ns = (typeof readNs === "function" ? readNs() : "").trim().toLowerCase();
+      if (window.setNSIdentity && isEmailNS(ns)) {ㄴ
         window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
       }
     } catch {}
@@ -1057,6 +1066,8 @@
   };
   function readInsightsCache(ns) {
     try {
+      ns = String(ns || "").toLowerCase();
+      if (!isEmailNS(ns)) return null;  // ★ 이메일 아니라면 캐시 사용 안 함
       const raw = sessionStorage.getItem(`insights:${String(ns||"").toLowerCase()}`);
       if (!raw) return null;
       const obj = JSON.parse(raw);
@@ -1096,6 +1107,7 @@
 
   // 2) 서버 카운트: 실패/빈값일 때 null 리턴(로컬에 맡김)
   async function fetchCountsFromServer(ns) {
+    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용ㄴ
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
     if (!res || !res.ok) return null;
     const j  = await res.json().catch(() => ({}));
@@ -1243,11 +1255,9 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
   const myns = getNS();
   const nsCandidates = [myns];
-  // 이메일 NS이면 내 uid(ns 대안)도 후보에 추가
-  if (myns && myns.includes("@") && (MY_UID != null)) {
-    nsCandidates.push(String(MY_UID).toLowerCase());
-  }
-
+  // 기존엔 UID를 후보로 추가했지만, 이제 이메일만 허용:
+  if (!isEmailNS(myns)) return [];   
+  
   const seen = new Set();
   const out  = [];
 
@@ -1361,9 +1371,12 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     const rate = (participated > 0) ? Math.round((matched / participated) * 100) : 0;
 
     try {
+      const ns = getNS();
       const insights = { posts: postCount, participated, matched, rate };
-      sessionStorage.setItem(`insights:${getNS()}`, JSON.stringify({ ...insights, t: Date.now() }));
-      window.dispatchEvent(new CustomEvent("insights:ready", { detail: { ns: getNS(), ...insights } }));
+      if (isEmailNS(ns)) {
+        sessionStorage.setItem(`insights:${ns}`, JSON.stringify({ ...insights, t: Date.now() }));
+      }
+      window.dispatchEvent(new CustomEvent("insights:ready", { detail: { ns, ...insights } }));
     } catch {}
 
     elPosts && (elPosts.textContent = fmtInt(postCount));
@@ -1918,11 +1931,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       if (e.key === "auth:userns" || e.key === "auth:flag")     refreshQuickCounts();
 
       if (e.key.startsWith(PROFILE_KEY_PREFIX) && e.newValue) {
-        const parts = e.key.split(":");
-        const nsFromKey = parts[2] || "default";
-        if (nsFromKey === getNS()) {
-          try { renderProfile(parseJSON(e.newValue, {})); } catch {}
-        }
+        try { renderProfile(parseJSON(e.newValue, {})); } catch {}
       }
     }, { capture: true });
 
@@ -2407,13 +2416,23 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         audioDataURL = await blobToDataURL(lastRecording);
       }
 
-      // 4) 페이로드 구성
+      // 4) 페이로드 구성 (이메일 userns만 허용)
+      const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
+        .toString().trim().toLowerCase();
+
+      if (!isEmailNS(nsEmail)) {
+        alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
+        if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
+        return;
+      }
+
       const payload = {
-        ns: (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")),
-        width: W, height: H,
+        ns: nsEmail,
+        width: W,
+        height: H,
         strokes,
         previewDataURL: dataURL,
-        audioDataURL    // ← NEW
+        audioDataURL
       };
 
       // 5) 전송

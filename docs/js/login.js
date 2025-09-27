@@ -285,11 +285,10 @@
    *  7) SUCCESS HOOK
    * ============================================================= */
   function onLoginSuccess(user){
-    const ns = (user?.id != null)
-      ? `user:${String(user.id)}`
-      : `email:${String(user?.email || "").toLowerCase()}`;
-
-    try { localStorage.setItem("auth:userns", ns); } catch {}
+    const emailNs = String(user?.email || "").trim().toLowerCase();
+    if (!emailNs) return; // 방어
+    try { localStorage.setItem("auth:userns", emailNs); } catch {}
+    try { window.setSessionUserNS?.(emailNs); } catch {}
     setAuthedFlag();
 
     // 탭 동기화 신호 (선택이지만 권장)
@@ -299,7 +298,9 @@
     } catch {}
 
     try {
-      window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready:true, authed:true, ns, user } }));
+      window.dispatchEvent(new CustomEvent("auth:state", {
+        detail: { ready:true, authed:true, ns: emailNs, user }
+      }));
     } catch {}
 
     // [ADD] 로그인 직후 이메일에서 이름 자동 생성 + 캐시 + 브로드캐스트
@@ -346,9 +347,11 @@
           if (me?.user?.email) eml = me.user.email;
           try { await window.__flushStoreSnapshot?.({ server:true }); } catch {}
           try {
-            const ns = uid != null ? `user:${uid}` : `email:${String(eml).toLowerCase()}`;
-            localStorage.setItem("auth:userns", ns);
-            window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed:true, ready:true, ns } }));
+            const emailNs = String(eml || "").trim().toLowerCase();
+            localStorage.setItem("auth:userns", emailNs);
+            window.dispatchEvent(new CustomEvent("auth:state", {
+              detail: { authed:true, ready:true, ns: emailNs }
+            }));
           } catch {}
         } catch {}
 

@@ -84,10 +84,9 @@ const IMG_SRC = {
  * - storage (cross-tab broadcast via me:profile:{ns}[:uid])
  * ------------------------------------------------------------------ */
 (() => {
-  const NS = (() => {
-    try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
-    catch { return "default"; }
-  })();
+  const NS = (typeof getNS === "function")
+    ? getNS()
+    : (localStorage.getItem("auth:userns") || "default").trim().toLowerCase();
 
   const PROFILE_KEY_PREFIX = "me:profile";
 
@@ -1243,8 +1242,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       window.addEventListener("storage", (e) => { if (e.key === SELECTED_KEY || e.key === MIRROR_KEY) currentLabel = readSelected?.(); });
 
       function keyForPersist(label){
-        const ns = (window.SDF_NS || (localStorage.getItem("auth:userns") || "default"))
-                    .trim().toLowerCase();
+      const ns = (window.SDF_NS || (typeof getNS==="function" ? getNS()
+                  : (localStorage.getItem("auth:userns") || "default"))).trim().toLowerCase();
         return `mine:${ns}:${label}:canvas`;
       }
 
@@ -2072,9 +2071,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       u?.handle ?? u?.username ?? u?.login ?? u?.profile?.handle ?? "";
     const avatar =
       u?.avatar_url ?? u?.avatar ?? u?.picture ?? u?.profile?.avatarUrl ?? "";
-    const ns =
-      (window.SDF_NS ||
-       (localStorage.getItem("auth:userns") || "default")).trim().toLowerCase();
+    const ns = (window.SDF_NS || (typeof getNS==="function" ? getNS()
+                : (localStorage.getItem("auth:userns") || "default"))).trim().toLowerCase();
     return { id: id && String(id), ns, name: String(name||""), handle: String(handle||""), avatar: String(avatar||"") };
   }
 
