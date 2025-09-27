@@ -2052,7 +2052,24 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
   });
 })(); 
-/* ==== end aud laboratory patch ==== */
+// == admin button (moved from inline script; CSP-safe) ==
+(async () => {
+  try {
+    const r = await fetch('/auth/me', { credentials:'include' });
+    const me = await r.json();
+    const adminEmails = (window.ADMIN_EMAILS || 'finelee03@naver.com')
+      .split(',').map(s => s.trim().toLowerCase());
+    if (adminEmails.includes(String(me?.email || '').toLowerCase())) {
+      const b = document.getElementById('btn-admin');
+      if (b) {
+        b.hidden = false;
+        b.addEventListener('click', () => {
+          location.assign('/api/admin/audlab/nses');
+        });
+      }
+    }
+  } catch {}
+})();
 
 })();
 
