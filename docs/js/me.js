@@ -1975,18 +1975,58 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     try { window.jib?.reset?.(); } catch {}
     try { window.__flushStoreSnapshot?.({ server:false }); } catch {}
 
-    const wipeKey = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
+    const wipe = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
 
-    ["auth:flag","auth:userns","collectedLabels","jib:collected"].forEach(wipeKey);
+    // 1) 핵심 auth/ns/identity 키
+    [
+      "auth:flag",
+      "auth:userns",
+      "auth:ns",
+      "user:identities",
+      "auth:userns:session"
+    ].forEach(wipe);
 
+    // 2) me/insights/내 데이터 캐시 일괄 제거
     try {
+      const rmLocal = [];
       for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i); if (!key) continue;
-        if (key.startsWith("me:profile") || key.startsWith("insights:")
-          || key.startsWith("mine:") || key.startsWith("aud:label:")) {
-          wipeKey(key);
-        }
+        const k = localStorage.key(i); if (!k) continue;
+        if (
+          k.startsWith("me:profile") ||
+          k.startsWith("insights:") ||
+          k.startsWith("mine:") ||
+          k.startsWith("aud:label:") ||
+          k.startsWith("aud:sync:") ||
+          k.startsWith("__migrated:") ||
+          k.startsWith("guest:bus")
+        ) rmLocal.push(k);
       }
+      rmLocal.forEach(wipe);
+    } catch {}
+
+    // 3) 세션 네임스페이스별 스냅샷 제거 (label/jib/likes 등)
+    try {
+      const bases = [
+        "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
+        "aud:selectedLabel","jib:selected","jib:collected","sdf-session-init-v1","itemLikes"
+      ];
+      // 가능한 NS 후보들 전부 점검
+      const nsCandidates = new Set(["default"]);
+      try { const ns = (localStorage.getItem("auth:userns") || "").toLowerCase(); if (ns) nsCandidates.add(ns); } catch {}
+      try { const ss = sessionStorage.getItem("auth:userns:session"); if (ss) nsCandidates.add(ss.toLowerCase()); } catch {}
+      for (const ns of nsCandidates) {
+        for (const base of bases) wipe(`${base}:${ns}`);
+      }
+    } catch {}
+
+    // 4) me 마지막 사용자/NS 추적 키 제거
+    try {
+      const rmSess = [];
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i); if (!k) continue;
+        if (k === "me:last-ns" || k.startsWith("me:last-uid")) rmSess.push(k);
+      }
+      rmSess.forEach(wipe);
     } catch {}
 
     try { localStorage.setItem(`purge:reason:${Date.now()}`, reason); } catch {}
@@ -2003,10 +2043,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     try { await ensureCSRF(); } catch {}
     const attempts = [
-      { url: "/auth/me",          method: "DELETE" },
-      { url: "/api/users/me",     method: "DELETE" },
-      { url: "/auth/delete",      method: "POST"   },
-      { url: "/api/users/me",     method: "POST",  body: { _method: "DELETE" } },
+      { url: "/auth/me",      method: "DELETE" },
+      { url: "/api/users/me", method: "DELETE" },
+      { url: "/auth/delete",  method: "POST"   },
+      { url: "/api/users/me", method: "POST",  body: { _method: "DELETE" } },
     ];
 
     for (const a of attempts) {
@@ -2017,7 +2057,12 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           body: a.body ? JSON.stringify(a.body) : undefined,
         });
         const r = await api(a.url, opt);
-        if (r && (r.status === 200 || r.status === 204)) return { ok: true };
+        if (r && (r.status === 200 || r.status === 204)) {
+          // 성공: 재로그인 유도
+          try { window.auth?.markNavigate?.(); } catch {}
+          location.replace("./login.html#deleted");
+          return { ok: true };
+        }
       } catch {}
     }
     return { ok: false, msg: "server-failed" };
