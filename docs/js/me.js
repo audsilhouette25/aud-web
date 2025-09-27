@@ -681,6 +681,7 @@
           <div class="spacer"></div>
           <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
           <button class="btn" id="admin-lab-refresh">Refresh</button>
+          <button class="btn" id="admin-lab-close">Close</button>
         </div>
 
         <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
@@ -690,7 +691,9 @@
     document.body.appendChild(wrap);
 
     wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
+    wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
     wrap.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeAdminLabModal(); });
+
 
     // events
     wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", ()=>loadAdminLab());
@@ -705,14 +708,16 @@
     const m = ensureAdminLabModal();
     m.classList.add("open");
     m.setAttribute("aria-hidden","false");
-    // 첫 로드
+    document.body.classList.add("modal-open");   // 추가
     loadAdminLab().catch(()=>{});
   }
+
   function closeAdminLabModal(){
     const m = document.querySelector("#admin-lab");
     if (!m) return;
     m.classList.remove("open");
     m.setAttribute("aria-hidden","true");
+    document.body.classList.remove("modal-open"); // 추가
   }
 
   async function fetchAdminNamespaces(){

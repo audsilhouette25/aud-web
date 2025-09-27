@@ -619,8 +619,17 @@ progress#m-rate-bar::-webkit-progress-value{
   }
 }
 
-/* ===== admin aud-lab modal ===== */
+/* ===== admin aud-lab modal (full-page overlay) ===== */
+#admin-lab.modal{ z-index: 1000; }                /* 네비(z=100) 위로 */
 #admin-lab .sheet { max-width: 980px; width: min(92vw, 980px); }
+
+/* 오버레이 클릭영역: 화면 전체 */
+#admin-lab .overlay{
+  position: fixed;
+  inset: 0;
+}
+
+/* 나머지 카드/툴바 스타일 동일 */
 #admin-lab .admin-toolbar { display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
 #admin-lab .admin-toolbar .spacer { flex:1; }
 #admin-lab .nsbar { display:flex; flex-wrap:wrap; gap:6px; }
