@@ -34,9 +34,8 @@ function sessionAuthed(){ return hasAuthedFlag() || serverAuthed(); }
 
 function __isAdminAlwaysOpen(){
   try{
-    // 서버 세션이 실제로 살아있지 않으면 절대 admin 취급 금지
-    if (!serverAuthed()) return false;
     const ns = (typeof USER_NS !== "undefined" ? USER_NS : "default");
+    // identity가 있으면 우선 사용, 없으면 NS 자체(이메일 NS)로 비교
     const email = String((window.getNSIdentity?.(ns)?.email ?? ns) || "").toLowerCase();
     return email === ADMIN_ALWAYS_OPEN_EMAIL;
   }catch{ return false; }
@@ -1606,21 +1605,15 @@ window.__SERVER_GALLERY_SYNC_ON = SERVER_GALLERY_SYNC_ON;
   }
 
   async function performLogout() {
-    try { await window.__flushStoreSnapshot?.({ server: true }); } catch {}
+    try { await window.__flushStoreSnapshot({ server: true }); } catch {}
     sendLogoutBeaconOnce();
 
     // ★ auth 관련 흔적을 세션/로컬 모두 제거
     try { sessionStorage.removeItem("auth:flag"); } catch {}
     try { localStorage.removeItem("auth:flag"); } catch {}
-
-    try { sessionStorage.removeItem("auth:userns:session"); } catch {}
     try { localStorage.removeItem("auth:userns"); } catch {}
 
-    // 누락되었던 전역 NS/identity 캐시도 제거
-    try { localStorage.removeItem("auth:ns"); } catch {}
-    try { localStorage.removeItem("user:identities"); } catch {}
-
-    // 게스트 초기화 및 NS별 세션 흔적 제거
+    // ★ 게스트 초기화를 다시 걸 수 있도록 세션 플래그/인사이트 제거
     try { sessionStorage.removeItem(`sdf-session-init-v1:default`); } catch {}
     try {
       const ns = (window.__STORE_NS || "default");
@@ -1629,21 +1622,11 @@ window.__SERVER_GALLERY_SYNC_ON = SERVER_GALLERY_SYNC_ON;
     } catch {}
 
     // 상태 브로드캐스트
-    try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready: true, authed: false } })); } catch {}
-    try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+    window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready: true, authed: false } }));
 
     // 페이지 이동
     location.href = "./login.html#loggedout";
   }
-
-  try {
-    window.addEventListener("storage", (e) => {
-      if (!e?.key) return;
-      if (e.key === "auth:userns" || e.key === "auth:flag" || e.key === "auth:ns") {
-        try { rebindNS?.(); } catch {}
-      }
-    });
-  } catch {}
 
   // 전역에 노출
   window.performLogout = performLogout;

@@ -302,30 +302,40 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 1) Collections: store/session readers & stabilizers
   * ──────────────────────────────────────────────────────────────────────────── */
-  function readRawLists() {
-    let storeLabels = null, storeJibs = null;
+  function readRawLists(){
+    const ns = currentNs();
 
-    // ✅ 라벨: store에서만
-    try { storeLabels = coerceList(window.store?.getCollected?.(), "label"); } catch {}
-    try { if (!storeLabels) storeLabels = coerceList(window.store?.getLabels?.() ?? window.store?.labels ?? window.store?.state?.labels, "label"); } catch {}
+    // ── localStorage (NS별 신규 키)
+    let storeLabels = readJson(nsKey("REG_COLLECT"), []);
+    let storeJibs   = readJson(nsKey("JIBC_COLLECT"), []);
 
-    // ✅ 지비츠: jib 스토어에서만 (라벨 소스 재사용 금지)
-    try { storeJibs = coerceList(window.jib?.getCollected?.(), "jib"); } catch {}
-    try { if (!storeJibs) storeJibs = coerceList(window.jib?.getJibs?.() ?? window.jib?.jibs ?? window.jib?.state?.jibs, "jib"); } catch {}
+    // ── 레거시 전역 키가 남아있으면 NS 키로 이관
+    const legacyReg  = readJson("REG_COLLECT", null);
+    const legacyJibc = readJson("JIBC_COLLECT", null);
+    if (legacyReg !== null) {
+      try { localStorage.setItem(nsKey("REG_COLLECT"), JSON.stringify(legacyReg)); } catch {}
+      try { localStorage.removeItem("REG_COLLECT"); } catch {}
+      storeLabels = Array.isArray(legacyReg) ? legacyReg : [];
+    }
+    if (legacyJibc !== null) {
+      try { localStorage.setItem(nsKey("JIBC_COLLECT"), JSON.stringify(legacyJibc)); } catch {}
+      try { localStorage.removeItem("JIBC_COLLECT"); } catch {}
+      storeJibs = Array.isArray(legacyJibc) ? legacyJibc : [];
+    }
 
-    // 세션/로컬 폴백
-    const sessLabels = dedupList(parseJSON(sessionStorage.getItem(REG_KEY), []) || []);
-    const sessJibs   = dedupList(parseJSON(sessionStorage.getItem(JIB_KEY),   []) || []);
-    let localLabels = []; let localJibs = [];
-    try { localLabels = dedupList(parseJSON(localStorage.getItem(REG_KEY), []) || []); } catch {}
-    try { localJibs   = dedupList(parseJSON(localStorage.getItem(JIB_KEY),   []) || []); } catch {}
+    // ── sessionStorage (페이지 세션 캐시)
+    let sessLabels = [];
+    let sessJibs   = [];
+    try { const v = JSON.parse(sessionStorage.getItem(REG_KEY) || "[]"); if (Array.isArray(v)) sessLabels = v; } catch {}
+    try { const v = JSON.parse(sessionStorage.getItem(JIB_KEY) || "[]"); if (Array.isArray(v)) sessJibs   = v; } catch {}
 
-    return {
-      storeLabels: Array.isArray(storeLabels) ? storeLabels : null,
-      storeJibs:   Array.isArray(storeJibs)   ? storeJibs   : null,
-      sessLabels:  (sessLabels.length ? sessLabels : localLabels),
-      sessJibs:    (sessJibs.length   ? sessJibs   : localJibs),
-    };
+    // 항상 배열 보장
+    storeLabels = Array.isArray(storeLabels) ? storeLabels : [];
+    storeJibs   = Array.isArray(storeJibs)   ? storeJibs   : [];
+    sessLabels  = Array.isArray(sessLabels)  ? sessLabels  : [];
+    sessJibs    = Array.isArray(sessJibs)    ? sessJibs    : [];
+
+    return { storeLabels, storeJibs, sessLabels, sessJibs };
   }
 
   function readLabels() {
@@ -1975,58 +1985,18 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     try { window.jib?.reset?.(); } catch {}
     try { window.__flushStoreSnapshot?.({ server:false }); } catch {}
 
-    const wipe = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
+    const wipeKey = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
 
-    // 1) 핵심 auth/ns/identity 키
-    [
-      "auth:flag",
-      "auth:userns",
-      "auth:ns",
-      "user:identities",
-      "auth:userns:session"
-    ].forEach(wipe);
+    ["auth:flag","auth:userns","collectedLabels","jib:collected"].forEach(wipeKey);
 
-    // 2) me/insights/내 데이터 캐시 일괄 제거
     try {
-      const rmLocal = [];
       for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i); if (!k) continue;
-        if (
-          k.startsWith("me:profile") ||
-          k.startsWith("insights:") ||
-          k.startsWith("mine:") ||
-          k.startsWith("aud:label:") ||
-          k.startsWith("aud:sync:") ||
-          k.startsWith("__migrated:") ||
-          k.startsWith("guest:bus")
-        ) rmLocal.push(k);
+        const key = localStorage.key(i); if (!key) continue;
+        if (key.startsWith("me:profile") || key.startsWith("insights:")
+          || key.startsWith("mine:") || key.startsWith("aud:label:")) {
+          wipeKey(key);
+        }
       }
-      rmLocal.forEach(wipe);
-    } catch {}
-
-    // 3) 세션 네임스페이스별 스냅샷 제거 (label/jib/likes 등)
-    try {
-      const bases = [
-        "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
-        "aud:selectedLabel","jib:selected","jib:collected","sdf-session-init-v1","itemLikes"
-      ];
-      // 가능한 NS 후보들 전부 점검
-      const nsCandidates = new Set(["default"]);
-      try { const ns = (localStorage.getItem("auth:userns") || "").toLowerCase(); if (ns) nsCandidates.add(ns); } catch {}
-      try { const ss = sessionStorage.getItem("auth:userns:session"); if (ss) nsCandidates.add(ss.toLowerCase()); } catch {}
-      for (const ns of nsCandidates) {
-        for (const base of bases) wipe(`${base}:${ns}`);
-      }
-    } catch {}
-
-    // 4) me 마지막 사용자/NS 추적 키 제거
-    try {
-      const rmSess = [];
-      for (let i = sessionStorage.length - 1; i >= 0; i--) {
-        const k = sessionStorage.key(i); if (!k) continue;
-        if (k === "me:last-ns" || k.startsWith("me:last-uid")) rmSess.push(k);
-      }
-      rmSess.forEach(wipe);
     } catch {}
 
     try { localStorage.setItem(`purge:reason:${Date.now()}`, reason); } catch {}
@@ -2043,10 +2013,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     try { await ensureCSRF(); } catch {}
     const attempts = [
-      { url: "/auth/me",      method: "DELETE" },
-      { url: "/api/users/me", method: "DELETE" },
-      { url: "/auth/delete",  method: "POST"   },
-      { url: "/api/users/me", method: "POST",  body: { _method: "DELETE" } },
+      { url: "/auth/me",          method: "DELETE" },
+      { url: "/api/users/me",     method: "DELETE" },
+      { url: "/auth/delete",      method: "POST"   },
+      { url: "/api/users/me",     method: "POST",  body: { _method: "DELETE" } },
     ];
 
     for (const a of attempts) {
@@ -2057,12 +2027,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           body: a.body ? JSON.stringify(a.body) : undefined,
         });
         const r = await api(a.url, opt);
-        if (r && (r.status === 200 || r.status === 204)) {
-          // 성공: 재로그인 유도
-          try { window.auth?.markNavigate?.(); } catch {}
-          location.replace("./login.html#deleted");
-          return { ok: true };
-        }
+        if (r && (r.status === 200 || r.status === 204)) return { ok: true };
       } catch {}
     }
     return { ok: false, msg: "server-failed" };
