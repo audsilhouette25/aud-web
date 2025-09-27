@@ -132,6 +132,26 @@
   }
   function stopHeartbeat() { if (hbTimer) { clearInterval(hbTimer); hbTimer = null; } }
 
+  // 공용 유틸 (auth-boot.js에 추가하면 좋음)
+  function wipeLocalForNs(ns){
+    if(!ns) return;
+    const bases = ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"];
+    for (const b of bases) localStorage.removeItem(`${b}::${ns.toLowerCase()}`);
+  }
+
+  // 로그인/회원가입 성공 처리 직후
+  // 예: auth-boot.js 의 login()/signup() 성공 분기 또는 login.js 의 doLogin/doSignup 성공 후
+  const ns = (me?.email || me?.ns || "").toLowerCase(); // me 응답이나 이메일 변수
+  if (ns) {
+    localStorage.setItem("auth:ns", ns); // 현재 사용자 네임스페이스 보관
+    wipeLocalForNs(ns);                  // 같은 이메일 재가입시 이전 캐시 제거
+  }
+
+  // 보너스: 레거시 전역 키가 남아 있으면 없애기(안전)
+  ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"].forEach(k=>{
+    if (localStorage.getItem(k) != null) localStorage.removeItem(k);
+  });
+
   /* =========================
    * Navigation marking (broad)
    * ========================= */

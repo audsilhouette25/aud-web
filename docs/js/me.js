@@ -8,6 +8,19 @@
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
 
+  // me.js 상단 유틸로 추가
+  function currentNs() {
+    // auth-boot에서 저장해 줄 값. 없으면 me API 응답의 ns 사용도 가능.
+    return (localStorage.getItem("auth:ns") || "").toLowerCase();
+  }
+  function nsKey(base) {
+    const ns = currentNs();
+    return ns ? `${base}::${ns}` : base;
+  }
+  function readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || ""); } catch { return fallback; }
+  }
+
   // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
 
@@ -289,30 +302,28 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 1) Collections: store/session readers & stabilizers
   * ──────────────────────────────────────────────────────────────────────────── */
-  function readRawLists() {
-    let storeLabels = null, storeJibs = null;
+  function readRawLists(){
+    const ns = currentNs();
 
-    // ✅ 라벨: store에서만
-    try { storeLabels = coerceList(window.store?.getCollected?.(), "label"); } catch {}
-    try { if (!storeLabels) storeLabels = coerceList(window.store?.getLabels?.() ?? window.store?.labels ?? window.store?.state?.labels, "label"); } catch {}
+    // 새 키 우선
+    let reg  = readJson(nsKey("REG_COLLECT"), []);
+    let jibc = readJson(nsKey("JIBC_COLLECT"), []);
 
-    // ✅ 지비츠: jib 스토어에서만 (라벨 소스 재사용 금지)
-    try { storeJibs = coerceList(window.jib?.getCollected?.(), "jib"); } catch {}
-    try { if (!storeJibs) storeJibs = coerceList(window.jib?.getJibs?.() ?? window.jib?.jibs ?? window.jib?.state?.jibs, "jib"); } catch {}
+    // 레거시 키가 남아 있으면 -> 현재 ns로 이관 후 레거시 삭제
+    const legacyReg  = readJson("REG_COLLECT", null);
+    const legacyJibc = readJson("JIBC_COLLECT", null);
+    if (legacyReg !== null) {
+      localStorage.setItem(nsKey("REG_COLLECT"), JSON.stringify(legacyReg));
+      localStorage.removeItem("REG_COLLECT");
+      reg = legacyReg;
+    }
+    if (legacyJibc !== null) {
+      localStorage.setItem(nsKey("JIBC_COLLECT"), JSON.stringify(legacyJibc));
+      localStorage.removeItem("JIBC_COLLECT");
+      jibc = legacyJibc;
+    }
 
-    // 세션/로컬 폴백
-    const sessLabels = dedupList(parseJSON(sessionStorage.getItem(REG_KEY), []) || []);
-    const sessJibs   = dedupList(parseJSON(sessionStorage.getItem(JIB_KEY),   []) || []);
-    let localLabels = []; let localJibs = [];
-    try { localLabels = dedupList(parseJSON(localStorage.getItem(REG_KEY), []) || []); } catch {}
-    try { localJibs   = dedupList(parseJSON(localStorage.getItem(JIB_KEY),   []) || []); } catch {}
-
-    return {
-      storeLabels: Array.isArray(storeLabels) ? storeLabels : null,
-      storeJibs:   Array.isArray(storeJibs)   ? storeJibs   : null,
-      sessLabels:  (sessLabels.length ? sessLabels : localLabels),
-      sessJibs:    (sessJibs.length   ? sessJibs   : localJibs),
-    };
+    return { reg, jibc };
   }
 
   function readLabels() {
