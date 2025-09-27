@@ -825,7 +825,7 @@
           <span>${when}</span>
         </div>
         <div class="row row--spaced">
-          <button class="btn" data-act="hear">Hear</button>>
+          <button class="btn" data-act="hear">Hear</button>
         </div>
       </div>
     `.trim();
@@ -1041,6 +1041,20 @@
     if (grid) {
       grid.innerHTML = items.map(cardHTML).join("");
       wireCardActions(grid);
+      try {
+        const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
+        if (admin) {
+          grid.querySelectorAll(".card .row--spaced").forEach((row) => {
+            if (!row.querySelector('[data-act="accept"]')) {
+              const b = document.createElement("button");
+              b.className = "btn primary";
+              b.setAttribute("data-act", "accept");
+              b.textContent = "Accept";
+              row.appendChild(b);
+            }
+          });
+        }
+      } catch {}
     }
     if (msg) msg.textContent = `${items.length} item(s)`;
   }
