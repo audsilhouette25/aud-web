@@ -678,7 +678,6 @@
         <div class="sheet" role="document" aria-labelledby="admin-lab-title">
           <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
           <div class="admin-toolbar">
-            <div class="nsbar" id="admin-lab-nsbar" aria-label="namespaces"></div>
             <div class="spacer"></div>
             <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
             <button class="btn" id="admin-lab-refresh">Refresh</button>
@@ -764,95 +763,64 @@
       m.__escAttached = false;
     }
   }
-  async function fetchAdminNamespaces(){
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const url  = new URL("/api/admin/audlab/nses", base).toString();
-    const r = await fetch(url, { credentials:"include" }).catch(()=>null);
-    const j = await r?.json?.().catch?.(()=>({}));
-    const items = Array.isArray(j?.items) ? j.items : [];
-    // 서버가 없다면 내 NS라도 보여주기(안전 폴백)
-    if (!items.length) {
-      try { return [ (window.getNS ? window.getNS() : (localStorage.getItem("auth:userns")||"default")).toLowerCase() ]; }
-      catch { return ["default"]; }
-    }
-    return items;
-  }
-  async function fetchAdminSubmits(ns){
-    const active = String(ns || (window.getNS ? window.getNS() : localStorage.getItem("auth:userns") || "default")).toLowerCase();
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL("/api/admin/audlab/list", base);
-    u.searchParams.set("ns", active);
-    const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
-    const j = await r?.json?.().catch?.(()=>({}));
-    return (Array.isArray(j?.items) ? j.items : []).map(it => ({
-      id: it.id,
-      ns: active,
-      preview: it.image || it.preview || it.png || "",
-      audio: it.audio || "",             // ← 서버가 돌려주면 바로 사용
-      json: it.json  || "",              // ← 메타(JSON) 바로 접근
-      createdAt: null
-    }));
-  }
-  function renderNSBar(nsList, active){
-    const bar = document.querySelector("#admin-lab-nsbar");
-    if (!bar) return;
-    bar.innerHTML = "";
-    const all = document.createElement("button");
-    all.className = "pill" + (!active ? " active" : "");
-    all.textContent = "All";
-    all.addEventListener("click", ()=>{ loadAdminLab(null); });
-    bar.appendChild(all);
-
-    nsList.forEach(ns=>{
-      const b = document.createElement("button");
-      b.className = "pill" + (active===ns ? " active" : "");
-      b.textContent = ns;
-      b.title = ns;
-      b.addEventListener("click", ()=>{ loadAdminLab(ns); });
-      bar.appendChild(b);
-    });
-  }
-  function cardHTML(it){
-    const raw = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
+  function cardHTML(it) {
+    const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
-    const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
+    const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
     const accepted = !!it.accepted;
+
+    // ownerId 우선 → 없으면 ns로 폴백
+    const owner = String(it.ownerId || it.user?.id || it.ns || "").trim();
+    const ns    = String(it.ns || "").toLowerCase();
+
+    // 작은 XSS 방어용 이스케이프
+    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+
     return `
-      <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}" ${accepted ? 'data-accepted="1"' : ''}>
-        <img alt="" src="${thumb}" />
+      <div class="card"
+          data-id="${esc(it.id)}"
+          data-ns="${esc(ns)}"
+          data-owner="${esc(owner)}"
+          ${accepted ? 'data-accepted="1"' : ''}>
+        <img alt="" src="${esc(thumb)}" />
         <div class="meta">
-          <span title="${it.ns||""}">${it.ns||"—"}</span>
-          <span>${when}</span>
+          <span class="owner" title="${esc(owner || ns)}">${esc(owner || "—")}</span>
+          ${ns && owner && ns !== owner ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
+          <span class="time">${esc(when)}</span>
         </div>
         <div class="row row--spaced">
           <button class="btn" data-act="hear">Hear</button>
+          <button class="btn ghost" data-act="copy-owner">Copy UID</button>
         </div>
       </div>
     `.trim();
   }
 
   function wireCardActions(root){
-    root.querySelectorAll(".card").forEach(card=>{
-      card.addEventListener("click", async (e)=>{
+    root.querySelectorAll(".card").forEach(card => {
+      card.addEventListener("click", async (e) => {
         const act = e.target?.dataset?.act;
         if (!act) return;
+
         const id = card.dataset.id;
         const ns = card.dataset.ns;
-       if (act==="hear"){
+
+        if (act === "hear") {
           try {
             e.target.disabled = true;
             await hearSubmission({ id, ns, card });
           } finally {
             e.target.disabled = false;
           }
-       } else if (act==="accept"){
+        } else if (act === "accept") {
           const btn = e.target;
           btn.disabled = true;
-          try{
+          try {
             const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-            // 1) CSRF 토큰 취득
-            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(()=>null);
-            const csrf = await csrfRes?.json?.().catch(()=>null);
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
             const headers = {
               "Content-Type": "application/json",
               "Accept": "application/json",
@@ -864,19 +832,34 @@
               headers,
               body: JSON.stringify({ ns, id })
             });
-            const j = await r.json().catch(()=> ({}));
+            const j = await r.json().catch(() => ({}));
             if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
             btn.textContent = "Accepted ✓";
-            btn.classList.remove("primary"); btn.classList.add("ghost");
-            card.setAttribute("data-accepted","1");
-          } catch (err){
+            btn.classList.remove("primary");
+            btn.classList.add("ghost");
+            card.setAttribute("data-accepted", "1");
+          } catch (err) {
             alert("Accept 실패: " + (err?.message || err));
             btn.disabled = false;
+          }
+        } else if (act === "copy-owner") {
+          const btn = e.target;
+          const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
+          if (!owner) { alert("owner id가 없습니다."); return; }
+          try {
+            await navigator.clipboard.writeText(owner);
+            const prev = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+          } catch {
+            // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
+            prompt("Copy this owner id:", owner);
           }
         }
       });
     });
-  }
+}
 
   // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
   async function hearSubmission({ id, ns, card }) {
@@ -996,78 +979,73 @@
     grid.querySelectorAll(".card").forEach(c=>{
       const ns = c.dataset.ns || "";
       const id = c.dataset.id || "";
-      const match = !query || ns.includes(query) || id.includes(query);
+      const owner = c.querySelector(".meta span")?.getAttribute("title")?.toLowerCase() || "";
+      const match = !query || ns.includes(query) || id.includes(query) || owner.includes(query);
       c.style.display = match ? "" : "none";
     });
   }
 
-  let __ADMIN_ACTIVE_NS = null;
-  async function loadAdminLab(ns = __ADMIN_ACTIVE_NS){
-    __ADMIN_ACTIVE_NS = ns || null;
+  // 탭/NS 비활성화: 전체 목록 한 번에 로드
+  async function loadAdminLab() {
     const msg  = document.querySelector("#admin-lab-msg");
     const grid = document.querySelector("#admin-lab-grid");
+
     if (msg)  msg.textContent = "Loading…";
     if (grid) grid.innerHTML = "";
 
-    // ns 목록
-    const nsList = await fetchAdminNamespaces().catch(()=>[]);
-    renderNSBar(nsList, __ADMIN_ACTIVE_NS || null);
-
-    // 항목 로드
-    let items = [];
-    if (!__ADMIN_ACTIVE_NS) {
-      // 시도 1: /all
+    try {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      let gotAll = false;
-      try {
-        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials:"include" });
-        if (r?.ok) {
-          const j = await r.json().catch(()=>({}));
-          if (Array.isArray(j?.items)) {
-            items = j.items.map(it => ({
-              id: it.id,
-              ns: it.ns || (it.owner?.ns) || "",
-              preview: (typeof window.__toAPI === "function") ? window.__toAPI(it.image || it.preview || it.png || "") : (it.image || it.preview || it.png || ""),
-              createdAt: it.createdAt ?? it.created_at ?? null
-            }));
-            gotAll = true;
-          }
-        }
-      } catch {}
+      const url  = new URL("/api/admin/audlab/all", base).toString();
 
-      // 시도 2(폴백): nses 전체를 병렬로 조회
-      if (!gotAll) {
-        const merged = await Promise.all(nsList.map(ns => fetchAdminSubmits(ns).catch(()=>[])));
-        items = merged.flat();
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      const j = await r.json().catch(() => ({}));
+      const items = Array.isArray(j?.items) ? j.items.map(it => ({
+        id: it.id,
+        ns: it.ns || it.owner?.ns || "",
+        ownerId: (it.user?.id ?? it.owner?.id ?? it.ns ?? ""), // 카드에 표시할 사용자 식별자
+        preview: (typeof window.__toAPI === "function")
+                  ? window.__toAPI(it.image || it.preview || it.png || "")
+                  : (it.image || it.preview || it.png || ""),
+        createdAt: it.createdAt ?? it.created_at ?? null,
+        accepted: !!it.accepted
+      })) : [];
+
+      if (!items.length) {
+        if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
+        if (msg) msg.textContent = "";
+        return;
       }
-    } else {
-      items = await fetchAdminSubmits(__ADMIN_ACTIVE_NS).catch(()=>[]);
-}
 
-    if (!items.length){
-      if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
-      if (msg) msg.textContent = "";
-      return;
+      if (grid) {
+        grid.innerHTML = items.map(cardHTML).join("");
+        wireCardActions(grid);
+
+        // 관리자면 카드에 Accept 버튼 주입
+        try {
+          const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
+          if (admin) {
+            grid.querySelectorAll(".card .row--spaced").forEach((row) => {
+              if (!row.querySelector('[data-act="accept"]')) {
+                const b = document.createElement("button");
+                b.className = "btn primary";
+                b.setAttribute("data-act", "accept");
+                b.textContent = "Accept";
+                row.appendChild(b);
+              }
+            });
+          }
+        } catch {}
+      }
+
+      if (msg) msg.textContent = `${items.length} item(s)`;
+    } catch (err) {
+      if (grid) grid.innerHTML = `<div class="empty">Failed to load.</div>`;
+      if (msg)  msg.textContent = "Error";
+      // 콘솔 힌트
+      try { console.error("[admin-lab] load failed:", err); } catch {}
     }
-    if (grid) {
-      grid.innerHTML = items.map(cardHTML).join("");
-      wireCardActions(grid);
-      try {
-        const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
-        if (admin) {
-          grid.querySelectorAll(".card .row--spaced").forEach((row) => {
-            if (!row.querySelector('[data-act="accept"]')) {
-              const b = document.createElement("button");
-              b.className = "btn primary";
-              b.setAttribute("data-act", "accept");
-              b.textContent = "Accept";
-              row.appendChild(b);
-            }
-          });
-        }
-      } catch {}
-    }
-    if (msg) msg.textContent = `${items.length} item(s)`;
   }
 
   function renderProfile({ name, displayName, email, avatarUrl }) {
