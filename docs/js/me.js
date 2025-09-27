@@ -25,6 +25,9 @@
   // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
 
+  // [ADD] admin allowlist
+  const ADMIN_EMAILS = ["finelee03@naver.com"]; // 운영자 이메일
+
   window.__toAPI = function (u) {
     const s = String(u || "");
     if (!s) return s;
@@ -636,6 +639,42 @@
     const r = await api("/auth/me", { credentials: "include", cache: "no-store" });
     if (!r || !r.ok) return null;
     try { return await r.json(); } catch { return null; }
+  }
+
+  // [ADD] admin helpers (place right after fetchMe)
+  async function isAdmin() {
+    try {
+      const me = await fetchMe();            // 이미 있는 helper 재사용
+      const email = (me?.email || me?.user?.email || "").toLowerCase();
+      if (email && ADMIN_EMAILS.includes(email)) return true;
+
+      // 서버가 있으면 부트스트랩으로 2차 확인(없어도 무방)
+      const res = await fetch(
+        (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/audlab/admin/bootstrap",
+        { credentials: "include" }
+      ).catch(() => null);
+      if (res?.ok) {
+        const j = await res.json().catch(() => null);
+        if (j?.ok && (j.admin === true || j.role === "admin")) return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  function wireAdminButton() {
+    const btn = document.querySelector("#btn-admin");
+    if (!btn) return;
+    isAdmin().then((ok) => {
+      if (!ok) return;           // 운영자 아니면 그대로 hidden
+      btn.hidden = false;        // 표시
+      // 원하는 페이지로 이동(없으면 /api 쿼리 보기 페이지로 대체)
+      btn.addEventListener("click", () => {
+        // 전용 어드민 페이지가 있을 경우:
+        // location.href = "./admin-audlab.html";
+        // 임시: 서버 제출물 JSON 라우트로 이동하거나 새 탭으로 띄우기
+        window.open((window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/nses", "_blank");
+      });
+    });
   }
 
   function renderProfile({ name, displayName, email, avatarUrl }) {
@@ -1600,6 +1639,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     }
   }
 
+  wireAdminButton();  
+ 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot, { once: true });
   } else {
@@ -2052,24 +2093,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
   });
 })(); 
-// == admin button (moved from inline script; CSP-safe) ==
-(async () => {
-  try {
-    const r = await fetch('/auth/me', { credentials:'include' });
-    const me = await r.json();
-    const adminEmails = (window.ADMIN_EMAILS || 'finelee03@naver.com')
-      .split(',').map(s => s.trim().toLowerCase());
-    if (adminEmails.includes(String(me?.email || '').toLowerCase())) {
-      const b = document.getElementById('btn-admin');
-      if (b) {
-        b.hidden = false;
-        b.addEventListener('click', () => {
-          location.assign('/api/admin/audlab/nses');
-        });
-      }
-    }
-  } catch {}
-})();
 
 })();
 
