@@ -558,17 +558,8 @@ progress#m-rate-bar::-webkit-progress-value{
   display:block;
   width:100%;
   height:auto;
-  aspect-ratio: 16 / 9;
   touch-action: none; /* pointer events for drawing */
   background: linear-gradient(180deg, #f8fafc, #eef2f7 50%, #e6ebf3);
-}
-.lab-hint{
-  position:absolute; bottom:8px; left:10px;
-  background: rgba(255,255,255,.7);
-  padding: 4px 8px; border-radius: 999px;
-  font-size: 11px; color: #333;
-  backdrop-filter: blur(4px);
-  pointer-events:none;
 }
 
 .lab-controls{
