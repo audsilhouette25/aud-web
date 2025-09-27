@@ -665,16 +665,180 @@
     const btn = document.querySelector("#btn-admin");
     if (!btn) return;
     isAdmin().then((ok) => {
-      if (!ok) return;           // 운영자 아니면 그대로 hidden
-      btn.hidden = false;        // 표시
-      // 원하는 페이지로 이동(없으면 /api 쿼리 보기 페이지로 대체)
-      btn.addEventListener("click", () => {
-        // 전용 어드민 페이지가 있을 경우:
-        // location.href = "./admin-audlab.html";
-        // 임시: 서버 제출물 JSON 라우트로 이동하거나 새 탭으로 띄우기
-        window.open((window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/nses", "_blank");
+      if (!ok) return;
+      btn.hidden = false;
+      btn.addEventListener("click", openAdminLabModal, { once:false });
+    });
+  }
+
+  /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
+  function ensureAdminLabModal() {
+    let wrap = document.querySelector("#admin-lab");
+    if (wrap) return wrap;
+
+    wrap = document.createElement("div");
+    wrap.id = "admin-lab";
+    wrap.className = "modal";
+    wrap.setAttribute("role","dialog");
+    wrap.setAttribute("aria-modal","true");
+    wrap.innerHTML = `
+      <button type="button" class="overlay" aria-label="Close"></button>
+      <div class="sheet" role="document" aria-labelledby="admin-lab-title">
+        <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
+
+        <div class="admin-toolbar">
+          <div class="nsbar" id="admin-lab-nsbar" aria-label="namespaces"></div>
+          <div class="spacer"></div>
+          <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
+          <button class="btn" id="admin-lab-refresh">Refresh</button>
+        </div>
+
+        <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
+        <p class="msg" id="admin-lab-msg" aria-live="polite"></p>
+      </div>
+    `.trim();
+    document.body.appendChild(wrap);
+
+    wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
+    wrap.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeAdminLabModal(); });
+
+    // events
+    wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", ()=>loadAdminLab());
+    wrap.querySelector("#admin-lab-q")?.addEventListener("input", (e)=>{
+      const v = (e.target.value||"").trim().toLowerCase();
+      filterAdminCards(v);
+    });
+
+    return wrap;
+  }
+  function openAdminLabModal(){
+    const m = ensureAdminLabModal();
+    m.classList.add("open");
+    m.setAttribute("aria-hidden","false");
+    // 첫 로드
+    loadAdminLab().catch(()=>{});
+  }
+  function closeAdminLabModal(){
+    const m = document.querySelector("#admin-lab");
+    if (!m) return;
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden","true");
+  }
+
+  async function fetchAdminNamespaces(){
+    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+    const u = new URL("/api/audlab/admin/nses", base).toString();
+    const r = await fetch(u, { credentials:"include" });
+    const j = await r.json().catch(()=>({}));
+    // 기대 형태: { ok:true, nses:[ "...", ... ] }
+    const arr = Array.isArray(j?.nses) ? j.nses : [];
+    return arr.map(String).filter(Boolean);
+  }
+  async function fetchAdminSubmits(ns){
+    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+    const url = new URL("/api/audlab/list", base);
+    if (ns) url.searchParams.set("ns", ns);
+    url.searchParams.set("limit","100");
+    const r = await fetch(url.toString(), { credentials:"include" });
+    const j = await r.json().catch(()=>({}));
+    // 기대 형태: { ok:true, items:[ {id, ns, preview, createdAt, ...}, ... ] }
+    return Array.isArray(j?.items) ? j.items : [];
+  }
+
+  function renderNSBar(nsList, active){
+    const bar = document.querySelector("#admin-lab-nsbar");
+    if (!bar) return;
+    bar.innerHTML = "";
+    const all = document.createElement("button");
+    all.className = "pill" + (!active ? " active" : "");
+    all.textContent = "All";
+    all.addEventListener("click", ()=>{ loadAdminLab(null); });
+    bar.appendChild(all);
+
+    nsList.forEach(ns=>{
+      const b = document.createElement("button");
+      b.className = "pill" + (active===ns ? " active" : "");
+      b.textContent = ns;
+      b.title = ns;
+      b.addEventListener("click", ()=>{ loadAdminLab(ns); });
+      bar.appendChild(b);
+    });
+  }
+
+  function cardHTML(it){
+    const thumb = it.preview || it.previewDataURL || it.thumbnail || "";
+    const when = new Date(it.createdAt || it.ts || Date.now()).toLocaleString();
+    return `
+      <div class="card" data-ns="${(it.ns||"").toLowerCase()}" data-id="${it.id}">
+        <img alt="" src="${thumb}" />
+        <div class="meta">
+          <span title="${it.ns||""}">${it.ns||"—"}</span>
+          <span>${when}</span>
+        </div>
+        <div class="row" style="margin-top:6px; gap:6px">
+          <button class="btn" data-act="open">Open</button>
+          <button class="btn ghost" data-act="download">PNG</button>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  function wireCardActions(root){
+    root.querySelectorAll(".card").forEach(card=>{
+      card.addEventListener("click",(e)=>{
+        const act = e.target?.dataset?.act;
+        if (!act) return;
+        const id = card.dataset.id;
+        const ns = card.dataset.ns;
+        if (act==="open"){
+          const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+          const url = new URL(`/admin/audlab/item/${encodeURIComponent(id)}?ns=${encodeURIComponent(ns)}`, base);
+          window.open(url.toString(), "_blank","noopener");
+        } else if (act==="download"){
+          const img = card.querySelector("img"); if (!img) return;
+          const a = document.createElement("a");
+          a.href = img.src; a.download = `audlab-${ns}-${id}.png`; a.click();
+        }
       });
     });
+  }
+
+  function filterAdminCards(q){
+    const grid = document.querySelector("#admin-lab-grid");
+    if (!grid) return;
+    const query = String(q||"").toLowerCase();
+    grid.querySelectorAll(".card").forEach(c=>{
+      const ns = c.dataset.ns || "";
+      const id = c.dataset.id || "";
+      const match = !query || ns.includes(query) || id.includes(query);
+      c.style.display = match ? "" : "none";
+    });
+  }
+
+  let __ADMIN_ACTIVE_NS = null;
+  async function loadAdminLab(ns = __ADMIN_ACTIVE_NS){
+    __ADMIN_ACTIVE_NS = ns || null;
+    const msg  = document.querySelector("#admin-lab-msg");
+    const grid = document.querySelector("#admin-lab-grid");
+    if (msg)  msg.textContent = "Loading…";
+    if (grid) grid.innerHTML = "";
+
+    // ns 목록 그리기
+    const nsList = await fetchAdminNamespaces().catch(()=>[]);
+    renderNSBar(nsList, __ADMIN_ACTIVE_NS || null);
+
+    // 항목 로드
+    const items = await fetchAdminSubmits(__ADMIN_ACTIVE_NS).catch(()=>[]);
+    if (!items.length){
+      if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
+      if (msg) msg.textContent = "";
+      return;
+    }
+    if (grid) {
+      grid.innerHTML = items.map(cardHTML).join("");
+      wireCardActions(grid);
+    }
+    if (msg) msg.textContent = `${items.length} item(s)`;
   }
 
   function renderProfile({ name, displayName, email, avatarUrl }) {
@@ -2056,6 +2220,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         btnSubmit.textContent = "Submitted ✓";
         setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
       }
+      try {
+        const m = document.querySelector("#admin-lab");
+        if (m && m.classList.contains("open")) loadAdminLab();
+      } catch {}
     } catch (e) {
       alert("제출 실패: " + (e?.message || e));
     } finally {
@@ -2086,6 +2254,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
   if (btnClear) btnClear.addEventListener("click", clearAll);
   if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+ // 운영자면 캔버스 패널에도 바로 열기 버튼 붙이기
+ (async()=>{ if (await (typeof isAdmin==="function" ? isAdmin() : Promise.resolve(false))) {
+   const ctrl = document.querySelector(".lab-controls .spacer");
+   if (ctrl && !document.querySelector("#lab-view-list")) {
+     const b = document.createElement("button");
+     b.id="lab-view-list"; b.className="btn ghost"; b.textContent="View submissions";
+     b.addEventListener("click", openAdminLabModal);
+     ctrl.after(b);
+   }
+ }})();
 
   // a11y: space toggles play when canvas focused
   cvs.tabIndex = 0;

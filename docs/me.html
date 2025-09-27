@@ -102,6 +102,23 @@
         </footer>
       </article>
     </section>
+    <!-- Admin · aud laboratory (popup modal) -->
+    <div id="admin-lab" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="admin-lab-title">
+      <button type="button" class="overlay" aria-label="Close"></button>
+      <div class="sheet" role="document">
+        <h2 id="admin-lab-title" class="title">aud laboratory — admin</h2>
+
+        <div class="admin-toolbar">
+          <div id="admin-lab-nsbar" class="nsbar" aria-label="Namespaces"></div>
+          <div class="spacer"></div>
+          <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
+          <button id="admin-lab-close" class="btn" type="button">Close</button>
+        </div>
+
+        <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
+        <p id="admin-lab-msg" class="hint" style="margin-top:8px;"></p>
+      </div>
+    </div>
   </main>
 
   <footer class="mine-footer">
@@ -124,6 +141,6 @@
     window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-dtd1.onrender.com";
   </script>
   <script src="./js/me.js" type="module"></script>
-  
+
 </body>
 </html>

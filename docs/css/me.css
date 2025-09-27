@@ -553,12 +553,13 @@ progress#m-rate-bar::-webkit-progress-value{
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
+  height: clamp(300px, 42vh, 520px);
 }
 #aud-canvas{
-  display:block;
-  width:100%;
-  height:flex;
-  touch-action: none; /* pointer events for drawing */
+  display: block;
+  width: 100%;
+  height: 100%;          /* 래퍼 높이에 꼭 맞춤 */
+  touch-action: none;    /* 그리기용 포인터 이벤트 */
   background: linear-gradient(180deg, #f8fafc, #eef2f7 50%, #e6ebf3);
 }
 
@@ -617,3 +618,19 @@ progress#m-rate-bar::-webkit-progress-value{
     justify-items: start;
   }
 }
+
+/* ===== admin aud-lab modal ===== */
+#admin-lab .sheet { max-width: 980px; width: min(92vw, 980px); }
+#admin-lab .admin-toolbar { display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
+#admin-lab .admin-toolbar .spacer { flex:1; }
+#admin-lab .nsbar { display:flex; flex-wrap:wrap; gap:6px; }
+#admin-lab .nsbar .pill {
+  padding:6px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.08);
+  background:#f5f6f8; cursor:pointer; font-size:13px; font-weight:600;
+}
+#admin-lab .nsbar .pill.active { background:#111; color:#fff; border-color:#111; }
+#admin-lab .admin-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; }
+#admin-lab .card { border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:10px; background:#fff; }
+#admin-lab .card img { width:100%; height:130px; object-fit:cover; border-radius:8px; display:block; background:#f3f4f6; }
+#admin-lab .card .meta { margin-top:6px; font-size:12px; color:#6b7280; display:flex; justify-content:space-between; gap:8px; }
+#admin-lab .empty { color:#9ca3af; padding:24px; text-align:center; border:1px dashed #e5e7eb; border-radius:12px; }
