@@ -305,37 +305,25 @@
   function readRawLists(){
     const ns = currentNs();
 
-    // ── localStorage (NS별 신규 키)
-    let storeLabels = readJson(nsKey("REG_COLLECT"), []);
-    let storeJibs   = readJson(nsKey("JIBC_COLLECT"), []);
+    // 새 키 우선
+    let reg  = readJson(nsKey("REG_COLLECT"), []);
+    let jibc = readJson(nsKey("JIBC_COLLECT"), []);
 
-    // ── 레거시 전역 키가 남아있으면 NS 키로 이관
+    // 레거시 키가 남아 있으면 -> 현재 ns로 이관 후 레거시 삭제
     const legacyReg  = readJson("REG_COLLECT", null);
     const legacyJibc = readJson("JIBC_COLLECT", null);
     if (legacyReg !== null) {
-      try { localStorage.setItem(nsKey("REG_COLLECT"), JSON.stringify(legacyReg)); } catch {}
-      try { localStorage.removeItem("REG_COLLECT"); } catch {}
-      storeLabels = Array.isArray(legacyReg) ? legacyReg : [];
+      localStorage.setItem(nsKey("REG_COLLECT"), JSON.stringify(legacyReg));
+      localStorage.removeItem("REG_COLLECT");
+      reg = legacyReg;
     }
     if (legacyJibc !== null) {
-      try { localStorage.setItem(nsKey("JIBC_COLLECT"), JSON.stringify(legacyJibc)); } catch {}
-      try { localStorage.removeItem("JIBC_COLLECT"); } catch {}
-      storeJibs = Array.isArray(legacyJibc) ? legacyJibc : [];
+      localStorage.setItem(nsKey("JIBC_COLLECT"), JSON.stringify(legacyJibc));
+      localStorage.removeItem("JIBC_COLLECT");
+      jibc = legacyJibc;
     }
 
-    // ── sessionStorage (페이지 세션 캐시)
-    let sessLabels = [];
-    let sessJibs   = [];
-    try { const v = JSON.parse(sessionStorage.getItem(REG_KEY) || "[]"); if (Array.isArray(v)) sessLabels = v; } catch {}
-    try { const v = JSON.parse(sessionStorage.getItem(JIB_KEY) || "[]"); if (Array.isArray(v)) sessJibs   = v; } catch {}
-
-    // 항상 배열 보장
-    storeLabels = Array.isArray(storeLabels) ? storeLabels : [];
-    storeJibs   = Array.isArray(storeJibs)   ? storeJibs   : [];
-    sessLabels  = Array.isArray(sessLabels)  ? sessLabels  : [];
-    sessJibs    = Array.isArray(sessJibs)    ? sessJibs    : [];
-
-    return { storeLabels, storeJibs, sessLabels, sessJibs };
+    return { reg, jibc };
   }
 
   function readLabels() {
