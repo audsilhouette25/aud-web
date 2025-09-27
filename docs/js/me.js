@@ -542,12 +542,13 @@
     try { window.dispatchEvent(new CustomEvent("user:updated", { detail })); } catch {}
   }
 
-  function deriveNameFromProfile(snap){
-    if (!snap || typeof snap !== "object") return "";
-    const username    = (snap.username    ?? snap.user?.username    ?? "").toString().trim();
-    const displayName = (snap.displayName ?? snap.user?.displayName ?? snap.name ?? snap.user?.name ?? "").toString().trim();
-    // username 우선, 없으면 표기명
-    return username || displayName;
+  // 재생 헬퍼
+  function playRecording(el, src){
+    if (!el) return;
+    el.preload = "auto";
+    el.crossOrigin = "anonymous";
+    el.src = src;
+    // iOS 자동재생 방지 우회는 사용자 제스처에서 play 호출
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
@@ -2173,8 +2174,17 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
         MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
         "audio/webm";
+      // why: 브라우저별 지원 코덱 선택(사파리 우선 mp4, 그 외 webm/ogg)
+      const cand = [
+        "audio/webm;codecs=opus",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",       // iOS Safari
+        "audio/mpeg",      // 호환용
+        "audio/wav"
+      ].filter(Boolean);
+      const pick = cand.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
       mediaRecorder = new MediaRecorder(recDest.stream, {
-        mimeType: mtype,
+        mimeType: pick || undefined,
         audioBitsPerSecond: 128000
       });
       mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
@@ -2184,7 +2194,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         recChunks = [];
       };
     }
-    if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+    if (mediaRecorder.state !== "recording") mediaRecorder.start(0);
   }
 
   function stopRecorder(){
