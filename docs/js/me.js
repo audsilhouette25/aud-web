@@ -288,29 +288,24 @@
 
   /* ─────────────────────────────────────────────────────────────────────────────
    * 1) Collections: store/session readers & stabilizers
-   * ──────────────────────────────────────────────────────────────────────────── */
+  * ──────────────────────────────────────────────────────────────────────────── */
   function readRawLists() {
     let storeLabels = null, storeJibs = null;
 
-    // Primary: flexible getters
-    try {
-      const s = window.store?.getCollected?.();
-      const l = coerceList(s, "label");
-      const j = coerceList(s, "jib");
-      if (Array.isArray(l)) storeLabels = l;
-      if (Array.isArray(j)) storeJibs   = j;
-    } catch {}
-
-    // Secondary: explicit store paths
+    // ✅ 라벨: store에서만
+    try { storeLabels = coerceList(window.store?.getCollected?.(), "label"); } catch {}
     try { if (!storeLabels) storeLabels = coerceList(window.store?.getLabels?.() ?? window.store?.labels ?? window.store?.state?.labels, "label"); } catch {}
-    try { if (!storeJibs)   storeJibs   = coerceList(window.jib  ?.getCollected?.() ?? window.jib?.getJibs?.() ?? window.jib?.jibs ?? window.jib?.state?.jibs, "jib"); } catch {}
 
-    // Session/local fallback
+    // ✅ 지비츠: jib 스토어에서만 (라벨 소스 재사용 금지)
+    try { storeJibs = coerceList(window.jib?.getCollected?.(), "jib"); } catch {}
+    try { if (!storeJibs) storeJibs = coerceList(window.jib?.getJibs?.() ?? window.jib?.jibs ?? window.jib?.state?.jibs, "jib"); } catch {}
+
+    // 세션/로컬 폴백
     const sessLabels = dedupList(parseJSON(sessionStorage.getItem(REG_KEY), []) || []);
-    const sessJibs   = dedupList(parseJSON(sessionStorage.getItem(JIB_KEY), []) || []);
-    let   localLabels = []; let localJibs = [];
+    const sessJibs   = dedupList(parseJSON(sessionStorage.getItem(JIB_KEY),   []) || []);
+    let localLabels = []; let localJibs = [];
     try { localLabels = dedupList(parseJSON(localStorage.getItem(REG_KEY), []) || []); } catch {}
-    try { localJibs   = dedupList(parseJSON(localStorage.getItem(JIB_KEY), []) || []); } catch {}
+    try { localJibs   = dedupList(parseJSON(localStorage.getItem(JIB_KEY),   []) || []); } catch {}
 
     return {
       storeLabels: Array.isArray(storeLabels) ? storeLabels : null,
@@ -1023,7 +1018,7 @@
     // ☆ 전역 아이덴티티 맵에 기록 (ns = auth:userns)
     try {
       const ns = (typeof readNs === "function" ? readNs() : "").trim().toLowerCase();
-      if (window.setNSIdentity && isEmailNS(ns)) {ㄴ
+      if (window.setNSIdentity && isEmailNS(ns)) {
         window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
       }
     } catch {}
