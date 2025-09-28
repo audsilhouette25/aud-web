@@ -9,17 +9,6 @@
    * ──────────────────────────────────────────────────────────────────────────── */
 
   // me.js 상단 유틸로 추가
-  function currentNs() {
-    // auth-boot에서 저장해 줄 값. 없으면 me API 응답의 ns 사용도 가능.
-    return (localStorage.getItem("auth:ns") || "").toLowerCase();
-  }
-  function nsKey(base) {
-    const ns = currentNs();
-    return ns ? `${base}::${ns}` : base;
-  }
-  function readJson(key, fallback) {
-    try { return JSON.parse(localStorage.getItem(key) || ""); } catch { return fallback; }
-  }
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
@@ -46,6 +35,20 @@
   function isEmailNS(s) {
     return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim());
   }
+  function currentNs() {
+    try {
+      const ns = (localStorage.getItem("auth:userns") || "").toLowerCase().trim();
+      return isEmailNS(ns) ? ns : "";
+    } catch { return ""; }
+  }
+  function nsKey(base) {
+    const ns = currentNs();
+    return ns ? `${base}::${ns}` : base;
+  }
+  function readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || ""); } catch { return fallback; }
+  }
+
 
   function normalizeNs(v) {
     let s = String(v ?? "").trim().toLowerCase();
@@ -427,6 +430,9 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 2) Profile cache & avatar rendering
    * ──────────────────────────────────────────────────────────────────────────── */
+
+  const emailLocal = (e) => String(e||"").toLowerCase().split("@")[0] || "user";
+
   const PROFILE_KEY_PREFIX = "me:profile";
 
   const profileKeys = () => {
@@ -936,7 +942,7 @@
       const id = c.dataset.id || "";
       const owner = c.querySelector(".meta span")?.getAttribute("title")?.toLowerCase() || "";
       const match = !query || ns.includes(query) || id.includes(query) || owner.includes(query);
-      c.style.display = match ? "" : "none";
+      c.classList.toggle("is-hidden", !match);
     });
   }
 
@@ -1031,21 +1037,27 @@
       try { console.error("[admin-lab] load failed:", err); } catch {}
     }
   }
-
+  
+  // [REPLACE] 기존 renderProfile(...) 전체를 아래로 교체
   function renderProfile({ name, displayName, email, avatarUrl }) {
-    const nm = name || displayName || "member";
+    const nm =
+      (displayName && String(displayName).trim()) ||
+      (name && String(name).trim()) ||
+      (isEmailNS(email) ? emailLocal(email) : "member");
+
     ME_STATE.displayName = nm;
     ME_STATE.email = email || "";
     ME_STATE.avatarUrl = avatarUrl || "";
 
-    // ☆ 전역 아이덴티티 맵에 기록 (ns = auth:userns)
+    // 전역 아이덴티티(why: NS → 프로필 매핑 유지)
     try {
-      const ns = (typeof readNs === "function" ? readNs() : "").trim().toLowerCase();
+      const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
       if (window.setNSIdentity && isEmailNS(ns)) {
         window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
       }
     } catch {}
 
+    const $  = (sel, root = document) => root.querySelector(sel);
     const nameEl  = $("#me-name");  if (nameEl)  nameEl.textContent  = nm;
     const emailEl = $("#me-email"); if (emailEl) emailEl.textContent = email || "";
 
@@ -1068,7 +1080,7 @@
     const d = ev?.detail; if (!d) return;
     renderProfile({
       displayName: d.displayName ?? ME_STATE.displayName,
-      email:       ME_STATE.email,
+      email:       d.email ?? ME_STATE.email,
       avatarUrl:   d.avatarUrl   ?? ME_STATE.avatarUrl,
     });
   });
@@ -1977,28 +1989,103 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     boot();
   }
 
+  // [ADD] 파일 상단 유틸 근처(함수 선언부들) 어딘가에 추가
+  function __purgeNamespaceKeys(ns) {
+    if (!ns || !isEmailNS(ns)) return;
+    const enc = encodeURIComponent(ns);
+
+    const wipe = (k) => { try { localStorage.removeItem(k); } catch {} try { sessionStorage.removeItem(k); } catch {} };
+
+    // 전역 인증 키
+    ["auth:flag","auth:userns","auth:ns"].forEach(wipe);
+
+    // 알려진 접두/네임스페이스 키들
+    const KNOWN = [
+      // me/profile/insights caches
+      "me:profile","insights","mine","aud:label",
+      // collections(레거시/네임스페이스)
+      "REG_COLLECT","JIBC_COLLECT",
+      // store.js families
+      "label:sync","jib:sync","label:hearts-sync","label:ts-sync",
+      "itemLikes:sync","labelVotes:sync","state:updatedAt",
+      "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
+      "itemLikes","labelVotes","aud:selectedLabel","jib:selected","jib:collected"
+    ];
+    KNOWN.forEach(base => {
+      wipe(base);
+      wipe(`${base}:${ns}`);   wipe(`${base}:${enc}`);
+      wipe(`${base}::${ns}`);  wipe(`${base}::${enc}`);
+    });
+
+    // 스캔 삭제(남은 모든 키에서 ns 문자열 탐지)
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i); if (!k) continue;
+        const kl = k.toLowerCase();
+        if (kl.includes(`:${ns}`) || kl.includes(`::${ns}`) || kl.includes(`:${enc}`) || kl.endsWith(ns) || kl.endsWith(enc)) wipe(k);
+      }
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i); if (!k) continue;
+        const kl = k.toLowerCase();
+        if (kl.includes(`:${ns}`) || kl.includes(`::${ns}`) || kl.includes(`:${enc}`) || kl.endsWith(ns) || kl.endsWith(enc)) wipe(k);
+      }
+    } catch {}
+  }
+
   // === 강제 로컬 정리: store.js 및 저장소 전체 정리 ===
   function __purgeLocalStateHard(reason = "account-delete") {
+    // 0) 스토어/스냅샷 계열 우선 정리
     try { window.store?.purgeAccount?.(); } catch {}
     try { window.store?.reset?.(); } catch {}
     try { window.store?.clearAll?.(); } catch {}
     try { window.jib?.reset?.(); } catch {}
     try { window.__flushStoreSnapshot?.({ server:false }); } catch {}
 
-    const wipeKey = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
+    const wipe = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
+    const ns = currentNs();
+    const enc = encodeURIComponent(ns || "");
 
-    ["auth:flag","auth:userns","collectedLabels","jib:collected"].forEach(wipeKey);
+    // 1) 전역 인증/레거시 키
+    ["auth:flag","auth:userns","auth:ns","collectedLabels","jib:collected"].forEach(wipe);
 
-    try {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i); if (!key) continue;
-        if (key.startsWith("me:profile") || key.startsWith("insights:")
-          || key.startsWith("mine:") || key.startsWith("aud:label:")) {
-          wipeKey(key);
+    // 2) 알려진 접두/네임스페이스 키
+    const KNOWN = [
+      // me/profile/insights caches
+      "me:profile", "insights", "mine", "aud:label",
+      // collections (legacy & namespaced)
+      "REG_COLLECT", "JIBC_COLLECT",
+      // sync/state keys from store.js families
+      "label:sync","jib:sync","label:hearts-sync","label:ts-sync",
+      "itemLikes:sync","labelVotes:sync","state:updatedAt",
+      "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
+      "itemLikes","labelVotes","aud:selectedLabel","jib:selected","jib:collected"
+    ];
+    KNOWN.forEach(base => {
+      wipe(base);
+      if (ns) { wipe(`${base}:${ns}`); wipe(`${base}::${ns}`); wipe(`${base}:${enc}`); wipe(`${base}::${enc}`); }
+    });
+
+    try { __purgeNamespaceKeys(ns); } catch {}
+    
+    // 3) 전체 스캔: ns 포함 키 전부 제거
+    if (isEmailNS(ns)) {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i); if (!k) continue;
+          const kk = k.toLowerCase();
+          if (kk.includes(`:${ns}`) || kk.includes(`::${ns}`) || kk.includes(`:${enc}`) || kk.endsWith(ns) || kk.endsWith(enc)) wipe(k);
         }
-      }
-    } catch {}
+      } catch {}
+      try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i); if (!k) continue;
+          const kk = k.toLowerCase();
+          if (kk.includes(`:${ns}`) || kk.includes(`::${ns}`) || kk.includes(`:${enc}`) || kk.endsWith(ns) || kk.endsWith(enc)) wipe(k);
+        }
+      } catch {}
+    }
 
+    // 4) 브레드크럼/이벤트
     try { localStorage.setItem(`purge:reason:${Date.now()}`, reason); } catch {}
     try { window.dispatchEvent(new Event("store:purged")); } catch {}
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
@@ -2010,6 +2097,9 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (!ok) return { ok: false, msg: "cancelled" };
 
     __purgeLocalStateHard("account-delete");
+
+    try { sessionStorage.removeItem("auth:flag"); } catch {}
+    try { localStorage.removeItem("auth:flag"); localStorage.removeItem("auth:userns"); localStorage.removeItem("auth:ns"); } catch {}
 
     try { await ensureCSRF(); } catch {}
     const attempts = [
