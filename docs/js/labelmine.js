@@ -2670,11 +2670,9 @@ function goMineAfterShare(label = getLabel()) {
       left.append(stage);
 
       const isTall12 = (h / w) >= 1.9; // 1:2 이상 세로형
+
+      shell.setAttribute("data-fit", "height");
       shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
-      shell.style.setProperty("--im-ar", isTall12 ? "1 / 2" : "auto");
-      shell.style.setProperty("--im-fit", "contain");
-      if (isTall12) stage.classList.add("is-ratio-12");
-      else stage.classList.remove("is-ratio-12");
 
       const right = document.createElement("div");
       right.className = "im-right";
@@ -3140,7 +3138,8 @@ function goMineAfterShare(label = getLabel()) {
         const btn = ev.target.closest("button[data-ar]");
         if (!btn) return;
         const ar = btn.dataset.ar;          // "1:1" 또는 "1:2"
-        stage.classList.toggle("is-ratio-12", ar === "1:2");
+        applyAspect(ar);
+        closePops();
       });
 
       const globalClose = document.createElement("button");
