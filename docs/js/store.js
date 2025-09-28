@@ -1624,7 +1624,8 @@ try { window.dispatchEvent(new Event("store:ready")); } catch {}
     const cur = (typeof USER_NS !== "undefined" ? USER_NS : "default");
     try { __wipeAllKeysForNS(cur); } catch {}
     try { __wipeAllKeysForNS("default"); } catch {}
-
+    try { sessionStorage.removeItem(SESSION_USER_NS_KEY); } catch {}
+    try { localStorage.removeItem(SESSION_USER_NS_KEY); } catch {}
     // 버전/버스/인사이트류
     try { sessionStorage.removeItem(VERSION_KEY); } catch {}
     try { localStorage.removeItem(VERSION_KEY); } catch {}
@@ -1704,7 +1705,8 @@ window.__SERVER_GALLERY_SYNC_ON = SERVER_GALLERY_SYNC_ON;
     try { sessionStorage.removeItem("auth:flag"); } catch {}
     try { localStorage.removeItem("auth:flag"); } catch {}
     try { localStorage.removeItem("auth:userns"); } catch {}
-
+    try { sessionStorage.removeItem(SESSION_USER_NS_KEY); } catch {}
+    try { localStorage.removeItem(SESSION_USER_NS_KEY); } catch {}
     // ★ 게스트 초기화를 다시 걸 수 있도록 세션 플래그/인사이트 제거
     try { sessionStorage.removeItem(`sdf-session-init-v1:default`); } catch {}
     try {
@@ -1715,6 +1717,7 @@ window.__SERVER_GALLERY_SYNC_ON = SERVER_GALLERY_SYNC_ON;
 
     // 상태 브로드캐스트
     window.dispatchEvent(new CustomEvent("auth:state", { detail: { ready: true, authed: false } }));
+    try { window.setSessionUserNS?.("default"); } catch {}
 
     // 페이지 이동
     location.href = "./login.html#loggedout";
