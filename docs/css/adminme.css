@@ -277,9 +277,6 @@ header.nav{
   align-items: start;
 }
 @media (max-width: 1099px){
-  #lb-root{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 699px){
   #lb-root{ grid-template-columns: 1fr; }
 }
 /* 카드 스킨(패널 톤 일치) */

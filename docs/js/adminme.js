@@ -2175,6 +2175,7 @@ async function loadLeaderboardsIntoInsights() {
   const btnSubmit = $("#lab-submit");
   const spanStrokes = $("#lab-strokes");
   const spanPoints = $("#lab-points");
+  const btnViewList = $("#lab-view-list");
 
   // --- API base (reuse existing globals if present) ---
   const API = (path) => {
@@ -2544,7 +2545,7 @@ async function loadLeaderboardsIntoInsights() {
   if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
   if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
   if (btnClear) btnClear.addEventListener("click", clearAll);
-  if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+  if (btnViewList) btnViewList.addEventListener("click", openAdminLabModal);
 
   // a11y: space toggles play when canvas focused
   cvs.tabIndex = 0;
