@@ -245,61 +245,69 @@ header.nav{
 .btn-delete:active{ background: var(--accent); transform: translateY(1px); }
 .btn-delete[aria-busy="true"]{ opacity:.6; pointer-events:none; }
 
-/* ===== Leaderboard ONLY CSS (KPI 관련 스타일 제거 버전) ===== */
-/* 이 블록만 추가/유지하세요. 다른 KPI(.insights .kpi, .rate 등) 코드는 삭제 */
+/* ===== Leaderboard: 3-Column Layout (KPI 제거 유지) ===== */
+/* 다른 코드 건드리지 말고 이 블록만 추가/대체 */
 
-/* Host grid (replaces old .insights contents) */
+/* 섹션 래퍼: 프로필과 간격만 책임 */
+.lb-section{ margin-top: 18px; }
+
+/* 그리드: 컨테이너(.container / .me) 폭에 맞춰 균등 3열 */
 .lb-grid{
   display: grid;
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
-/* 2열 확장 */
-@media (min-width: 960px){
+/* ≥700px: 2열 */
+@media (min-width: 700px){
   .lb-grid{ grid-template-columns: 1fr 1fr; }
+}
+
+/* ≥1100px: 3열 — “프로필 카드와 가로 맞춤” */
+@media (min-width: 1100px){
+  .lb-grid{ grid-template-columns: repeat(3, 1fr); }
+}
+
+/* 카드(패널) 스킨: 기존 .panel과 톤은 맞추되 여백/모서리 통일 */
+.lb-grid .panel{
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  display: grid;                 /* why: 헤더/내용/푸터 세로 정렬 균일 */
+  grid-template-rows: auto 1fr auto;
+  min-height: 140px;             /* why: 3열에서 카드 높이 들쑥 방지 */
 }
 
 /* 패널 헤더 */
 .lb-grid .panel h3{
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 16px;
   font-weight: 700;
+  letter-spacing: -.01em;
 }
 
-/* Loading/Error 상태 (JS가 임시로 .kpi-lg를 넣음 → 국소 스타일만 적용) */
-.lb-grid .kpi-lg{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-/* Error 텍스트 */
-.lb-grid .err{ color: #ff6b6b; }
-
-/* 표 기본 */
+/* 표(리더보드) */
 .lb-grid table.lb{
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: fixed;           /* why: 열 너비 안정화 */
   background: #fff;
-  border-radius: 14px;         /* 부모 .panel과 겹치더라도 문제 없음 */
-  overflow: hidden;            /* radius 적용 위해 */
+  border-radius: 12px;
+  overflow: hidden;              /* radius 적용 */
 }
 
-/* 셀 */
+/* 셀 공통 */
 .lb-grid table.lb th,
 .lb-grid table.lb td{
-  border-bottom: 1px solid var(--line, rgba(0,0,0,.08));
+  border-bottom: 1px solid rgba(0,0,0,.08);
   padding: 10px 12px;
   vertical-align: middle;
   text-align: right;
   font-size: 14px;
 }
 
-/* 첫 두 컬럼: 좌측 정렬 */
+/* 1,2열은 좌측 정렬 (Rank, Account) */
 .lb-grid table.lb th:nth-child(1),
 .lb-grid table.lb td:nth-child(1),
 .lb-grid table.lb th:nth-child(2),
@@ -307,19 +315,26 @@ header.nav{
   text-align: left;
 }
 
-/* 랭크 폭 고정 */
+/* Rank: 고정폭 + 숫자 자간 안정화 */
 .lb-grid table.lb th:nth-child(1),
 .lb-grid table.lb td:nth-child(1){
   width: 64px;
   font-variant-numeric: tabular-nums;
 }
 
-/* 마지막 행 바닥선 제거 */
-.lb-grid table.lb tbody tr:last-child td{
-  border-bottom: 0;
+/* 숫자열: 동일 폭/자간 */
+.lb-grid table.lb td:nth-child(3),
+.lb-grid table.lb td:nth-child(4),
+.lb-grid table.lb td:nth-child(5),
+.lb-grid table.lb td:nth-child(6){
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-/* 계정 셀 구성 */
+/* 마지막 행 경계선 제거 */
+.lb-grid table.lb tbody tr:last-child td{ border-bottom: 0; }
+
+/* 계정 셀(아바타+이름) */
 .lb-grid .acc{
   display: flex;
   align-items: center;
@@ -330,38 +345,28 @@ header.nav{
   width: 22px; height: 22px; border-radius: 50%;
   object-fit: cover; display: block; flex: 0 0 22px;
 }
-.lb-grid .acc > div{
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
+.lb-grid .acc > div{ min-width: 0; display: grid; gap: 2px; }
 .lb-grid .acc > div > div{
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lb-grid .muted{ opacity: .65; font-size: 12px; }
 
-/* 숫자 열: 고정 폭 & 숫자 정렬 안정화 */
-.lb-grid table.lb td:nth-child(3),
-.lb-grid table.lb td:nth-child(4),
-.lb-grid table.lb td:nth-child(5),
-.lb-grid table.lb td:nth-child(6){
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+/* 로딩/에러 자리표시자(선택) */
+.lb-grid .kpi-lg{
+  display: grid; place-items: center;
+  min-height: 56px; font-weight: 700;
 }
+.lb-grid .err{ color: #ff6b6b; }
 
-/* 모바일 압축 */
+/* 모바일: 덜 중요한 열 숨김 (Rate) */
 @media (max-width: 520px){
-  .lb-grid table.lb th:nth-child(5),
-  .lb-grid table.lb td:nth-child(5){ display:none; } /* Match(분자/분모) 숨김 */
+  .lb-grid table.lb th:nth-child(6),
+  .lb-grid table.lb td:nth-child(6){ display: none; }
 }
 
-/* 패널 스킨(기존 .panel과 조화) — 필요 시만 */
-.lb-grid .panel{
-  background: #fff;
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
-}
+/* 프로필 카드(.profile-hero)와 시각적 라인 맞춤(옵션):
+   컨테이너 기준 여백만 재정렬하므로 기존 레이아웃 영향 無 */
+.profile-hero{ margin-bottom: 16px; }
 
 /* =====================================================================
    9) Quick Panels (컬렉션 요약 등)
