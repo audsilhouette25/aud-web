@@ -578,26 +578,35 @@ header.nav{
 
 /* Lab panel */
 .panel.lab{
-  height: 450px; /* 유지 */
+  display: grid;
+  /* 가운데(캔버스) 행이 패딩을 제외한 남은 높이를 모두 차지 */
   grid-template-rows: auto minmax(0,1fr) auto;
-  --lab-head-h: 36px;     /* 제목줄 대략값 */
-  --lab-controls-h: 52px; /* 버튼줄 대략값 */
-  --lab-gap: 20px;        /* 내부 gap 여유 */
+  gap: 10px;
+  height: 450px;             /* 필요 시 조절 가능 (예: 420px, 48vh 등) */
+  padding: 12px 14px;        /* ← 원하는 옆 패딩을 여기서 지정 */
+  --lab-head-h: 36px;        /* 제목줄 대략값 (참고용 토큰) */
+  --lab-controls-h: 52px;    /* 버튼줄 대략값 (참고용 토큰) */
+  --lab-gap: 20px;           /* 내부 gap 여유 */
 }
+
 .lab-head{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
 }
 .lab-head h3{ font-size:16px; font-weight:700; }
 .lab-stats{ color: var(--muted); font-size: 12px; }
 
+/* 캔버스 래퍼: 그리드 남은 공간을 그대로 사용 */
 .lab-canvas-wrap{
   position: relative;
   border-radius: 16px;
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
-  height: calc(100% - var(--lab-head-h) - var(--lab-controls-h) - var(--lab-gap));
+  /* 고정 높이 제거: 패널의 가운데 행(minmax(0,1fr))을 그대로 채운다 */
+  height: auto;
+  min-height: 0; /* 그리드 컨텍스트에서 콘텐츠가 넘치며 커지는 것 방지 */
 }
+
 #aud-canvas{
   display: block;
   width: 100%;
@@ -636,7 +645,6 @@ header.nav{
     min-height: 240px;                /* 너무 납작 방지(옵션) */
   }
   .quick > .panel:first-child .kpi{
-    /* 라인 자체를 박스화 */
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -647,7 +655,6 @@ header.nav{
   .quick > .panel:first-child .kpi b{ font-size: 22px; }
   .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
 }
-
 
 /* ★ 좁은 화면(≤1000px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
 @media (max-width: 1000px){
@@ -691,24 +698,24 @@ header.nav{
 
 /* Admin Lab card: inner spacing & readable layout */
 #admin-lab .card {
-  padding: 12px 14px 14px;       /* 카드 안쪽 여백 증가 */
-  row-gap: 10px;                 /* 세로 간격 기본 */
+  padding: 12px 14px 14px;
+  row-gap: 10px;
 }
 
 #admin-lab .card img {
   display: block;
   width: 100%;
   height: auto;
-  margin-bottom: 10px;           /* 이미지와 메타 간격 */
-  border-radius: 12px;           /* 시각적 여유 */
+  margin-bottom: 10px;
+  border-radius: 12px;
 }
 
 #admin-lab .card .meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;                     /* owner / ns / time 간격 */
-  margin: 6px 0 2px;             /* 메타 주변 여백 */
+  gap: 10px;
+  margin: 6px 0 2px;
   line-height: 1.3;
 }
 
@@ -717,19 +724,19 @@ header.nav{
 #admin-lab .card .meta .time {
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;       /* 긴 문자열도 깔끔하게 */
+  text-overflow: ellipsis;
 }
 
 #admin-lab .card .row--spaced {
   display: flex;
   align-items: center;
-  gap: 12px;                     /* 버튼 사이 간격 ↑ */
-  margin-top: 10px;              /* 메타와 버튼 사이 간격 ↑ */
-  min-height: 44px;              /* 터치 타겟 확보 */
+  gap: 12px;
+  margin-top: 10px;
+  min-height: 44px;
 }
 
 #admin-lab .card .btn {
-  padding: 10px 16px;            /* 버튼 내부 여백 ↑ */
+  padding: 10px 16px;
 }
 
 /* 터치 환경에서 조금 더 여유 */
