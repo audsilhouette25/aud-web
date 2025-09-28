@@ -2672,7 +2672,7 @@ function goMineAfterShare(label = getLabel()) {
       const isTall12 = (h / w) >= 1.9; // 1:2 이상 세로형
 
       shell.setAttribute("data-fit", "height");
-      shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
+      shell.setAttribute("data-ar", "1:1");
 
       const right = document.createElement("div");
       right.className = "im-right";
@@ -2963,15 +2963,22 @@ function goMineAfterShare(label = getLabel()) {
 
     function applySelection(b, w, h){
       state.blob = b; state.w = w|0; state.h = h|0;
+
       if (b){
         const url = URL.createObjectURL(b);
         stageImg.src = url;
         stage.classList.add("has-image");
         stageImg.addEventListener("load", ()=> URL.revokeObjectURL(url), { once:true });
+
+        // 🔴 여기 추가: 비율 보고 data-ar 설정
+        const isTall12 = (h / w) >= 1.9;
+        shell.setAttribute("data-ar", isTall12 ? "1:2" : "1:1");
+
         share.disabled = false;
       } else {
         stageImg.removeAttribute("src");
         stage.classList.remove("has-image");
+        shell.removeAttribute("data-ar"); // or shell.setAttribute("data-ar","1:1");
         share.disabled = true;
       }
     }
