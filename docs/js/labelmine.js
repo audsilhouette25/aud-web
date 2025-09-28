@@ -80,6 +80,15 @@ const IMG_SRC = {
   portal: "./asset/portal.png",
 };
 
+function cropArKey(){
+  try {
+    const ns = (typeof getNS === "function" && getNS())
+      || (localStorage.getItem("auth:userns") || "default");
+    const label = (typeof window.readSelected === "function" && window.readSelected()) || "default";
+    return `mine:${String(ns).trim().toLowerCase()}:${label}:crop:ar`;
+  } catch { return "mine:default:default:crop:ar"; }
+}
+
 /* ------------------------------------------------------------------
  * step3 프로필 실시간 동기화 (me → labelmine)
  * - user:updated (same-tab broadcast)
@@ -3159,6 +3168,10 @@ function goMineAfterShare(label = getLabel()) {
 
       // State
       let ar = "1:1";
+      try {
+        const saved = sessionStorage.getItem(cropArKey());
+        if (saved === "1:1" || saved === "1:2") ar = saved;
+      } catch {}
       let tx = 0, ty = 0; // 팬 오프셋 (프레임 중심 기준)
       let isPanning = false, panStart = {x:0, y:0}, startTX = 0, startTY = 0;
       let viewW = 0, viewH = 0;
@@ -3206,6 +3219,8 @@ function goMineAfterShare(label = getLabel()) {
         frame = document.createElement("div");
         frame.className = "crop-frame";
         stage.appendChild(frame);
+
+        stage.classList.toggle("is-ratio-12", ar === "1:2");
 
         applyAspect(ar);
         draw();
@@ -3259,6 +3274,7 @@ function goMineAfterShare(label = getLabel()) {
 
       function applyAspect(next){
         ar = next;
+        try { sessionStorage.setItem(cropArKey(), ar); } catch {}
         const { fw, fh } = frameRect();
         minCover = Math.max(fw / img.naturalWidth, fh / img.naturalHeight);
         zoom = Math.max(minCover, zoom);
@@ -3376,6 +3392,7 @@ function goMineAfterShare(label = getLabel()) {
           const btn = e.target.closest("[data-ar]"); if (!btn) return;
           const next = btn.getAttribute("data-ar");
           applyAspect(next);
+          stage.classList.toggle("is-ratio-12", next === "1:2");
           closePops();
         });
 
