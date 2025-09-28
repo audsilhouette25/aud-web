@@ -761,9 +761,10 @@
     const gridJib = $("#grid-jibs");
     if (!gridLbl || !gridJib) return;
 
+    // 깜박임 방지: getCollected 준비 전에는 렌더하지 않음
     const regs = window.store?.getCollected?.()
       ? window.store.getCollected()
-      : (Array.isArray(window.store?.registered) ? window.store.registered : []);
+      : [];
 
     gridLbl.innerHTML = "";
     regs.forEach(lb => {
@@ -787,7 +788,7 @@
 
     const regs = window.store?.getCollected?.()
       ? window.store.getCollected()
-      : (Array.isArray(window.store?.registered) ? window.store.registered : []);
+      : [];
     const jibs = window.jib?.getCollected?.() || [];
 
     if ((regs?.length || 0) + (jibs?.length || 0) === 0) {
@@ -2897,14 +2898,13 @@
   onReady(async () => {
     ensureHeartCSS();
     initTabs();
-    renderTabsOnly();
     bindEvents();
 
     const flagged = hasAuthedFlag();
 
     if (flagged) {
+      await rehydrateFromLocalStorageIfSessionAuthed(); // why: fallback 렌더 전에 데이터 확보
       scheduleRender();
-      idle(() => rehydrateFromLocalStorageIfSessionAuthed());
       heroIn();
     }
 
@@ -2934,7 +2934,8 @@
       } catch {}
       migrateMineOnlyFlagToNS();
       if (!flagged) setAuthedFlag();
-      idle(() => rehydrateFromLocalStorageIfSessionAuthed());
+      await rehydrateFromLocalStorageIfSessionAuthed();
+      renderTabsOnly();
       scheduleRender();
       heroIn();
 
