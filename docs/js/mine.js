@@ -79,6 +79,9 @@
 
     function reflow(grid = $feedGrid()){
       if (!grid) return;
+      // 현재 CSS Grid의 실제 열 수를 읽어 state.cols에 반영
+      const cs = getComputedStyle(grid);
+      state.cols = Math.max(1, (cs.gridTemplateColumns || "").split(" ").length);
       reset();
       const cards = grid.querySelectorAll('.feed-card');
       cards.forEach((card) => {
@@ -123,6 +126,26 @@
       }
     }catch(e){}
   }
+
+  // 새로 추가되는 이미지가 로드되면 자동 재배치 (옵셔널 안전망)
+  (function observeMediaLoads(){
+    try {
+      const io = new MutationObserver((muts) => {
+        muts.forEach(m => {
+          m.addedNodes?.forEach(n => {
+            if (!(n instanceof Element)) return;
+            n.querySelectorAll?.('.feed-card .media img').forEach((img) => {
+              const card = img.closest('.feed-card');
+              if (!card) return;
+              const fire = () => { markTallByImage(card, img); STACK.reflow(); };
+              if (img.complete) fire(); else img.addEventListener('load', fire, { once:true });
+            });
+          });
+        });
+      });
+      io.observe(document.body, { childList:true, subtree:true });
+    } catch {}
+  })();
 
   // [ADD] NS helpers
   const safeLower = v => (v ?? '').toString().trim().toLowerCase();
@@ -1372,10 +1395,10 @@
           try { markTallByImage(card, imgEl); } catch {}
           try { sizeFeedGridCell(); } catch {}
         };
-        if (imgEl.complete) applyTall();
+        if (imgEl.complete) { applyTall(); STACK.reflow(); }
         else {
-          imgEl.addEventListener("load",  applyTall, { once: true });
-          imgEl.addEventListener("error", applyTall, { once: true });
+          imgEl.addEventListener("load",  () => { applyTall(); STACK.reflow(); }, { once: true });
+          imgEl.addEventListener("error", () => { applyTall(); STACK.reflow(); }, { once: true });
         }
         imgEl.addEventListener("error", () => {
           const m = card.querySelector(".media");
@@ -1395,6 +1418,7 @@
     }
 
     grid.appendChild(frag);
+    requestAnimationFrame(() => { sizeFeedGridCell(); STACK.reflow(); });
 
     try { STACK.reflow(grid); } catch {}
 
