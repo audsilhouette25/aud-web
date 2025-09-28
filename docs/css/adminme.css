@@ -266,18 +266,23 @@ header.nav{
    Leaderboard (ONLY) — 3 Columns Layout & Table Skin
    NOTE: 다른 섹션에는 영향 없음
 ===================================================================== */
-/* 프로필 영역과 간격만 제공(선택): 필요 없으면 마크업에서 사용 안 해도 됨 */
-.lb-section{ margin-top: 32px; }
-
-/* 기본 3열 */
-.lb-grid{
+/* 프로필 카드와 리더보드 사이 여백 */
+profile-hero + .insights{ margin-top: 32px; }
+/* adminme.html 구조: section.insights > #lb-root > .panel* */
+#lb-root{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)); /* 데스크탑: 3열 */
   gap: 16px;
+  align-items: start;
 }
-
+@media (max-width: 1099px){
+  #lb-root{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 699px){
+  #lb-root{ grid-template-columns: 1fr; }
+}
 /* 카드 스킨(패널 톤 일치) */
-.lb-grid .panel{
+.insights #lb-root .panel{
   background: #fff;
   border-radius: 18px;
   padding: 16px;
@@ -286,7 +291,7 @@ header.nav{
   grid-template-rows: auto 1fr auto; /* why: 높이 균일 */
   min-height: 140px;
 }
-.lb-grid .panel h3{
+.insights #lb-root .panel h3{
   margin: 0 0 10px;
   font-size: 16px;
   font-weight: 700;
