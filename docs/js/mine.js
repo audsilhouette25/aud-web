@@ -1241,92 +1241,132 @@
     return Promise.allSettled(jobs);
   }
 
-  function appendItems(items = []) {
-    const grid = $feedGrid(); if (!grid) return;
-    const frag = document.createDocumentFragment();
+  // /public/js/mine.js — appendItems replacement
 
-    // (A) 상위 필드 정규화: it.bg 없으면 깊게 찾아 올려둠
-    const normItems = items.map((it) => {
-      try {
-        if (it && typeof it === 'object' && !(it.bg || it.bg_color || it.bgHex)) {
-          const hex = pickBgHex(it);
-          if (hex) it.bg = hex;
+  function appendItems(items = []) {
+    const grid = $feedGrid(); if (!grid || !Array.isArray(items) || !items.length) return;
+
+    // 1) 정규화(아이디/캡션/bg/user)
+    const normalizeItem = (it) => {
+      const out = { ...it };
+      out.id = String(out.id || out.item_id || out._id || "");
+      // why: 캡션 소스가 다양
+      out.caption = typeof out.caption === "string" ? out.caption
+                : (typeof out.text === "string" ? out.text : "");
+      // why: 서버가 여러 키/중첩에 bg를 둘 수 있음
+      const deepBg = safePickBg(out);
+      if (deepBg && !out.bg) out.bg = deepBg;
+      // user/author 보정(있으면 그대로, 없으면 ns 기반 placeholder)
+      if (!out.user && out.ns) {
+        out.user = { id: out.ns, email: out.ns, displayName: (String(out.ns).split("@")[0] || null), avatarUrl: null };
+      }
+      return out;
+    };
+
+    // pickBgHex 가 존재하면 재사용, 없으면 내부 딥피커
+    function safePickBg(it) {
+      try { if (typeof pickBgHex === "function") return pickBgHex(it); } catch {}
+      const normHex = (v) => {
+        let s = String(v ?? "").trim();
+        if (!s) return null;
+        if (/^#([0-9a-f]{3})$/i.test(s)) s = s.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i, (_,a,b,c)=>`#${a}${a}${b}${b}${c}${c}`);
+        return /^#([0-9a-f]{6})$/i.test(s) ? s.toLowerCase() : null;
+      };
+      const grab = (o) => {
+        if (!o || typeof o !== "object") return null;
+        for (const k of ["bg","bg_color","bgHex","background","backgroundColor","bgcolor"]) {
+          const hex = normHex(o[k]);
+          if (hex) return hex;
         }
-      } catch {}
-      return it;
+        return null;
+      };
+      return grab(it) || grab(it.item) || grab(it.data) || grab(it.meta) || null;
+    }
+
+    // 2) 정규화 + 중복필터
+    const norm = [];
+    for (const raw of items) {
+      const it = normalizeItem(raw);
+      if (!it.id) continue;
+      if (FEED.idxById.has(it.id)) continue; // 이미 있으면 스킵(사라짐 방지)
+      norm.push(it);
+    }
+    if (!norm.length) return;
+
+    // 3) 최신순 정렬(“하나 들어오면 하나 사라짐” 체감 이슈 최소화; 랜덤화 제거)
+    norm.sort((a, b) => {
+      const at = Number(a.created_at ?? a.createdAt ?? 0);
+      const bt = Number(b.created_at ?? b.createdAt ?? 0);
+      if (bt !== at) return bt - at;
+      return String(b.id).localeCompare(String(a.id));
     });
 
-    // (B) 스타일시트 규칙 주입(가능한 경우)
-    try { BG.apply(normItems); } catch {}
+    // 4) BG 규칙 삽입(가능하면 전역 규칙)
+    try { BG.apply(norm); } catch {}
 
+    // 5) DOM 생성
+    const frag = document.createDocumentFragment();
     const newIds = [];
-    const page = normItems.slice();
-    shuffleInPlace(page);
 
-    for (const it of page) {
-      const id = String(it.id);
-      if (FEED.idxById.has(id)) continue;
-
+    for (const it of norm) {
       const wrap = document.createElement("div");
-      const _it = coerceUserFromItem(it);
-
+      const _it = coerceUserFromItem ? coerceUserFromItem(it) : it; // 존재 시 사용자 보정
       wrap.innerHTML = cardHTML(_it);
       const card = wrap.firstElementChild;
+      if (!card) continue;
 
-      // (C) inline fallback: CSS 규칙 주입이 막혀도 카드마다 --bg/배경을 직접 넣어줌
+      // 인라인 bg 폴백(규칙 삽입 실패 대비)
       try {
-        const hex = pickBgHex(_it);
-        if (hex && card?.style?.setProperty) {
-          card.style.setProperty('--bg', hex);
-          const media = card.querySelector('.media');
+        const hex = safePickBg(_it);
+        if (hex && card.style?.setProperty) {
+          card.style.setProperty("--bg", hex);
+          const media = card.querySelector(".media");
           if (media) media.style.background = hex;
         }
       } catch {}
 
-      // === Tall(1:2) 마킹 + Grid 보정 ===
+      // 캡션
+      const capEl = card.querySelector("[data-caption]");
+      if (capEl) capEl.textContent = String(_it.caption || "");
+
+      // 이미지 에러/로드 처리 + tall/grid 보정
       const imgEl = card.querySelector(".media img");
-      if (imgEl){
+      if (imgEl) {
         const applyTall = () => { 
-          markTallByImage(card, imgEl);
-          sizeFeedGridCell();
+          try { markTallByImage(card, imgEl); } catch {}
+          try { sizeFeedGridCell(); } catch {}
         };
         if (imgEl.complete) applyTall();
         else {
           imgEl.addEventListener("load",  applyTall, { once: true });
           imgEl.addEventListener("error", applyTall, { once: true });
         }
-      }
-
-      // 캡션/이미지 에러 핸들링 등 기존 로직 그대로…
-      const cap = card.querySelector('[data-caption]');
-      if (cap) cap.textContent = String(it.caption || it.text || "");
-      const img = card.querySelector(".media img");
-      if (img) {
-        img.addEventListener("error", () => {
+        imgEl.addEventListener("error", () => {
           const m = card.querySelector(".media");
           if (m) m.classList.add("broken");
-          img.remove();
+          imgEl.remove();
         }, { once: true });
-        if (img.complete) markTallByImage(card, img);
-        else {
-          img.addEventListener("load",  () => markTallByImage(card, img), { once: true });
-          img.addEventListener("error", () => markTallByImage(card, img), { once: true });
-        }
       }
 
-      try { upgradeHeartIconIn(card); } catch {}
+      try { upgradeHeartIconIn?.(card); } catch {}
+
       frag.appendChild(card);
 
-      FEED.idxById.set(id, FEED.items.length);
+      // 인덱스 갱신
+      FEED.idxById.set(_it.id, FEED.items.length);
       FEED.items.push(_it);
-      newIds.push(id);
+      newIds.push(_it.id);
     }
 
     grid.appendChild(frag);
-    if (newIds.length) subscribeItems(newIds);
-    idle(() => rehydrateLikesFor(newIds));
-    try { reconcileDeleteButtons(); } catch {}
-}
+
+    // 6) 구독/좋아요/삭제버튼 재결합
+    if (newIds.length) {
+      try { subscribeItems(newIds); } catch {}
+      idle(() => { try { rehydrateLikesFor(newIds); } catch {} });
+      try { reconcileDeleteButtons?.(); } catch {}
+    }
+  }
 
   async function loadMore() {
     if (FEED.busy || FEED.end) return;
