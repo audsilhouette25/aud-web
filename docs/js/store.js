@@ -266,6 +266,7 @@ window.LABEL_VOTES_SYNC_KEY = LABEL_VOTES_SYNC_KEY;
 
   // storage 이벤트로 감지 (다른 탭/윈도우 포함)
   window.addEventListener("storage", (e) => {
+    if (__purging()) return;
     if (!e?.key) return;
 
     // auth:flag 변화는 항상 반영
@@ -1596,10 +1597,15 @@ try { window.dispatchEvent(new Event("store:ready")); } catch {}
     // 갤러리 DB(NS별)
     try { indexedDB.deleteDatabase(getDBName()); } catch {}
     // 브라우저가 지원하면 전체 DB 열람 후 전부 제거(동의됨)
-    try {
+   try {
       if (indexedDB && indexedDB.databases) {
         const dbs = await indexedDB.databases();
-        for (const db of dbs) { if (db?.name) try { indexedDB.deleteDatabase(db.name); } catch {} }
+        for (const db of dbs) {
+          const name = db?.name || "";
+          if (name.startsWith("sdf-gallery-db:")) {
+            try { indexedDB.deleteDatabase(name); } catch {}
+          }
+        }
       }
     } catch {}
   }
