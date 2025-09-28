@@ -1655,31 +1655,22 @@ const btnReset   = document.getElementById("sdf-reset-btn");
 
       // [PATCH][helper] merge multi-layer canvases as a faithful snapshot
       function mergeFromScreen(){
-      const screen = document.getElementById("sdf-screen");
-      if (!screen) return null;
-      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-      const out = document.createElement("canvas");
-      // Prefer device size to keep sharpness after zoom
-      out.width = screen.width || Math.max(1, Math.round(screen.getBoundingClientRect().width * dpr));
-      out.height = screen.height || Math.max(1, Math.round(screen.getBoundingClientRect().height * dpr));
-      const ctx = out.getContext("2d");
-      for (const c of visibleCanvasesUnderScreen()){
-      try { ctx.drawImage(c, 0, 0, out.width, out.height); } catch {}
-      }
-      return out;
+        const screen = document.getElementById("sdf-screen");
+        if (!screen) return null;
+        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        const out = document.createElement("canvas");
+        // Prefer device size to keep sharpness after zoom
+        out.width = screen.width || Math.max(1, Math.round(screen.getBoundingClientRect().width * dpr));
+        out.height = screen.height || Math.max(1, Math.round(screen.getBoundingClientRect().height * dpr));
+        const ctx = out.getContext("2d");
+        for (const c of visibleCanvasesUnderScreen()){
+        try { ctx.drawImage(c, 0, 0, out.width, out.height); } catch {}
+        }
+        return out;
       }
 
 
       // [PATCH][helper] robust snapshot: try 1) exporter 2) DOM-merge fallback
-      async function snapshotCanvas(){
-      try {
-      const c = exportViewportCanvas();
-      if (c && !isCanvasBlank(c)) return c;
-      } catch {}
-      const merged = mergeFromScreen();
-      return merged || document.querySelector("canvas") || null;
-      }
-
       async function onSaveToGallery(){
         const label = resolveEffectiveLabel();
         const canSave = window.store && typeof window.store.addToGalleryFromCanvas === "function";
@@ -2813,12 +2804,12 @@ function goMineAfterShare(label = getLabel()) {
       }
 
       // ── 핸들러
-      const onEsc = (e) => { if (e.key === "Escape") { signalCropReset();cleanup(); reject(new Error("cancel")); } };
-      const onBackdropClick = (e) => { if (e.target === backdrop) {signalCropReset();  cleanup(); reject(new Error("cancel")); } };
-      const onCloseClick = () => { signalCropReset();  cleanup(); reject(new Error("cancel")); };
+      const onEsc = (e) => { if (e.key === "Escape") { signalCropRestore(); cleanup(); resolve({ back:true, blob, w, h }); } };
+      const onBackdropClick = (e) => { if (e.target === backdrop) { signalCropRestore(); cleanup(); resolve({ back:true, blob, w, h }); } };
+      const onCloseClick = () => { signalCropRestore(); cleanup(); resolve({ back:true, blob, w, h }); };
 
       const onBackClick = () => {
-        signalCropReset(); 
+        signalCropRestore(); 
         cleanup();
         // 호출자에게 "뒤로가기" 의사 전달(갤러리로 복귀하도록)
         resolve({ back: true, blob, w, h });
@@ -2850,6 +2841,38 @@ function goMineAfterShare(label = getLabel()) {
       shareBtn.addEventListener("click", onShareClick);
     });
   }
+
+  // [1] 여기에 넣기: openGalleryPicker / openComposeModal 정의 *다음*
+  async function startPostFlow() {
+    try {
+      const picked = await openGalleryPicker();          // { blob, w, h }
+      const res = await openComposeModal(picked);        // true | { back:true, ... }
+      if (res === true) return;                          // Share 완료 (goMineAfterShare 내부 처리)
+      if (res && res.back) {                             // 뒤로 → 다시 갤러리
+        return startPostFlow();
+      }
+    } catch (e) {
+      // 갤러리에서 취소 등
+    }
+  }
+
+  // [2] 트리거 연결: “피드 열기/글쓰기” 버튼 클릭 시 실행
+  SDF.ensureReady(() => {
+    const postBtn =
+      document.getElementById("feed-open-btn") ||
+      document.querySelector('button[data-action*="post"], button#post, button.post-open');
+
+    if (postBtn && !postBtn.__postFlowBound__) {
+      postBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // 로그인 요구 시
+        if (!(await requireLoginOrRedirect())) return;
+        startPostFlow();
+      }, { passive: false });
+      postBtn.__postFlowBound__ = true;
+    }
+  });
 
   // ─────────────────────────────────────────────────────────────
   // 4) One-Step Feed Composer (파일선택/갤러리 선택 → 곧바로 작성)
