@@ -1356,6 +1356,29 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       window.addEventListener("resize", setup); window.addEventListener("orientationchange", setup);
       loadState();
 
+      // ✅ Feed 모달 복귀 시, 확대/스크롤을 초기화
+      window.addEventListener("sdf:reset-crop-viewport", () => {
+        try {
+          scrollX = 0;
+          scrollY = 0;
+          resetZoom();          // zoom=1로
+          requestRepaint();
+          scheduleSave();       // 저장값도 초기화로 덮어쓰기
+        } catch {}
+      });
+
+      // 페이지 복귀 타이밍에 이벤트를 못 받았어도 1회 보정
+      try {
+        if (sessionStorage.getItem("sdf:crop:needsReset") === "1") {
+          sessionStorage.removeItem("sdf:crop:needsReset");
+          scrollX = 0;
+          scrollY = 0;
+          resetZoom();
+          requestRepaint();
+          scheduleSave();
+        }
+      } catch {}
+
       // ===== keyboard =====
       window.addEventListener("keydown", (e)=>{
         const k = e.key.toLowerCase();
@@ -2690,6 +2713,13 @@ function goMineAfterShare(label = getLabel()) {
       
       const toAPI = window.toAPI || ((x) => x);
 
+      function signalCropReset(){
+        try {
+          sessionStorage.setItem("sdf:crop:needsReset","1");
+          window.dispatchEvent(new Event("sdf:reset-crop-viewport"));
+        } catch {}
+      }
+
       // 기본 이니셜 SVG (네트워크 의존 X)
       function initialsOf(name = "member") {
         const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -2797,11 +2827,12 @@ function goMineAfterShare(label = getLabel()) {
       }
 
       // ── 핸들러
-      const onEsc = (e) => { if (e.key === "Escape") { cleanup(); reject(new Error("cancel")); } };
-      const onBackdropClick = (e) => { if (e.target === backdrop) { cleanup(); reject(new Error("cancel")); } };
-      const onCloseClick = () => { cleanup(); reject(new Error("cancel")); };
+      const onEsc = (e) => { if (e.key === "Escape") { signalCropReset();cleanup(); reject(new Error("cancel")); } };
+      const onBackdropClick = (e) => { if (e.target === backdrop) {signalCropReset();  cleanup(); reject(new Error("cancel")); } };
+      const onCloseClick = () => { signalCropReset();  cleanup(); reject(new Error("cancel")); };
 
       const onBackClick = () => {
+        signalCropReset(); 
         cleanup();
         // 호출자에게 "뒤로가기" 의사 전달(갤러리로 복귀하도록)
         resolve({ back: true, blob, w, h });
