@@ -229,6 +229,14 @@
   const toAPI = (u) =>
   (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
 
+  // [NEW] admin/leaderboards, 이미지 등 공용 URL 생성
+  function toAPI2(p) {
+    try {
+      const base = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || location.origin;
+      return new URL(String(p).replace(/^\/+/, "/"), base).toString();
+    } catch { return p; }
+  }
+
   // Auth helpers (no-op safe)
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
   const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
@@ -612,7 +620,7 @@
       // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
       if (window.ENABLE_ADMIN_BACKEND === true) {
         const res = await fetch(
-          (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/audlab/admin/bootstrap",
+          (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/bootstrap",
           { credentials: "include" }
         ).catch(() => null);
         if (res?.ok) {
@@ -1290,13 +1298,6 @@ function esc(s) {
     return `<article class="panel"><h3>${esc(title)}</h3><table class="lb">${thead}<tbody>${rows.map(tr).join("")}</tbody></table></article>`;
   }
 
-function toAPI2(p) {
-  try {
-    const base = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || location.origin;
-    return new URL(String(p).replace(/^\/+/, "/"), base).toString();
-  } catch { return p; }
-}
-
 async function loadLeaderboardsIntoInsights() {
   const host = ensureLeaderboardHost();
   if (!host) return;
@@ -1878,9 +1879,7 @@ async function loadLeaderboardsIntoInsights() {
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
-    if (quick.authed) {
-      await loadLeaderboardsIntoInsights();
-    }
+    if (quick.authed) await loadLeaderboardsIntoInsights();
   }
  
   if (document.readyState === "loading") {
