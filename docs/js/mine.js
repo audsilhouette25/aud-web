@@ -50,19 +50,60 @@
   const $feedScroll = () => document.querySelector("[data-feed-scroll]"); // optional container
 
   /* === FEED GRID SIZER: 셀 한 칸 높이를 동적으로 설정 =================== */
+  /* === STACK LAYOUT (row-major; skip covered; supports 1:2) ================== */
+  const STACK = (() => {
+    const state = { cols: 3, occ: [], next: 0 };
+    const reset  = () => { state.occ = []; state.next = 0; };
+    const ensure = (i) => { while (state.occ.length <= i) state.occ.push(false); };
+    const isFree = (i) => !state.occ[i];
+    const $feedGrid = () => document.querySelector("[data-feed-grid]");
+
+    function place(height=1){
+      const cols = state.cols;
+      let i = state.next;
+      for (;;) {
+        ensure(i + (height===2 ? cols : 0));
+        const belowOK = (height===1) || isFree(i + cols);
+        if (isFree(i) && belowOK) break;
+        i++;
+      }
+      state.occ[i] = true;
+      if (height === 2) state.occ[i + cols] = true;
+      while (state.occ[state.next]) state.next++;
+      const row = Math.floor(i / cols) + 1;
+      const col = (i % cols) + 1;
+      return { row, col, rowSpan: height, colSpan: 1, index: i };
+    }
+
+    const heightOf = (card) => (card?.dataset?.ar === "1:2" ? 2 : 1);
+
+    function reflow(grid = $feedGrid()){
+      if (!grid) return;
+      reset();
+      const cards = grid.querySelectorAll('.feed-card');
+      cards.forEach((card) => {
+        const h = heightOf(card);
+        const pos = place(h);
+        card.style.gridColumn = `${pos.col} / span ${pos.colSpan}`;
+        card.style.gridRow    = `${pos.row} / span ${pos.rowSpan}`;
+      });
+    }
+
+    return { reflow };
+  })();
+
+  try { window.STACK = STACK; } catch {}
+
   function sizeFeedGridCell(){
     const grid = document.querySelector("[data-feed-grid]");
     if (!grid) return;
     const cs   = getComputedStyle(grid);
     const gap  = parseFloat(cs.gap || cs.gridRowGap || "0") || 0;
-    const cols = 3;                                    // 3열 고정
+    const cols = 3; // 3열 고정
     const w    = grid.clientWidth;
     const cell = Math.max(1, Math.floor((w - gap * (cols - 1)) / cols));
     grid.style.setProperty("--cell", `${cell}px`);
   }
-  window.addEventListener("resize", sizeFeedGridCell);
-  document.addEventListener("DOMContentLoaded", sizeFeedGridCell);
-
 
   // === Tall(1:2) 마킹 유틸 ===
   const TALL_THRESHOLD = 0.55; // 1:2 = 0.5, 관용치 포함
@@ -1294,12 +1335,7 @@
     if (!norm.length) return;
 
     // 3) 최신순 정렬(“하나 들어오면 하나 사라짐” 체감 이슈 최소화; 랜덤화 제거)
-    norm.sort((a, b) => {
-      const at = Number(a.created_at ?? a.createdAt ?? 0);
-      const bt = Number(b.created_at ?? b.createdAt ?? 0);
-      if (bt !== at) return bt - at;
-      return String(b.id).localeCompare(String(a.id));
-    });
+    shuffleInPlace(norm);
 
     // 4) BG 규칙 삽입(가능하면 전역 규칙)
     try { BG.apply(norm); } catch {}
@@ -1359,6 +1395,8 @@
     }
 
     grid.appendChild(frag);
+
+    try { STACK.reflow(grid); } catch {}
 
     // 6) 구독/좋아요/삭제버튼 재결합
     if (newIds.length) {
