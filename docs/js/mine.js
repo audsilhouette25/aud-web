@@ -1241,17 +1241,28 @@
     return Promise.allSettled(jobs);
   }
 
-
-  function appendItems(items=[]) {
+  function appendItems(items = []) {
     const grid = $feedGrid(); if (!grid) return;
     const frag = document.createDocumentFragment();
 
-    try { BG.apply(items); } catch {}
+    // (A) 상위 필드 정규화: it.bg 없으면 깊게 찾아 올려둠
+    const normItems = items.map((it) => {
+      try {
+        if (it && typeof it === 'object' && !(it.bg || it.bg_color || it.bgHex)) {
+          const hex = pickBgHex(it);
+          if (hex) it.bg = hex;
+        }
+      } catch {}
+      return it;
+    });
 
-    const newIds = []; 
+    // (B) 스타일시트 규칙 주입(가능한 경우)
+    try { BG.apply(normItems); } catch {}
 
-    const page = items.slice();
-    shuffleInPlace(page); 
+    const newIds = [];
+    const page = normItems.slice();
+    shuffleInPlace(page);
+
     for (const it of page) {
       const id = String(it.id);
       if (FEED.idxById.has(id)) continue;
@@ -1259,16 +1270,25 @@
       const wrap = document.createElement("div");
       const _it = coerceUserFromItem(it);
 
-      // ★ 여기서 카드 마크업을 만든다
       wrap.innerHTML = cardHTML(_it);
       const card = wrap.firstElementChild;
-      
+
+      // (C) inline fallback: CSS 규칙 주입이 막혀도 카드마다 --bg/배경을 직접 넣어줌
+      try {
+        const hex = pickBgHex(_it);
+        if (hex && card?.style?.setProperty) {
+          card.style.setProperty('--bg', hex);
+          const media = card.querySelector('.media');
+          if (media) media.style.background = hex;
+        }
+      } catch {}
+
       // === Tall(1:2) 마킹 + Grid 보정 ===
       const imgEl = card.querySelector(".media img");
       if (imgEl){
         const applyTall = () => { 
-          markTallByImage(card, imgEl);   // 1:2면 data-ar="1:2" 부여
-          sizeFeedGridCell();             // grid-row span 반영하여 레이아웃 보정
+          markTallByImage(card, imgEl);
+          sizeFeedGridCell();
         };
         if (imgEl.complete) applyTall();
         else {
@@ -1277,11 +1297,9 @@
         }
       }
 
-      // ★ [넣어둔 블럭 1/3] 캡션 텍스트 주입 (버그 수정: card 참조 순서)
+      // 캡션/이미지 에러 핸들링 등 기존 로직 그대로…
       const cap = card.querySelector('[data-caption]');
       if (cap) cap.textContent = String(it.caption || it.text || "");
-
-      // ★ [넣어둔 블럭 2/3] 이미지 에러 핸들링 → placeholder 배경만 노출
       const img = card.querySelector(".media img");
       if (img) {
         img.addEventListener("error", () => {
@@ -1289,63 +1307,26 @@
           if (m) m.classList.add("broken");
           img.remove();
         }, { once: true });
-        // ✅ Tall 마킹은 에러/성공과 무관하게 별도로 (이미 위쪽 imgEl 분기에서 해줬다면 이 블록은 생략해도 OK)
-        if (img.complete) {
-          markTallByImage(card, img);
-        } else {
-          img.addEventListener("load", () => markTallByImage(card, img), { once: true });
+        if (img.complete) markTallByImage(card, img);
+        else {
+          img.addEventListener("load",  () => markTallByImage(card, img), { once: true });
           img.addEventListener("error", () => markTallByImage(card, img), { once: true });
         }
       }
 
-      // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)
       try { upgradeHeartIconIn(card); } catch {}
-
-      // DOM 조각에 카드 추가
       frag.appendChild(card);
 
-      // ★ NS 백스탑: 카드에 data-ns가 비어 있으면 FEED/유추로 보정
-      (() => {
-        const nsInDom = safeLower(card?.dataset?.ns || "");
-        if (nsInDom && !isEmailNS(nsInDom)) { card.dataset.ns = ""; return; }
-        if (!nsInDom) {
-          const cand =
-            safeLower(it?.user?.email) ||
-            safeLower(it?.owner?.ns || it?.ns || it?.meta?.ns || "");
-          if (isEmailNS(cand)) card.dataset.ns = cand;
-        }
-      })();
-
-      // ★ [넣어둔 블럭 3/3] store 카운트 반영(값 있을 때만)
-      try { renderCountFromStore(id, card); } catch {}
-
-      // ★ 로컬에 저장된 '의도(liked)'만 복원(카운트는 스토어/서버 권위 유지)
-      try {
-        const rec = (typeof window.getLikeIntent === "function") ? window.getLikeIntent(id) : null;
-        if (rec && typeof rec.liked === "boolean") {
-          try { updateLikeUIEverywhere(id, rec.liked, /*likes*/ undefined); } catch {}
-          try { setFeedMemoryLike(id, rec.liked, /*likes*/ undefined); } catch {}
-          try { window.setLikeIntent?.(id, rec.liked, /*likes*/ undefined); } catch {}
-        }
-      } catch {}
-
-      // === FEED 인덱스/배열 갱신 (★ 이 위치가 맞다) ===
       FEED.idxById.set(id, FEED.items.length);
       FEED.items.push(_it);
-
       newIds.push(id);
     }
 
-    // 그리드에 한 번에 붙임
     grid.appendChild(frag);
-
-    // 새로 붙은 id들 소켓 구독 + 유휴시 서버 스냅샷 보정
     if (newIds.length) subscribeItems(newIds);
     idle(() => rehydrateLikesFor(newIds));
-
-    // 내 게시물 삭제버튼 표시 재조정
     try { reconcileDeleteButtons(); } catch {}
-  }
+}
 
   async function loadMore() {
     if (FEED.busy || FEED.end) return;
@@ -2820,12 +2801,33 @@
 
   // [ADD] bg hex 정규화
   function pickBgHex(it){
-    let s = String(it?.bg || it?.bg_color || it?.bgHex || "").trim();
-    if (!s) return null;
-    if (/^#([0-9a-f]{3})$/i.test(s)) {
-      s = s.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i, (_,a,b,c)=>`#${a}${a}${b}${b}${c}${c}`);
+    // why: 서버가 item/data/meta 아래에 bg를 넣어줄 수 있어서 깊게 찾는다.
+    const N = (s) => {
+      s = String(s || '').trim();
+      if (!s) return null;
+      if (/^#([0-9a-f]{3})$/i.test(s)) s = s.replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i, (_,a,b,c)=>`#${a}${a}${b}${b}${c}${c}`);
+      return /^#([0-9a-f]{6})$/i.test(s) ? s.toLowerCase() : null;
+    };
+    const grab = (o) => {
+      if (!o || typeof o !== 'object') return null;
+      for (const k of ['bg','bg_color','bgHex','background','backgroundColor','bgcolor']) {
+        const v = o[k];
+        if (typeof v === 'string') {
+          const hex = N(v);
+          if (hex) return hex;
+        }
+      }
+      return null;
+    };
+    // 1차: 최상위
+    let hex = grab(it);
+    if (hex) return hex;
+    // 2차: 중첩 컨테이너들
+    for (const nest of [it?.item, it?.data, it?.meta]) {
+      hex = grab(nest);
+      if (hex) return hex;
     }
-    return /^#([0-9a-f]{6})$/i.test(s) ? s.toLowerCase() : null;
+    return null;
   }
 
   (function PostModalMount(){
