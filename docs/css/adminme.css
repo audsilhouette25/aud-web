@@ -565,9 +565,6 @@ header.nav{
 #me-avatar.avatar.url-mode .avatar-img{ display:block; }
 #me-avatar.avatar.url-mode::before{ content:""; }
 
-/* FILE: public/css/me.css */
-/* == append at end == */
-
 /* Lab layout next to Quick */
 .lab-wrap{
   display: grid;
@@ -584,7 +581,7 @@ header.nav{
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 10px;
-  min-height: 420px;
+  min-height: 350px;
 }
 .lab-head{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
@@ -598,7 +595,7 @@ header.nav{
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
-  height: clamp(300px, 42vh, 520px);
+  height: clamp(300px, 42vh, 400px);
 }
 #aud-canvas{
   display: block;
