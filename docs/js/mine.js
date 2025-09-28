@@ -2139,12 +2139,25 @@
     try { applyMineFilter(); } catch {}
   }
 
-  // === 전역에서 같은 id의 카드 제거 + FEED 인덱스 재구축 ======================
+  // === [ADD] after deletion, reflow the grid immediately ===
+  function scheduleStackReflow() {
+    // why: ensure CSS var(--cell) & grid placement are refreshed after DOM removals
+    const run = () => {
+      try { sizeFeedGridCell(); } catch {}
+      try { STACK.reflow(); } catch {}
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 0);
+  }
+
+  // === [REPLACE] removeItemEverywhere: now triggers instant STACK reflow ===
   function removeItemEverywhere(id) {
     const key = String(id);
 
     // 1) DOM 제거 (그리드/모달 등)
-    document.querySelectorAll(`.feed-card[data-id="${CSS.escape(String(key))}"]`).forEach(el => el.remove());
+    document
+      .querySelectorAll(`.feed-card[data-id="${CSS.escape(String(key))}"]`)
+      .forEach(el => el.remove());
 
     // 2) FEED 배열/인덱스 갱신
     const idx = FEED.idxById.get(key);
@@ -2156,8 +2169,10 @@
 
     // 3) 소켓 구독 해제
     try { unsubscribeItems([key]); } catch {}
-  }
 
+    // 4) 🔥 즉시 재배치 (빈칸 제거)
+    scheduleStackReflow();
+  }
 
   // =======================
   // VOTE (robust + no 404)
