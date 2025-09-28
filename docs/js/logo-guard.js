@@ -162,7 +162,7 @@
         if (sessionStorage.getItem('auth:isAdmin') === '1') return true;
 
         // fallback: email allow-list (in case title hasn’t been clicked yet)
-        const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : ['finelee03@naver.com'])
+        const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : ['audsilhouette@gmail.com'])
                               .map(s => String(s).trim().toLowerCase());
         const ns = (localStorage.getItem('auth:userns') || '').trim().toLowerCase();
         return ns && ADMIN_EMAILS.includes(ns);

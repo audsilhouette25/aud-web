@@ -14,7 +14,7 @@
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
 
   // [ADD] admin allowlist
-  const ADMIN_EMAILS = ["finelee03@naver.com"]; // 운영자 이메일
+  const ADMIN_EMAILS = ["audsilhouette@gmail.com"]; // 운영자 이메일
 
   window.__toAPI = function (u) {
     const s = String(u || "");
