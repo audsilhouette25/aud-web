@@ -261,26 +261,19 @@ header.nav{
 }
 
 #admin-lab .card .btn { padding: 12px 18px; }
- 
+
 /* =====================================================================
    Leaderboard (ONLY) — 3 Columns Layout & Table Skin
    NOTE: 다른 섹션에는 영향 없음
 ===================================================================== */
 /* 프로필 영역과 간격만 제공(선택): 필요 없으면 마크업에서 사용 안 해도 됨 */
-.lb-section{ margin-top: 18px; }
+.lb-section{ margin-top: 32px; }
 
 /* 기본 3열 */
 .lb-grid{
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-}
-/* 중간 화면: 2열, 작은 화면: 1열 */
-@media (max-width: 1099px){
-  .lb-grid{ grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 699px){
-  .lb-grid{ grid-template-columns: 1fr; }
 }
 
 /* 카드 스킨(패널 톤 일치) */
