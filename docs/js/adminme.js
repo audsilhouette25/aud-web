@@ -1328,7 +1328,11 @@ async function loadLeaderboardsIntoInsights() {
   `;
   } catch (e) {
     console.error("[leaderboards] load failed:", e);
-    host.innerHTML = `<article class="panel"><div class="kpi-lg err">리더보드 불러오기 실패</div></article>`;
+   host.innerHTML = `
+     ${tableHTML("Most Posts", [], "posts")}
+     ${tableHTML("Most Votes (received)", [], "votes")}
+     ${tableHTML("Best Match Rate", [], "rate")}
+   `;
   }
 }
 
