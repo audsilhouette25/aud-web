@@ -1356,28 +1356,14 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       window.addEventListener("resize", setup); window.addEventListener("orientationchange", setup);
       loadState();
 
-      // ✅ Feed 모달 복귀 시, 확대/스크롤을 초기화
-      window.addEventListener("sdf:reset-crop-viewport", () => {
+      // ▶ 피드 모달에서 돌아왔을 때, 저장돼 있던 줌/스크롤 그대로 다시 그리기
+      window.addEventListener("sdf:restore-crop-viewport", () => {
         try {
-          scrollX = 0;
-          scrollY = 0;
-          resetZoom();          // zoom=1로
+          // loadState()는 offscreen + zoom/scroll을 localStorage에서 읽어옴
+          loadState();
           requestRepaint();
-          scheduleSave();       // 저장값도 초기화로 덮어쓰기
         } catch {}
       });
-
-      // 페이지 복귀 타이밍에 이벤트를 못 받았어도 1회 보정
-      try {
-        if (sessionStorage.getItem("sdf:crop:needsReset") === "1") {
-          sessionStorage.removeItem("sdf:crop:needsReset");
-          scrollX = 0;
-          scrollY = 0;
-          resetZoom();
-          requestRepaint();
-          scheduleSave();
-        }
-      } catch {}
 
       // ===== keyboard =====
       window.addEventListener("keydown", (e)=>{
@@ -2713,10 +2699,10 @@ function goMineAfterShare(label = getLabel()) {
       
       const toAPI = window.toAPI || ((x) => x);
 
-      function signalCropReset(){
+      function signalCropRestore(){
         try {
-          sessionStorage.setItem("sdf:crop:needsReset","1");
-          window.dispatchEvent(new Event("sdf:reset-crop-viewport"));
+          // 굳이 세션 플래그는 필요 없음. 단순히 복원 이벤트만 쏘자.
+          window.dispatchEvent(new Event("sdf:restore-crop-viewport"));
         } catch {}
       }
 
