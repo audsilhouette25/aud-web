@@ -201,15 +201,32 @@
     try {
       const u = (me && (me.user || me)) || {};
       const role  = String(u.role || u.user_role || '').toLowerCase();
-      const roles = (Array.isArray(u.roles) ? u.roles : (Array.isArray(u.scopes) ? u.scopes : (Array.isArray(u.permissions) ? u.permissions : [])))
-                    .map(x => String(x).toLowerCase());
-      return (u.isAdmin === true)
-          || role === 'admin'
-          || roles.includes('admin')
-          || roles.includes('admins')
-          || roles.includes('administrator');
+      const roles = (
+        Array.isArray(u.roles) ? u.roles :
+        (Array.isArray(u.scopes) ? u.scopes :
+        (Array.isArray(u.permissions) ? u.permissions : []))
+      ).map(x => String(x).toLowerCase());
+
+      // ✅ 기존 서버/클레임 기반 판정
+      const serverAdmin =
+        (u.isAdmin === true) ||
+        role === 'admin' ||
+        roles.includes('admin') ||
+        roles.includes('admins') ||
+        roles.includes('administrator');
+
+      if (serverAdmin) return true;
+
+      // ✅ 추가: 이메일 allowlist
+      const email = String(u.email || u.user_email || '').trim().toLowerCase();
+      if (email) {
+        const allow = readAdminAllowlist(); // ex) ["finelee03@naver.com"]
+        if (allow.length && allow.includes(email)) return true;
+      }
+
+      return false;
     } catch { return false; }
-  }
+}
 
   // preserve auth flag across reset=1
   (function preserveAuthFlagOnReset() {
@@ -290,6 +307,23 @@
         : u.toString();
     } catch { return p; }
   };
+
+  function readAdminAllowlist() {
+    try {
+      // 우선순위: window.ADMIN_EMAILS(Array) → window.ADMIN_ALLOWLIST(Array|CSV)
+      let list = [];
+      const a = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : null);
+      const b = (Array.isArray(window.ADMIN_ALLOWLIST) ? window.ADMIN_ALLOWLIST
+                : (typeof window.ADMIN_ALLOWLIST === 'string' ? window.ADMIN_ALLOWLIST.split(/[,;\s]+/) : null));
+
+      if (a && a.length) list = a;
+      else if (b && b.length) list = b;
+
+      return list
+        .map(x => String(x || '').trim().toLowerCase())
+        .filter(Boolean);
+    } catch { return []; }
+  }
 
   /* =========================================================
   * AVATAR UTIL (profile-ready; no 404; future-proof)
@@ -3398,36 +3432,51 @@
     if (!el || el.__bound) return;
     el.__bound = true;
 
-    const go = (ev) => {
+    async function computeIsAdminSafe() {
+      // 빠른 경로: 이미 계산된 값 또는 세션 캐시
+      if (typeof window.__IS_ADMIN === 'boolean') return window.__IS_ADMIN;
+      const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
+      if (cached) return true;
+
+      // 느린 경로: 지금 즉시 me 조회 → 판정
+      try {
+        if (window.auth?.getUser) {
+          const me = await window.auth.getUser().catch(() => null);
+          const admin = pickIsAdmin(me);
+          // 이후를 위해 캐시
+          window.__IS_ADMIN = admin;
+          try { sessionStorage.setItem('auth:isAdmin', admin ? '1' : '0'); } catch {}
+          return admin;
+        }
+      } catch {}
+      return false;
+    }
+
+    const go = async (ev) => {
       if (ev) { ev.preventDefault(); ev.stopPropagation(); }
       try { window.auth?.markNavigate?.(); } catch {}
 
-      // 현재 인증 여부
+      // 현재 인증 여부(기존 로직 유지)
       const authed = (typeof window.auth?.isAuthed === 'function')
         ? !!window.auth.isAuthed()
         : (sessionStorage.getItem('auth:flag') === '1');
 
-      // [NEW] 관리자 여부: 전역 플래그 → 세션 캐시 순으로 확인
-      const isAdmin =
-        (typeof window.__IS_ADMIN === 'boolean') ? window.__IS_ADMIN
-                                                : (sessionStorage.getItem('auth:isAdmin') === '1');
+      // ★ 보강: 클릭 시점에 관리자 여부 재확인
+      const isAdminNow = await computeIsAdminSafe();
 
-      // [NEW] 목적지 결정
-      const target = isAdmin ? './adminme.html' : './me.html';
+      const target = isAdminNow ? './adminme.html' : './me.html';
 
       if (authed) {
         location.assign(target);
       } else {
         const next = encodeURIComponent(target);
-        location.assign(`${safeHref('login.html')}?next=${next}`);
+        location.assign(`${(typeof window.pageHref === 'function' ? window.pageHref('login.html') : './login.html')}?next=${next}`);
       }
     };
 
-    // 클릭/키보드 접근성 처리 유지
+    // 클릭/키보드 접근성 처리
     el.addEventListener('click', go);
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') go(e);
-    });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
 
     // B안 폴백(엘리먼트가 <h1>일 수도 있으니 접근성 보강)
     if (el.tagName !== 'A') {
