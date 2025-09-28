@@ -31,7 +31,9 @@ function serverAuthed(){ try{ return !!(window.auth && window.auth.isAuthed && w
 function sessionAuthed(){ return hasAuthedFlag() || serverAuthed(); }
 
 // ===== 스냅샷 강제 저장(LS + 서버 keepalive) =====
-
+function __purging() {
+  try { return !!window.__PURGING; } catch { return false; }
+}
 function __isAdminAlwaysOpen(){
   try{
     const ns = (typeof USER_NS !== "undefined" ? USER_NS : "default");
@@ -68,6 +70,7 @@ async function __pushStateKeepalive(){
 }
 
 async function __flushSnapshot(opts = { server: true }){
+  if (__purging()) return;
   try {
     // 1) 로컬 스냅샷(항상 강제)
     __forceLsSet(LABEL_SYNC_KEY,  { type:"set", arr: [...readLabelSet()] });
@@ -548,16 +551,19 @@ function onGuest(fn){
 
 /** persist 브로드캐스트(Authed) vs ephem 브로드캐스트(Guest) */
 function emitSyncLS(key, payload){
+  if (__purging()) return;
   // Authed용: 지속 브로드캐스트
   lsSet(key, JSON.stringify({ ...payload, t: Date.now(), src: TAB_ID }));
 }
 function emitSyncGuest(kind, payload){
+  if (__purging()) return;
   // Guest용: 비지속 브로드캐스트
   postGuest({ kind, payload });
 }
 
 /** 공통 브로드캐스트 진입점 */
 function emitSync(kindKey, payload){
+  if (__purging()) return;
   if (persistEnabled()) emitSyncLS(kindKey, payload);
   else {
     if (bc) emitSyncGuest(kindKey, payload); // BC 가능하면 그대로
@@ -574,6 +580,7 @@ function emitSync(kindKey, payload){
 
 /** 수신 핸들러: 외부에서 온 변경을 세션에 반영(루프 금지) */
 function applyIncoming(kindKey, payload){
+  if (__purging()) return;
   try{
     if (kindKey === LIKES_SYNC_KEY && payload?.map){
       // 세션에만 반영 (재브로드캐스트 금지)
@@ -632,6 +639,7 @@ function applyIncoming(kindKey, payload){
 
 /** Authed: localStorage(storage) 수신 */
 window.addEventListener("storage", (e)=>{
+  if (__purging()) return;
   // 로그인(=persistEnabled) 상태면: 지속 스냅샷 키들 수신
   if (persistEnabled()) {
     const k = e?.key;
@@ -655,6 +663,7 @@ window.addEventListener("storage", (e)=>{
 
 /** Guest: BroadcastChannel 수신 */
 onGuest((m)=>{
+  if (__purging()) return;
   const k = m?.kind;
   if (k === HEARTS_SYNC_KEY || k === TS_SYNC_KEY || k === LABEL_SYNC_KEY || k === JIB_SYNC_KEY || k === LABEL_VOTES_SYNC_KEY){
     applyIncoming(k, m.payload);
@@ -682,6 +691,7 @@ async function apiFetch(path, init){
 
 let serverSyncTimer = null;
 function scheduleServerSync(delay = 350) {
+  if (__purging()) return;
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
   if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 동기화
   if (serverSyncTimer) clearTimeout(serverSyncTimer);
@@ -689,6 +699,7 @@ function scheduleServerSync(delay = 350) {
 }
 
 async function pushStateToServer() {
+  if (__purging()) return;
   serverSyncTimer = null;
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
   if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 Pull
@@ -725,6 +736,7 @@ async function pushStateToServer() {
 
 let pulledOnceFromServer = false;
 async function pullStateFromServerOnce() {
+  if (__purging()) return;
   if (pulledOnceFromServer) return;
   pulledOnceFromServer = true;
   if (!SERVER_SYNC_ON || !serverAuthed()) return;
@@ -1215,6 +1227,7 @@ labels.getHearts = function getHearts() { return { ...loadHearts() }; };
 ──────────────────────────────────────────────────────────── */
 
 (function hydrateOnBoot(){
+  if (__purging()) return; 
   // 1) 다른 탭이 남긴 마지막 스냅샷으로 세션 리하이드레이트
   try{
     const lastLabel = persistEnabled() ? lsGet(LABEL_SYNC_KEY) : null;
@@ -1289,6 +1302,7 @@ labels.getHearts = function getHearts() { return { ...loadHearts() }; };
 
 // 로컬 미러에서 세션으로 재하이드레이트(게이트 없이 강제 수행)
 function rehydrateFromSnapshots(){
+  if (__purging()) return;
   try{
     // 라벨
     const lastLabel = localStorage.getItem(LABEL_SYNC_KEY);
@@ -1375,6 +1389,7 @@ function __clearInsightsForNS(ns){
 
 // NS가 바뀌었을 때 한 번에 처리
 function rebindNS(){
+  if (__purging()) return;
   // ★ 이전 NS를 먼저 저장
   const prev = (typeof USER_NS !== "undefined" ? USER_NS : "default");
 
@@ -1420,11 +1435,7 @@ function rebindNS(){
 
 // 로그인/로그아웃 상태 변화, 또는 다른 탭에서 userns가 바뀐 경우
 window.addEventListener("auth:state", () => rebindNS());
-window.addEventListener("storage", (e)=>{
-  if (e?.key === "auth:userns" || e?.key === "auth:flag") rebindNS();
-});
 window.addEventListener("logo-guard:ready", () => window.__storeAuthRefresh?.());
-
 
 /* 지비츠: 내부 유틸 */
 function readJibCollectedSet(){
@@ -1556,6 +1567,80 @@ try { window.dispatchEvent(new Event("store:ready")); } catch {}
   };
 })();
 
+// === Hard Shutdown / Nuke for purge ===
+(function installStoreShutdown(){
+  // 현재 NS의 모든 키 목록 (세션/로컬 모두 지움)
+  function __wipeAllKeysForNS(ns){
+    const bases = [
+      "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
+      "aud:selectedLabel","jib:selected","jib:collected","sdf-session-init-v1",
+      "itemLikes","labelVotes","label:sync","jib:sync","label:hearts-sync",
+      "label:ts-sync","itemLikes:sync","labelVotes:sync","state:updatedAt"
+    ];
+    const enc = encodeURIComponent(ns);
+    for (const store of [sessionStorage, localStorage]) {
+      for (const base of bases) {
+        try { store.removeItem(`${base}:${ns}`); } catch {}
+        try { store.removeItem(`${base}::${ns}`); } catch {}
+        try { store.removeItem(`${base}:${enc}`); } catch {}
+        try { store.removeItem(`${base}::${enc}`); } catch {}
+      }
+      // 갤러리 메타(NS 라벨별)
+      try {
+        for (const lb of ALL_LABELS) store.removeItem(`sdf-gallery-meta-v1:${ns}:${lb}`);
+      } catch {}
+    }
+  }
+
+  async function __deleteAllIDBForCurrentNS(){
+    // 갤러리 DB(NS별)
+    try { indexedDB.deleteDatabase(getDBName()); } catch {}
+    // 브라우저가 지원하면 전체 DB 열람 후 전부 제거(동의됨)
+    try {
+      if (indexedDB && indexedDB.databases) {
+        const dbs = await indexedDB.databases();
+        for (const db of dbs) { if (db?.name) try { indexedDB.deleteDatabase(db.name); } catch {} }
+      }
+    } catch {}
+  }
+
+  function shutdown(){
+    try { if (serverSyncTimer) clearTimeout(serverSyncTimer); } catch {}
+    serverSyncTimer = null;
+    try { bc?.close?.(); } catch {}
+  }
+
+  async function nuke(){
+    try { window.__PURGING = true; } catch {}
+    shutdown();
+
+    // 현재/게스트 NS 흔적 제거
+    const cur = (typeof USER_NS !== "undefined" ? USER_NS : "default");
+    try { __wipeAllKeysForNS(cur); } catch {}
+    try { __wipeAllKeysForNS("default"); } catch {}
+
+    // 버전/버스/인사이트류
+    try { sessionStorage.removeItem(VERSION_KEY); } catch {}
+    try { localStorage.removeItem(VERSION_KEY); } catch {}
+    try { localStorage.removeItem(GUEST_BUS_KEY); } catch {}
+    try { sessionStorage.removeItem(GUEST_BUS_KEY); } catch {}
+    try { sessionStorage.removeItem(`insights:${cur}`); } catch {}
+
+    // IDB 정리
+    await __deleteAllIDBForCurrentNS();
+
+    // 재수화/이벤트 차단용 신호
+    try { window.dispatchEvent(new Event("store:purged")); } catch {}
+  }
+
+  // 전역에 노출(이미 window.store가 labels 객체라 덧씌움)
+  window.store = Object.assign({}, window.store, { shutdown, nuke, purgeAccount: nuke, clearAll: nuke, reset: nuke });
+
+  // 퍼지/로그아웃 시 자동 셧다운
+  window.addEventListener("auth:logout", () => { try { shutdown(); } catch {} });
+  window.addEventListener("store:purged", () => { try { shutdown(); } catch {} });
+})();
+
 
 window.ALL_LABELS          = ALL_LABELS;
 window.ALL_JIBS            = ALL_JIBS;
@@ -1606,6 +1691,7 @@ window.__SERVER_GALLERY_SYNC_ON = SERVER_GALLERY_SYNC_ON;
 
   async function performLogout() {
     try { await window.__flushStoreSnapshot({ server: true }); } catch {}
+    try { window.store?.nuke?.(); } catch {}   
     sendLogoutBeaconOnce();
 
     // ★ auth 관련 흔적을 세션/로컬 모두 제거

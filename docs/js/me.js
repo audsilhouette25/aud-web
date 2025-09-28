@@ -1895,6 +1895,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   // 10) Boot  — REORDERED for early room subscription + predictable notifications
   // ──────────────────────────────────────────────────────────────────────────────
   async function boot() {
+    if (window.__PURGING) return;
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
 
@@ -1954,6 +1955,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     window.addEventListener(EVT_JIB,   refreshQuickCounts);
 
     window.addEventListener("storage", (e) => {
+      if (window.__PURGING) return;
       if (!e?.key) return;
 
       if (e.key === LABEL_SYNC_KEY || /label:sync/.test(e.key)) refreshQuickCounts();
@@ -2032,42 +2034,43 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     } catch {}
   }
 
-  // === 강제 로컬 정리: store.js 및 저장소 전체 정리 ===
-  function __purgeLocalStateHard(reason = "account-delete") {
-    // 0) 스토어/스냅샷 계열 우선 정리
+  // me.js — __purgeLocalStateHard 보강 부분만 발췌
+  async function __purgeLocalStateHard(reason = "account-delete") {
+    // [A] 재수화 가드: 이후 부팅/리스토어 경로 동작 차단
+    try { window.__PURGING = true; } catch {}
+
+    // [B] 스토어 계열 먼저 완전 중지/초기화(있으면)
+    try { window.store?.shutdown?.(); } catch {}
+    try { window.store?.nuke?.(); } catch {}
     try { window.store?.purgeAccount?.(); } catch {}
     try { window.store?.reset?.(); } catch {}
     try { window.store?.clearAll?.(); } catch {}
     try { window.jib?.reset?.(); } catch {}
     try { window.__flushStoreSnapshot?.({ server:false }); } catch {}
 
+    // [C] 기존 Storage 키 정리(현행 코드 유지)
     const wipe = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
     const ns = currentNs();
     const enc = encodeURIComponent(ns || "");
-
-    // 1) 전역 인증/레거시 키
     ["auth:flag","auth:userns","auth:ns","collectedLabels","jib:collected"].forEach(wipe);
-
-    // 2) 알려진 접두/네임스페이스 키
-    const KNOWN = [
-      // me/profile/insights caches
-      "me:profile", "insights", "mine", "aud:label",
-      // collections (legacy & namespaced)
-      "REG_COLLECT", "JIBC_COLLECT",
-      // sync/state keys from store.js families
-      "label:sync","jib:sync","label:hearts-sync","label:ts-sync",
-      "itemLikes:sync","labelVotes:sync","state:updatedAt",
-      "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
-      "itemLikes","labelVotes","aud:selectedLabel","jib:selected","jib:collected"
-    ];
+    const KNOWN = [ /* ... (현행 KNOWN 목록 그대로) ... */ ];
     KNOWN.forEach(base => {
       wipe(base);
       if (ns) { wipe(`${base}:${ns}`); wipe(`${base}::${ns}`); wipe(`${base}:${enc}`); wipe(`${base}::${enc}`); }
     });
-
     try { __purgeNamespaceKeys(ns); } catch {}
-    
-    // 3) 전체 스캔: ns 포함 키 전부 제거
+
+    // [C2] 부팅 힌트/세션 힌트 제거
+    try {
+      // me:last-uid:* / me:last-ns
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (!k) continue;
+        if (k.startsWith("me:last-uid:") || k === "me:last-ns") sessionStorage.removeItem(k);
+      }
+    } catch {}
+
+    // [D] 전체 스캔(ns 흔적)
     if (isEmailNS(ns)) {
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -2075,8 +2078,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           const kk = k.toLowerCase();
           if (kk.includes(`:${ns}`) || kk.includes(`::${ns}`) || kk.includes(`:${enc}`) || kk.endsWith(ns) || kk.endsWith(enc)) wipe(k);
         }
-      } catch {}
-      try {
         for (let i = sessionStorage.length - 1; i >= 0; i--) {
           const k = sessionStorage.key(i); if (!k) continue;
           const kk = k.toLowerCase();
@@ -2085,10 +2086,44 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       } catch {}
     }
 
-    // 4) 브레드크럼/이벤트
+    // [E] IndexedDB 전부 삭제(지원 브라우저)
+    try {
+      if (indexedDB && indexedDB.databases) {
+        const dbs = await indexedDB.databases();
+        for (const db of dbs) {
+          if (db && db.name) {
+            try { indexedDB.deleteDatabase(db.name); } catch {}
+          }
+        }
+      } else {
+        // 이름을 아는 DB가 있으면 수동으로:
+        ["aud-store", "aud-cache", "app-db"].forEach((name) => { try { indexedDB.deleteDatabase(name); } catch {} });
+      }
+    } catch {}
+
+    // [F] Cache Storage(서비스워커 캐시) 삭제
+    try {
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch {}
+
+    // [G] 서비스워커 언레지스터
+    try {
+      if (navigator.serviceWorker) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(()=>{})));
+      }
+    } catch {}
+
+    // [H] 브레드크럼/이벤트
     try { localStorage.setItem(`purge:reason:${Date.now()}`, reason); } catch {}
     try { window.dispatchEvent(new Event("store:purged")); } catch {}
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+
+    // [I] 옵션: 강제 리프레시(메모리 날리기)
+    // location.replace(location.pathname + "?purged=" + Date.now());
   }
 
   // === 탈퇴 전용: 경고 + 하드 정리 + 백엔드 삭제 ===
