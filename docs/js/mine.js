@@ -2838,6 +2838,49 @@
     bindFeedEvents();
   }
 
+  // ---- [ADD] Keep feed ratio 1:1 / 1:2 on resize ---------------------------------
+  // 위치: mine.js 어디서든 전역 유틸 섹션(예: bindEvents 근처)에 붙이세요.
+  (function bindFeedResizers(){
+    const grid = document.querySelector("[data-feed-grid]");
+    if (!grid) return;
+
+    let ticking = false;
+    const recalc = () => {
+      // why: 한 프레임에 1회로 모아서 잔떨림 방지
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        try { sizeFeedGridCell(); } catch {}
+        try { STACK.reflow(); } catch {}
+        ticking = false;
+      });
+    };
+
+    // 1) 최초 1회: 현재 창 크기에 맞춰 즉시 보정
+    recalc(); // <-- 초기 고정 높이 문제 해소 (초기 로드 외에도 보장)
+
+    // 2) ResizeObserver: 그리드 컨테이너 폭 변화를 정밀 추적
+    let ro = null;
+    if ("ResizeObserver" in window) {
+      ro = new ResizeObserver(() => recalc());
+      try { ro.observe(grid); } catch {}
+    }
+
+    // 3) 폴백: 윈도우 리사이즈 / 디바이스 회전
+    const onWin = () => recalc();
+    window.addEventListener("resize", onWin, { passive: true });
+    window.addEventListener("orientationchange", onWin);
+
+    // 4) 정리: 페이지 이탈 시 자원 해제
+    window.addEventListener("beforeunload", () => {
+      try { window.removeEventListener("resize", onWin, { passive: true }); } catch {}
+      try { window.removeEventListener("orientationchange", onWin); } catch {}
+      try { if (ro && typeof ro.disconnect === "function") ro.disconnect(); } catch {}
+    });
+  })();
+  // ---------------------------------------------------------------------------------
+
+
   // 라벨 페이지가 아닌데 SELECTED_KEY가 남아 있으면 제거 (스티키 필터 방지)
   (function resetStickyLabel(){
     try {
