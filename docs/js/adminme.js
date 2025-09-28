@@ -1247,38 +1247,48 @@ function esc(s) {
   }[c]));
 }
 
-function tableHTML(title, rows) {
-  const thead = `
-    <thead>
-      <tr>
-        <th>Rank</th>
-        <th>Account</th>
-        <th title="Posts created">Posts</th>
-        <th title="Total votes received on posts">Votes</th>
-        <th title="Matched / Participated">Match</th>
-        <th title="Match rate">Rate</th>
-      </tr>
-    </thead>`;
-  const tr = (r, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>
-        <div class="acc">
-          ${r.avatarUrl ? `<img class="lb-avatar" src="${toAPI2(r.avatarUrl)}" alt="">` : ``}
-          <div>
-            <div>${esc(r.displayName || r.email || r.ns || "—")}</div>
-            <div class="muted">${esc(r.email || r.ns || "")}</div>
-          </div>
-        </div>
-      </td>
-      <td>${fmtLb(r.posts)}</td>
-      <td>${fmtLb(r.votes)}</td>
-      <td>${fmtLb(r.matched)} / ${fmtLb(r.participated)}</td>
-      <td>${Math.round(Number(r.rate || 0))}%</td>
-    </tr>`;
-  const tbody = `<tbody>${rows.map(tr).join("")}</tbody>`;
-  return `<article class="panel"><h3>${esc(title)}</h3><table class="lb">${thead}${tbody}</table></article>`;
-}
+ // 기존 tableHTML(...) 전체를 이 버전으로 교체
+  function tableHTML(title, rows, mode = "posts") {
+    const metricHead =
+      mode === "votes" ? `<th title="Total votes received on posts">Votes</th>` :
+      mode === "rate"  ? `<th title="Match rate">Rate</th>` :
+                        `<th title="Posts created">Posts</th>`;
+
+    const thead = `
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Account</th>
+          ${metricHead}
+        </tr>
+      </thead>`;
+
+    const fmt = (n) => (Number(n || 0)).toLocaleString();
+
+    const tr = (r, i) => {
+      const metricCell =
+        mode === "votes" ? fmt(r.votes) :
+        mode === "rate"  ? `${Math.round(Number(r.rate || 0))}%` :
+                          fmt(r.posts);
+
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td>
+            <div class="acc">
+              ${r.avatarUrl ? `<img class="lb-avatar" src="${toAPI2(r.avatarUrl)}" alt="">` : ``}
+              <div>
+                <div>${esc(r.displayName || r.email || r.ns || "—")}</div>
+                <div class="muted">${esc(r.email || r.ns || "")}</div>
+              </div>
+            </div>
+          </td>
+          <td>${metricCell}</td>
+        </tr>`;
+    };
+
+    return `<article class="panel"><h3>${esc(title)}</h3><table class="lb">${thead}<tbody>${rows.map(tr).join("")}</tbody></table></article>`;
+  }
 
 function toAPI2(p) {
   try {
@@ -1302,11 +1312,11 @@ async function loadLeaderboardsIntoInsights() {
     const V = Array.isArray(j.votesTop10) ? j.votesTop10 : [];
     const R = Array.isArray(j.rateTop10)  ? j.rateTop10  : [];
 
-    host.innerHTML = `
-      ${tableHTML("Most Posts", P)}
-      ${tableHTML("Most Votes (received)", V)}
-      ${tableHTML("Best Match Rate", R)}
-    `;
+  host.innerHTML = `
+    ${tableHTML("Most Posts", P, "posts")}
+    ${tableHTML("Most Votes (received)", V, "votes")}
+    ${tableHTML("Best Match Rate", R, "rate")}
+  `;
   } catch (e) {
     console.error("[leaderboards] load failed:", e);
     host.innerHTML = `<article class="panel"><div class="kpi-lg err">리더보드 불러오기 실패</div></article>`;

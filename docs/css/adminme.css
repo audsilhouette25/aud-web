@@ -267,7 +267,7 @@ header.nav{
    NOTE: 다른 섹션에는 영향 없음
 ===================================================================== */
 /* 프로필 카드와 리더보드 사이 여백 */
-profile-hero + .insights{ margin-top: 32px; }
+.profile-hero + .insights{ margin-top: 32px; }
 /* adminme.html 구조: section.insights > #lb-root > .panel* */
 #lb-root{
   display: grid;
