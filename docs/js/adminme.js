@@ -2252,7 +2252,6 @@ async function loadLeaderboardsIntoInsights() {
     if (spanPoints)  spanPoints.textContent  = String(p);
     if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
     if (btnClear) btnClear.disabled = strokes.length === 0;
-    if (btnSubmit) btnSubmit.disabled = strokes.length === 0;
   }
 
   function drawAll() {
@@ -2546,16 +2545,6 @@ async function loadLeaderboardsIntoInsights() {
   if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
   if (btnClear) btnClear.addEventListener("click", clearAll);
   if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
- // 운영자면 캔버스 패널에도 바로 열기 버튼 붙이기
- (async()=>{ if (await (typeof isAdmin==="function" ? isAdmin() : Promise.resolve(false))) {
-   const ctrl = document.querySelector(".lab-controls .spacer");
-   if (ctrl && !document.querySelector("#lab-view-list")) {
-     const b = document.createElement("button");
-     b.id="lab-view-list"; b.className="btn ghost"; b.textContent="View submissions";
-     b.addEventListener("click", openAdminLabModal);
-     ctrl.after(b);
-   }
- }})();
 
   // a11y: space toggles play when canvas focused
   cvs.tabIndex = 0;
