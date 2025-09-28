@@ -245,79 +245,123 @@ header.nav{
 .btn-delete:active{ background: var(--accent); transform: translateY(1px); }
 .btn-delete[aria-busy="true"]{ opacity:.6; pointer-events:none; }
 
-/* =====================================================================
-   7) Insights (상단 KPI)
-===================================================================== */
-.insights{
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 20px 0 8px;
-}
-.panel{ background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-.panel h3{ margin: 0 0 10px; font-size: 16px; }
-.kpi-lg{ display: flex; align-items: baseline; gap: 10px; }
-.kpi-lg b{ font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; }
-.kpi-lg span{ font-size: 13px; color: var(--muted); }
-.rate-box h3{ font-size: 14px; font-weight: 600; margin: 0 0 10px; }
-.rate{ display: grid; gap: 8px; }
-.rate .bar{ height: 10px; background: #f1f3f5; border-radius: 999px; overflow: hidden; }
-.rate .bar i{ display: block; height: 100%; width: 0%; background: #222; transition: width .35s ease; }
-.rate .num{ display: flex; gap: 8px; align-items: baseline; }
-.rate .num b{ font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-.rate .num span{ font-size: 12px; color: var(--muted); }
+/* ===== Leaderboard ONLY CSS (KPI 관련 스타일 제거 버전) ===== */
+/* 이 블록만 추가/유지하세요. 다른 KPI(.insights .kpi, .rate 등) 코드는 삭제 */
 
-/* =====================================================================
-   8) Progress Bar — <progress> / div.pXX
-===================================================================== */
-progress#m-rate-bar{
-  --bar-h: 8px;
-  inline-size: 100%; block-size: var(--bar-h);
-  border: none; border-radius: 9999px;
-  background: #e9e9ec; overflow: hidden;
+/* Host grid (replaces old .insights contents) */
+.lb-grid{
+  display: grid;
+  gap: 16px;
 }
-progress#m-rate-bar::-moz-progress-bar{
-  background: linear-gradient(90deg, var(--accent), #ffc79f);
-  border-radius: 9999px;
+
+/* 2열 확장 */
+@media (min-width: 960px){
+  .lb-grid{ grid-template-columns: 1fr 1fr; }
 }
-progress#m-rate-bar::-webkit-progress-bar{
-  background: #e9e9ec; border-radius: 9999px;
+
+/* 패널 헤더 */
+.lb-grid .panel h3{
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
 }
-progress#m-rate-bar::-webkit-progress-value{
-  background: linear-gradient(90deg, var(--accent), #ffc79f);
-  border-radius: 9999px;
+
+/* Loading/Error 상태 (JS가 임시로 .kpi-lg를 넣음 → 국소 스타일만 적용) */
+.lb-grid .kpi-lg{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
-#m-rate-bar{
-  position: relative;
-  inline-size: 100%; block-size: 8px;
-  background: #e9e9ec; border-radius: 9999px; overflow: hidden;
+
+/* Error 텍스트 */
+.lb-grid .err{ color: #ff6b6b; }
+
+/* 표 기본 */
+.lb-grid table.lb{
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #fff;
+  border-radius: 14px;         /* 부모 .panel과 겹치더라도 문제 없음 */
+  overflow: hidden;            /* radius 적용 위해 */
 }
-#m-rate-bar::before{
-  content: ""; position: absolute; inset: 0; inline-size: 0%;
-  background: linear-gradient(90deg, var(--accent), #ffc79f);
-  border-radius: inherit;
+
+/* 셀 */
+.lb-grid table.lb th,
+.lb-grid table.lb td{
+  border-bottom: 1px solid var(--line, rgba(0,0,0,.08));
+  padding: 10px 12px;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 14px;
 }
-#m-rate-bar.p0::before   { inline-size: 0% }
-#m-rate-bar.p5::before   { inline-size: 5% }
-#m-rate-bar.p10::before  { inline-size: 10% }
-#m-rate-bar.p15::before  { inline-size: 15% }
-#m-rate-bar.p20::before  { inline-size: 20% }
-#m-rate-bar.p25::before  { inline-size: 25% }
-#m-rate-bar.p30::before  { inline-size: 30% }
-#m-rate-bar.p35::before  { inline-size: 35% }
-#m-rate-bar.p40::before  { inline-size: 40% }
-#m-rate-bar.p45::before  { inline-size: 45% }
-#m-rate-bar.p50::before  { inline-size: 50% }
-#m-rate-bar.p55::before  { inline-size: 55% }
-#m-rate-bar.p60::before  { inline-size: 60% }
-#m-rate-bar.p65::before  { inline-size: 65% }
-#m-rate-bar.p70::before  { inline-size: 70% }
-#m-rate-bar.p75::before  { inline-size: 75% }
-#m-rate-bar.p80::before  { inline-size: 80% }
-#m-rate-bar.p85::before  { inline-size: 85% }
-#m-rate-bar.p90::before  { inline-size: 90% }
-#m-rate-bar.p95::before  { inline-size: 95% }
-#m-rate-bar.p100::before { inline-size: 100% }
+
+/* 첫 두 컬럼: 좌측 정렬 */
+.lb-grid table.lb th:nth-child(1),
+.lb-grid table.lb td:nth-child(1),
+.lb-grid table.lb th:nth-child(2),
+.lb-grid table.lb td:nth-child(2){
+  text-align: left;
+}
+
+/* 랭크 폭 고정 */
+.lb-grid table.lb th:nth-child(1),
+.lb-grid table.lb td:nth-child(1){
+  width: 64px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 마지막 행 바닥선 제거 */
+.lb-grid table.lb tbody tr:last-child td{
+  border-bottom: 0;
+}
+
+/* 계정 셀 구성 */
+.lb-grid .acc{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.lb-grid .lb-avatar{
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; display: block; flex: 0 0 22px;
+}
+.lb-grid .acc > div{
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.lb-grid .acc > div > div{
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lb-grid .muted{ opacity: .65; font-size: 12px; }
+
+/* 숫자 열: 고정 폭 & 숫자 정렬 안정화 */
+.lb-grid table.lb td:nth-child(3),
+.lb-grid table.lb td:nth-child(4),
+.lb-grid table.lb td:nth-child(5),
+.lb-grid table.lb td:nth-child(6){
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 모바일 압축 */
+@media (max-width: 520px){
+  .lb-grid table.lb th:nth-child(5),
+  .lb-grid table.lb td:nth-child(5){ display:none; } /* Match(분자/분모) 숨김 */
+}
+
+/* 패널 스킨(기존 .panel과 조화) — 필요 시만 */
+.lb-grid .panel{
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
 
 /* =====================================================================
    9) Quick Panels (컬렉션 요약 등)
