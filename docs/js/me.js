@@ -617,7 +617,7 @@
     return `
       <div class="card"
           data-id="${esc(it.id)}"
-          data-ns="${esc(ns)}"
+          data-ns="${esc(ns)}">
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>

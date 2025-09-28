@@ -151,6 +151,45 @@
     } catch {}
   }
 
+  (function patchLogoGuardAdminRouting(){
+    if (window.__logoGuardPatchedAdmin) return;  // idempotent
+    window.__logoGuardPatchedAdmin = true;
+
+    // helper mirrors pickIsAdmin semantics lightly for this file
+    function isAdminFrontend() {
+      try {
+        // fastest: session flag set by mine.js after /auth/me
+        if (sessionStorage.getItem('auth:isAdmin') === '1') return true;
+
+        // fallback: email allow-list (in case title hasn’t been clicked yet)
+        const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : ['finelee03@naver.com'])
+                              .map(s => String(s).trim().toLowerCase());
+        const ns = (localStorage.getItem('auth:userns') || '').trim().toLowerCase();
+        return ns && ADMIN_EMAILS.includes(ns);
+      } catch { return false; }
+    }
+
+    // monkey-patch computeLogoDest if it exists; otherwise, add the admin logic
+    try {
+      const orig = (typeof window.computeLogoDest === 'function') ? window.computeLogoDest : null;
+      window.computeLogoDest = function(){
+        try {
+          const authed = !!(window.auth?.isAuthed?.() || sessionStorage.getItem('auth:flag') === '1');
+          if (authed && isAdminFrontend()) return new URL('adminme.html', location.href).toString();
+          const mine = new URL('mine.html', location.href).toString();
+          const login = new URL('login.html', location.href).toString();
+          if (authed) return mine;
+          const u = new URL(login);
+          u.searchParams.set('next', mine);
+          return u.toString();
+        } catch {
+          // safest fallback = previous behavior
+          return orig ? orig() : 'mine.html';
+        }
+      };
+    } catch {}
+  })();
+
   function boot(){ updateLogoHref(); observeLogoContainer(); }
   (document.readyState === "loading")
     ? document.addEventListener("DOMContentLoaded", boot, { once: true })

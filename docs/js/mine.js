@@ -201,30 +201,21 @@
     try {
       const u = (me && (me.user || me)) || {};
       const role  = String(u.role || u.user_role || '').toLowerCase();
-      const roles = (
-        Array.isArray(u.roles) ? u.roles :
-        (Array.isArray(u.scopes) ? u.scopes :
-        (Array.isArray(u.permissions) ? u.permissions : []))
-      ).map(x => String(x).toLowerCase());
+      const roles = (Array.isArray(u.roles) ? u.roles
+                  : Array.isArray(u.scopes) ? u.scopes
+                  : Array.isArray(u.permissions) ? u.permissions
+                  : []).map(x => String(x).toLowerCase());
 
-      // ✅ 기존 서버/클레임 기반 판정
-      const serverAdmin =
-        (u.isAdmin === true) ||
-        role === 'admin' ||
-        roles.includes('admin') ||
-        roles.includes('admins') ||
-        roles.includes('administrator');
+      // NEW: email allow-list (frontend fallback)
+      const email = String(u.email || '').trim().toLowerCase();
+      // prefer a runtime-provided list; fallback keeps your current known admin
+      const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : ['finelee03@naver.com'])
+                            .map(s => String(s).trim().toLowerCase());
 
-      if (serverAdmin) return true;
-
-      // ✅ 추가: 이메일 allowlist
-      const email = String(u.email || u.user_email || '').trim().toLowerCase();
-      if (email) {
-        const allow = readAdminAllowlist(); // ex) ["finelee03@naver.com"]
-        if (allow.length && allow.includes(email)) return true;
-      }
-
-      return false;
+      return (u.isAdmin === true)
+          || role === 'admin'
+          || roles.includes('admin') || roles.includes('admins') || roles.includes('administrator')
+          || (email && ADMIN_EMAILS.includes(email));  // ← added
     } catch { return false; }
 }
 
