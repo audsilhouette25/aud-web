@@ -1210,52 +1210,59 @@
   }
   window.__meCountsRefresh = refreshQuickCounts;
 
-/* ─────────────────────────────────────────────────────────────────────────────
- * 5) Leaderboards (Top10) — replaces personal KPI widgets
- * ──────────────────────────────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────────────────────────────────────
+  * 5) Leaderboards (Top10) — replaces personal KPI widgets
+  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** 기존 .insights 섹션을 리더보드 호스트로 바꿔치기 */
-function ensureLeaderboardHost() {
-  const insights =
-    document.querySelector('section.insights[aria-label]') ||
-    document.getElementById('insights') ||
-    document.querySelector('section.insights');
-  if (!insights) return null;
-  insights.innerHTML = `
-    <div id="lb-root" class="lb-grid">
-      <article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>
-    </div>
-  `.trim();
-  if (!document.querySelector('#lb-leadstyle')) {
-    const css = document.createElement('style');
-    css.id = 'lb-leadstyle';
-    css.textContent = `
-      .lb-grid { display:grid; gap:16px; }
-      @media (min-width: 960px){ .lb-grid { grid-template-columns: 1fr 1fr; } }
-      .lb-grid .panel h3 { margin: 0 0 8px; font-size: 16px; }
-      .lb-grid table.lb { width:100%; border-collapse: collapse; }
-      .lb-grid table.lb th, .lb-grid table.lb td { border-bottom: 1px solid var(--line, rgba(0,0,0,.1)); padding:8px 10px; text-align:right; }
-      .lb-grid table.lb th:nth-child(1), .lb-grid table.lb td:nth-child(1) { text-align:left; width:64px; }
-      .lb-grid table.lb th:nth-child(2), .lb-grid table.lb td:nth-child(2) { text-align:left; }
-      .lb-grid .acc { display:flex; align-items:center; gap:8px; }
-      .lb-grid .lb-avatar { width:22px; height:22px; border-radius:50%; object-fit:cover; display:block; }
-      .lb-grid .muted { opacity: .65; font-size: 12px; }
-      .lb-grid .err { color: #ff7b7b; }
-    `;
-    document.head.appendChild(css);
+  /** 기존 .insights 섹션을 리더보드 호스트로 바꿔치기 */
+  function ensureLeaderboardHost() {
+    const insights =
+      document.querySelector('section.insights[aria-label]') ||
+      document.getElementById('insights') ||
+      document.querySelector('section.insights');
+    if (!insights) return null;
+    insights.innerHTML = `
+      <div id="lb-root" class="lb-grid">
+        <article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>
+      </div>
+    `.trim();
+    if (!document.querySelector('#lb-leadstyle')) {
+      const css = document.createElement('style');
+      css.id = 'lb-leadstyle';
+      css.textContent = `
+        .lb-grid { display:grid; gap:16px; }
+        @media (min-width: 960px){ .lb-grid { grid-template-columns: 1fr 1fr; } }
+        .lb-grid .panel h3 { margin: 0 0 8px; font-size: 16px; }
+        .lb-grid table.lb { width:100%; border-collapse: collapse; }
+        .lb-grid table.lb th, .lb-grid table.lb td { border-bottom: 1px solid var(--line, rgba(0,0,0,.1)); padding:8px 10px; text-align:right; }
+        .lb-grid table.lb th:nth-child(1), .lb-grid table.lb td:nth-child(1) { text-align:left; width:64px; }
+        .lb-grid table.lb th:nth-child(2), .lb-grid table.lb td:nth-child(2) { text-align:left; }
+        .lb-grid .acc { display:flex; align-items:center; gap:8px; }
+        .lb-grid .lb-avatar { width:22px; height:22px; border-radius:50%; object-fit:cover; display:block; }
+        .lb-grid .muted { opacity: .65; font-size: 12px; }
+        .lb-grid .err { color: #ff7b7b; }
+      `;
+      document.head.appendChild(css);
+    }
+    return document.getElementById('lb-root');
   }
-  return document.getElementById('lb-root');
-}
 
-const fmtLb = (n) => (Number(n || 0)).toLocaleString();
+  const fmtLb = (n) => (Number(n || 0)).toLocaleString();
 
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
-}
-
- // 기존 tableHTML(...) 전체를 이 버전으로 교체
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+  function who(row) {
+    // 백엔드가 author를 주면 최우선, 없으면 user/owner, 그래도 없으면 row 자체에서 추출
+    const a = row?.author || row?.user || row?.owner || row || {};
+    const name  = a.displayName || a.username || row.displayName || row.username || "";
+    const email = a.email || row.email || "";
+    const ns    = a.ns || row.ns || email || "";
+    const avatar = a.avatarUrl || row.avatarUrl || "";
+    return { name, email, ns, avatar };
+  }
   function tableHTML(title, rows, mode = "posts") {
     const metricHead =
       mode === "votes" ? `<th title="Total votes received on posts">Votes</th>` :
@@ -1274,6 +1281,7 @@ function esc(s) {
     const fmt = (n) => (Number(n || 0)).toLocaleString();
 
     const tr = (r, i) => {
+      const a = who(r); // ← 추가한 헬퍼 사용( author/user/owner → 우선 )
       const metricCell =
         mode === "votes" ? fmt(r.votes) :
         mode === "rate"  ? `${Math.round(Number(r.rate || 0))}%` :
@@ -1284,10 +1292,10 @@ function esc(s) {
           <td>${i + 1}</td>
           <td>
             <div class="acc">
-              ${r.avatarUrl ? `<img class="lb-avatar" src="${toAPI2(r.avatarUrl)}" alt="">` : ``}
+              ${a.avatar ? `<img class="lb-avatar" src="${toAPI2(a.avatar)}" alt="">` : ``}
               <div>
-                <div>${esc(r.displayName || r.email || r.ns || "—")}</div>
-                <div class="muted">${esc(r.email || r.ns || "")}</div>
+                <div>${esc(a.name || a.email || a.ns || "—")}</div>
+                <div class="muted">${esc(a.email || a.ns || "")}</div>
               </div>
             </div>
           </td>
