@@ -1443,7 +1443,13 @@
         qs.set("cursor", String(FEED.cursor));
       }
 
-      const sel = sessionStorage.getItem(SELECTED_KEY);
+      const u  = new URL(location.href);
+      const p  = u.pathname.split('/').pop() || '';
+      const byParam = u.searchParams.get('label');
+      const byStore = sessionStorage.getItem(SELECTED_KEY);
+
+      // labelmine.html 이거나, URL에 label 파라미터가 있을 때만 필터 적용
+      const sel = byParam || (/^labelmine\.html$/i.test(p) ? byStore : null);
       if (sel) qs.set("label", sel);
 
       const res = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include" });
@@ -2816,6 +2822,19 @@
 
     bindFeedEvents();
   }
+
+  // 라벨 페이지가 아닌데 SELECTED_KEY가 남아 있으면 제거 (스티키 필터 방지)
+  (function resetStickyLabel(){
+    try {
+      const u = new URL(location.href);
+      const isLabelPage =
+        /labelmine\.html$/i.test(u.pathname) || u.searchParams.has('label');
+      if (!isLabelPage) {
+        sessionStorage.removeItem(SELECTED_KEY);
+      }
+    } catch {}
+  })();
+
 
   onReady(async () => {
     ensureHeartCSS();
