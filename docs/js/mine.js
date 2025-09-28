@@ -197,6 +197,20 @@
   const sessionAuthed   = () => hasAuthedFlag() || serverAuthed();
   const viewerNS = () => (typeof getNS === 'function' ? getNS() : 'default');
 
+  function pickIsAdmin(me){
+    try {
+      const u = (me && (me.user || me)) || {};
+      const role  = String(u.role || u.user_role || '').toLowerCase();
+      const roles = (Array.isArray(u.roles) ? u.roles : (Array.isArray(u.scopes) ? u.scopes : (Array.isArray(u.permissions) ? u.permissions : [])))
+                    .map(x => String(x).toLowerCase());
+      return (u.isAdmin === true)
+          || role === 'admin'
+          || roles.includes('admin')
+          || roles.includes('admins')
+          || roles.includes('administrator');
+    } catch { return false; }
+  }
+
   // preserve auth flag across reset=1
   (function preserveAuthFlagOnReset() {
     try {
@@ -983,6 +997,15 @@
     }
   }
 
+  function bcNotifySelf(type, data){
+    try {
+      __bcFeed?.postMessage({
+        kind: FEED_EVENT_KIND,
+        payload: { type, data }
+      });
+    } catch {}
+  }
+
   // --- RANDOMIZE util (Fisher–Yates) ---
   function shuffleInPlace(arr){
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1240,16 +1263,14 @@
           const m = card.querySelector(".media");
           if (m) m.classList.add("broken");
           img.remove();
-        
-        // 1:2 Tall 마킹: 이미지 로드 시 naturalWidth/Height 기준으로 판정
+        }, { once: true });
+        // ✅ Tall 마킹은 에러/성공과 무관하게 별도로 (이미 위쪽 imgEl 분기에서 해줬다면 이 블록은 생략해도 OK)
         if (img.complete) {
           markTallByImage(card, img);
         } else {
           img.addEventListener("load", () => markTallByImage(card, img), { once: true });
           img.addEventListener("error", () => markTallByImage(card, img), { once: true });
         }
-
-      }, { once: true });
       }
 
       // 하트 아이콘 SVG 업그레이드 (stroke/fill 일관화)
@@ -1631,12 +1652,6 @@
         // 서버 스냅샷은 의도 보존 병합(내가 막 클릭한 의도를 덮지 않도록)
         if (typeof r.liked === "boolean" || typeof r.likes === "number") {
           window.setLikeFromServer?.(id, r.liked, r.likes);
-          // [ADD] Web Push: like action notification (server ok 이후에만)
-
-          // 서버 스냅샷은 의도 보존 병합(내가 막 클릭한 의도를 덮지 않도록)
-          if (typeof r.liked === "boolean" || typeof r.likes === "number") {
-            window.setLikeFromServer?.(id, r.liked, r.likes);
-          }
         }
       }
     } finally {
@@ -2717,6 +2732,7 @@
         me?.user?.email ?? me?.email ?? me?.user?.emails?.[0]?.value ?? ''
       ).trim().toLowerCase() || null;
       // me 페이지에서 저장해둔 최신 프로필(아바타/이름)을 즉시 적용
+      window.__IS_ADMIN = pickIsAdmin(me); try { sessionStorage.setItem('auth:isAdmin', window.__IS_ADMIN ? '1' : '0'); } catch {}
       try {
         const snap = readProfileCache();
         if (snap) {
@@ -3376,7 +3392,7 @@
   function bindTitleToMe() {
     // 1) 우선 A안: a#title-link가 있으면 그걸 사용
     let el = document.getElementById('title-link');
-    // 2) 혹시 HTML을 아직 안 바꿨다면 B안(.title 자체 바인딩)으로 폴백
+    // 2) 혹시 HTML을 아직 안 바꿨다면 B안(.mine .hero .title)으로 폴백
     if (!el) el = document.querySelector('.mine .hero .title');
 
     if (!el || el.__bound) return;
@@ -3386,11 +3402,19 @@
       if (ev) { ev.preventDefault(); ev.stopPropagation(); }
       try { window.auth?.markNavigate?.(); } catch {}
 
+      // 현재 인증 여부
       const authed = (typeof window.auth?.isAuthed === 'function')
         ? !!window.auth.isAuthed()
         : (sessionStorage.getItem('auth:flag') === '1');
 
-      const target = './me.html';
+      // [NEW] 관리자 여부: 전역 플래그 → 세션 캐시 순으로 확인
+      const isAdmin =
+        (typeof window.__IS_ADMIN === 'boolean') ? window.__IS_ADMIN
+                                                : (sessionStorage.getItem('auth:isAdmin') === '1');
+
+      // [NEW] 목적지 결정
+      const target = isAdmin ? './adminme.html' : './me.html';
+
       if (authed) {
         location.assign(target);
       } else {
@@ -3399,7 +3423,7 @@
       }
     };
 
-    // A안: <a>인 경우 기본 동작을 가로채 인증 가드 적용
+    // 클릭/키보드 접근성 처리 유지
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') go(e);

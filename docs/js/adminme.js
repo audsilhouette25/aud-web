@@ -1,4 +1,4 @@
-// me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
+// adminme.js — Web 마이페이지 (no inline styles; CSS-only rendering)
 // 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
 
 (() => {
@@ -12,6 +12,9 @@
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+
+  // [ADD] admin allowlist
+  const ADMIN_EMAILS = ["finelee03@naver.com"]; // 운영자 이메일
 
   window.__toAPI = function (u) {
     const s = String(u || "");
@@ -600,11 +603,135 @@
     try { return await r.json(); } catch { return null; }
   }
 
+  // [ADD] admin helpers (place right after fetchMe)
+  async function isAdmin() {
+    try {
+      const me = await fetchMe();            // 이미 있는 helper 재사용
+      const email = (me?.email || me?.user?.email || "").toLowerCase();
+      if (email && ADMIN_EMAILS.includes(email)) return true;
+      // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
+      if (window.ENABLE_ADMIN_BACKEND === true) {
+        const res = await fetch(
+          (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/audlab/admin/bootstrap",
+          { credentials: "include" }
+        ).catch(() => null);
+        if (res?.ok) {
+          const j = await res.json().catch(() => null);
+          if (j?.ok && (j.admin === true || j.role === "admin")) return true;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
+  function ensureAdminLabModal() {
+    let wrap = document.querySelector("#admin-lab");
+
+    // 없으면 생성
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "admin-lab";
+      wrap.className = "modal";
+      wrap.setAttribute("role","dialog");
+      wrap.setAttribute("aria-modal","true");
+      wrap.innerHTML = `
+        <button type="button" class="overlay" aria-label="Close"></button>
+        <div class="sheet" role="document" aria-labelledby="admin-lab-title">
+          <h2 id="admin-lab-title" class="title">aud laboratory · Admin</h2>
+          <div class="admin-toolbar">
+            <div class="spacer"></div>
+            <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
+            <button class="btn" id="admin-lab-refresh">Refresh</button>
+            <button class="btn" id="admin-lab-close">Close</button>
+          </div>
+          <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
+          <p class="msg" id="admin-lab-msg" aria-live="polite"></p>
+        </div>
+      `.trim();
+      document.body.appendChild(wrap);
+    }
+
+    // 이미 있어도 바인딩은 한 번 보장
+    if (!wrap.__bound) {
+      wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
+      wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
+
+      // 입력/리프레시
+      wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", () => loadAdminLab());
+      wrap.querySelector("#admin-lab-q")?.addEventListener("input", (e) => {
+        const v = (e.target.value||"").trim().toLowerCase();
+        filterAdminCards(v);
+      });
+
+      // ESC 핸들러를 저장만 해두고, 실제 add/remove는 open/close에서
+      wrap.__onEsc = (e) => { if (e.key === "Escape") closeAdminLabModal(); };
+
+      wrap.__bound = true;
+    }
+
+    return wrap;
+  }
+  // 모달 열기: 포커스 트랩 시작 & inert 해제
+  function openAdminLabModal(){
+    const m = ensureAdminLabModal();
+    // 이전 포커스 저장 (닫힐 때 복원)
+    m.__prevFocus = document.activeElement && document.activeElement instanceof HTMLElement
+      ? document.activeElement : null;
+
+    m.removeAttribute('inert');                // 포커스 가능
+    m.classList.add("open");
+    m.setAttribute("aria-hidden","false");
+    document.body.classList.add("modal-open");
+
+    // 첫 포커스 이동(시트나 닫기 버튼)
+    const first =
+      m.querySelector("#admin-lab-q") ||
+      m.querySelector("#admin-lab-close") ||
+      m.querySelector(".sheet");
+    if (first && first instanceof HTMLElement) first.focus({ preventScroll: true });
+
+    if (m.__onEsc && !m.__escAttached) {
+      document.addEventListener("keydown", m.__onEsc);
+      m.__escAttached = true;
+    }
+    loadAdminLab().catch(()=>{});
+  }
+
+  // 모달 닫기: 포커스 밖으로 이동 → aria-hidden/inert 적용
+  function closeAdminLabModal(){
+    const m = document.querySelector("#admin-lab");
+    if (!m) return;
+
+    // 1) 모달 내부에 포커스가 있으면 먼저 밖으로 빼기
+    const active = document.activeElement;
+    if (active && m.contains(active)) {
+      // 트리거 버튼이 있으면 복원, 없으면 body로 이동
+      const target = (m.__prevFocus && document.contains(m.__prevFocus)) ? m.__prevFocus : document.body;
+      if (target && target instanceof HTMLElement) target.focus({ preventScroll: true });
+      // 그래도 남아있으면 강제 blur
+      if (active instanceof HTMLElement) active.blur();
+    }
+
+    // 2) 시각/접근성 상태 업데이트
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden","true");
+    m.setAttribute("inert", "");               // 포커스/탭 막기 (권고)
+    document.body.classList.remove("modal-open");
+
+    // 3) ESC 핸들러 해제
+    if (m.__onEsc && m.__escAttached) {
+      document.removeEventListener("keydown", m.__onEsc);
+      m.__escAttached = false;
+    }
+  }
+
   // 1) Replace the existing cardHTML(...) with the version below
   function cardHTML(it) {
     const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
     const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
+    const accepted = !!it.accepted;
 
     const ownerId   = String(it.ownerId || it.ns || "").trim();
     const ns        = String(it.ns || "").toLowerCase();
@@ -618,6 +745,8 @@
       <div class="card"
           data-id="${esc(it.id)}"
           data-ns="${esc(ns)}"
+          data-owner="${esc(ownerId)}"
+          ${accepted ? 'data-accepted="1"' : ''}>
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
@@ -646,6 +775,48 @@
           } finally {
             e.target.disabled = false;
           }
+        } else if (act === "accept") {
+          const btn = e.target;
+          btn.disabled = true;
+          try {
+            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
+            const headers = {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
+            };
+            const r = await fetch(new URL("/api/admin/audlab/accept", base), {
+              method: "POST",
+              credentials: "include",
+              headers,
+              body: JSON.stringify({ ns, id })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
+            btn.textContent = "Accepted ✓";
+            btn.classList.remove("primary");
+            btn.classList.add("ghost");
+            card.setAttribute("data-accepted", "1");
+          } catch (err) {
+            alert("Accept 실패: " + (err?.message || err));
+            btn.disabled = false;
+          }
+        } else if (act === "copy-owner") {
+          const btn = e.target;
+          const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
+          if (!owner) { alert("owner id가 없습니다."); return; }
+          try {
+            await navigator.clipboard.writeText(owner);
+            const prev = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+          } catch {
+            // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
+            prompt("Copy this owner id:", owner);
+          }
         }
       });
     });
@@ -656,6 +827,22 @@
     // 1) 오디오 URL 우선
     let audioUrl = card.__audioUrl || "";
     let jsonUrl  = card.__jsonUrl  || "";
+
+    // 카드에 없으면 서버에서 한 번 조회 (가벼운 단건 메타)
+    if (!audioUrl || !jsonUrl) {
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        const u = new URL("/api/admin/audlab/item", base);
+        u.searchParams.set("ns", ns);
+        u.searchParams.set("id", id);
+        const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
+        const j = await r?.json?.().catch?.(()=>({}));
+        if (j?.ok) {
+          audioUrl = j.audioUrl || "";
+          jsonUrl  = j.jsonUrl  || jsonUrl || "";
+        }
+      } catch {}
+    }
 
     // 2) 녹음이 있으면 그것부터 재생
     if (audioUrl) {
@@ -745,6 +932,111 @@
     await new Promise((res)=> setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime)*1000 + 80)));
     try { AC.close(); } catch {}
   }
+
+  function filterAdminCards(q){
+    const grid = document.querySelector("#admin-lab-grid");
+    if (!grid) return;
+    const query = String(q||"").toLowerCase();
+    grid.querySelectorAll(".card").forEach(c=>{
+      const ns = c.dataset.ns || "";
+      const id = c.dataset.id || "";
+      const owner = c.querySelector(".meta span")?.getAttribute("title")?.toLowerCase() || "";
+      const match = !query || ns.includes(query) || id.includes(query) || owner.includes(query);
+      c.classList.toggle("is-hidden", !match);
+    });
+  }
+
+  // 탭/NS 비활성화: 전체 목록 한 번에 로드
+  async function loadAdminLab() {
+    const msg  = document.querySelector("#admin-lab-msg");
+    const grid = document.querySelector("#admin-lab-grid");
+
+    // 로딩 상태
+    if (msg)  msg.textContent = "Loading…";
+    if (grid) grid.innerHTML = "";
+
+    // 표시명 파생(지역 헬퍼)
+    const nameFrom = (snap) => {
+      if (!snap || typeof snap !== "object") return "";
+      const username    = (snap.username    ?? snap.user?.username    ?? "").toString().trim();
+      const displayName = (snap.displayName ?? snap.user?.displayName ?? snap.name ?? snap.user?.name ?? "").toString().trim();
+      return username || displayName;
+    };
+
+    try {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const url  = new URL("/api/admin/audlab/all", base).toString();
+
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      const j = await r.json().catch(() => ({}));
+
+      // 원본 → 카드 모델 매핑
+      const items = Array.isArray(j?.items) ? j.items.map(src => {
+        const ns       = src.ns || src.owner?.ns || "";
+        const ownerId  = (src.user?.id ?? src.owner?.id ?? ns ?? "");
+        const email    = (src.user?.email ?? src.owner?.email ?? "").toString();
+        const emailLocal = email.includes("@") ? email.split("@")[0] : email;
+
+        const ownerName =
+          nameFrom(src.user) ||
+          nameFrom(src.owner) ||
+          emailLocal ||
+          ownerId || "—";
+
+        const preview =
+          (typeof window.__toAPI === "function")
+            ? window.__toAPI(src.image || src.preview || src.png || "")
+            : (src.image || src.preview || src.png || "");
+
+        return {
+          id: src.id,
+          ns,
+          ownerId: String(ownerId || ""),
+          ownerName: String(ownerName || ""),
+          preview,
+          createdAt: src.createdAt ?? src.created_at ?? null,
+          accepted: !!src.accepted
+        };
+      }) : [];
+
+      // 비어있음 처리
+      if (!items.length) {
+        if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`;
+        if (msg)  msg.textContent = "";
+        return;
+      }
+
+      // 렌더 + 액션 와이어링
+      if (grid) {
+        grid.innerHTML = items.map(cardHTML).join("");
+        wireCardActions(grid);
+
+        // 관리자면 Accept 버튼 주입
+        try {
+          const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
+          if (admin) {
+            grid.querySelectorAll(".card .row--spaced").forEach((row) => {
+              if (!row.querySelector('[data-act="accept"]')) {
+                const b = document.createElement("button");
+                b.className = "btn primary";
+                b.setAttribute("data-act", "accept");
+                b.textContent = "Accept";
+                row.appendChild(b);
+              }
+            });
+          }
+        } catch {}
+      }
+
+      if (msg) msg.textContent = `${items.length} item(s)`;
+    } catch (err) {
+      if (grid) grid.innerHTML = `<div class="empty">Failed to load.</div>`;
+      if (msg)  msg.textContent = "Error";
+      try { console.error("[admin-lab] load failed:", err); } catch {}
+    }
+  }
   
   // [REPLACE] 기존 renderProfile(...) 전체를 아래로 교체
   function renderProfile({ name, displayName, email, avatarUrl }) {
@@ -802,16 +1094,6 @@
     const a = coerceList(x, kind);
     return Array.isArray(a) ? a : [];
   };
-  function readInsightsCache(ns) {
-    try {
-      ns = String(ns || "").toLowerCase();
-      if (!isEmailNS(ns)) return null;  // ★ 이메일 아니라면 캐시 사용 안 함
-      const raw = sessionStorage.getItem(`insights:${String(ns||"").toLowerCase()}`);
-      if (!raw) return null;
-      const obj = JSON.parse(raw);
-      return obj && typeof obj === "object" ? obj : null;
-    } catch { return null; }
-  }
 
   // PATCH for me.js — robust jibbitz counting (server-first but safe)
 
@@ -886,29 +1168,31 @@
     if (__countsBusy) return;
     __countsBusy = true;
     try {
-      const ns = getNS();
+      // “posts” 숫자를 정말 표시하는 경우에만 계산 (요소가 없으면 스킵)
+      const wantsPosts = !!$("#k-posts");
 
-      // ── 기존: DOM 값만 재사용 → 보강
-      let postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
+      let postsNow = 0;
+      if (wantsPosts) {
+        // 1) 현재 DOM 값(있으면 유지)
+        postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
 
-      if (!postsNow) {
-        // 1) insights 캐시 먼저
-        const cached = readInsightsCache(ns);
-        if (cached && typeof cached.posts === "number" && cached.posts >= 0) {
-          postsNow = cached.posts;
-        } else if (sessionAuthed()) {
-          // 2) 가벼운 폴백 조회(페이지 4 * 60 = 240개 한정)
+        // 2) 서버에서 가볍게 추정 (로그인 & 헬퍼 존재 시)
+        if (!postsNow && sessionAuthed() && typeof fetchAllMyItems === "function") {
           try {
+            // 페이지 4 * 60 = 최대 240개만 확인 (기존과 동일)
             const mine = await fetchAllMyItems(4, 60);
             if (Array.isArray(mine)) postsNow = mine.length;
           } catch { /* 네트워크 실패 시 0 유지 */ }
         }
       }
 
+      // 라벨/지비츠는 서버-우선 병합 로직 그대로 사용
       const counts = await getQuickCounts();
+
       renderQuick({
         labels: counts.labels || 0,
         jibs:   counts.jibs   || 0,
+        // posts는 요소가 없어도 renderQuick 내부에서 안전하게 무시됨
         posts:  Number.isFinite(postsNow) ? postsNow : 0,
         authed: sessionAuthed()
       });
@@ -918,212 +1202,116 @@
   }
   window.__meCountsRefresh = refreshQuickCounts;
 
-  /* ─────────────────────────────────────────────────────────────────────────────
-   * 5) Vote insights (KPI)
-   * ──────────────────────────────────────────────────────────────────────────── */
-  const emptyCounts = () => OPTIONS.reduce((a, k) => (a[k] = 0, a), {});
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 5) Leaderboards (Top10) — replaces personal KPI widgets
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-  function normalizeCounts(raw) {
-    if (!raw) return emptyCounts();
-
-    if (Array.isArray(raw)) {
-      const out = emptyCounts();
-      raw.forEach((r) => {
-        const k = String(r.label || "").trim();
-        const n = Number(r.count || 0);
-        if (OPTIONS.includes(k)) out[k] = Math.max(0, n);
-      });
-      return out;
-    }
-
-    if (typeof raw === "object") {
-      const out = emptyCounts();
-      for (const k of OPTIONS) out[k] = Math.max(0, Number(raw[k] || 0));
-      return out;
-    }
-
-    return emptyCounts();
+/** 기존 .insights 섹션을 리더보드 호스트로 바꿔치기 */
+function ensureLeaderboardHost() {
+  const insights =
+    document.querySelector('section.insights[aria-label]') ||
+    document.getElementById('insights') ||
+    document.querySelector('section.insights');
+  if (!insights) return null;
+  insights.innerHTML = `
+    <div id="lb-root" class="lb-grid">
+      <article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>
+    </div>
+  `.trim();
+  if (!document.querySelector('#lb-leadstyle')) {
+    const css = document.createElement('style');
+    css.id = 'lb-leadstyle';
+    css.textContent = `
+      .lb-grid { display:grid; gap:16px; }
+      @media (min-width: 960px){ .lb-grid { grid-template-columns: 1fr 1fr; } }
+      .lb-grid .panel h3 { margin: 0 0 8px; font-size: 16px; }
+      .lb-grid table.lb { width:100%; border-collapse: collapse; }
+      .lb-grid table.lb th, .lb-grid table.lb td { border-bottom: 1px solid var(--line, rgba(0,0,0,.1)); padding:8px 10px; text-align:right; }
+      .lb-grid table.lb th:nth-child(1), .lb-grid table.lb td:nth-child(1) { text-align:left; width:64px; }
+      .lb-grid table.lb th:nth-child(2), .lb-grid table.lb td:nth-child(2) { text-align:left; }
+      .lb-grid .acc { display:flex; align-items:center; gap:8px; }
+      .lb-grid .lb-avatar { width:22px; height:22px; border-radius:50%; object-fit:cover; display:block; }
+      .lb-grid .muted { opacity: .65; font-size: 12px; }
+      .lb-grid .err { color: #ff7b7b; }
+    `;
+    document.head.appendChild(css);
   }
-
-  function pickVotesFrom(obj) {
-    if (!obj || typeof obj !== "object") return { counts: emptyCounts(), my: null, total: 0 };
-    const c = normalizeCounts(obj.votes || obj.counts || obj.totals || obj.items || obj.data || obj);
-    const my = obj.my ?? obj.mine ?? obj.choice ?? obj.selected ?? null;
-    const sum = Object.values(c).reduce((s, n) => s + Number(n || 0), 0);
-    const total = Number.isFinite(Number(obj.total)) ? Number(obj.total) : sum;
-    return { counts: c, my: (OPTIONS.includes(my) ? my : null), total };
-  }
-
-  async function fetchVotesSafe(itemId, ns) {
-    const pid = encodeURIComponent(itemId);
-    const nsq = `ns=${encodeURIComponent(ns)}`;
-
-    // Try item votes endpoints
-    try {
-      const r = await api(`/api/items/${pid}/votes?${nsq}`, { credentials: "include", cache: "no-store" });
-      if (r?.ok) {
-        const j = await r.json().catch(() => ({}));
-        const picked = pickVotesFrom(j) || pickVotesFrom(j.item) || pickVotesFrom(j.data);
-        if (picked?.counts) return picked;
-      }
-    } catch {}
-
-    try {
-      const r = await api(`/api/votes?item=${pid}&${nsq}`, { credentials: "include", cache: "no-store" });
-      if (r?.ok) {
-        const j = await r.json().catch(() => ({}));
-        const picked = pickVotesFrom(j) || pickVotesFrom(j?.item) || pickVotesFrom(j?.data);
-        if (picked?.counts) return picked;
-      }
-    } catch {}
-
-    try {
-      const r = await api(`/api/items/${pid}?${nsq}`, { credentials: "include", cache: "no-store" });
-      if (r?.ok) {
-        const j = await r.json().catch(() => ({}));
-        const picked = pickVotesFrom(j) || pickVotesFrom(j?.item) || pickVotesFrom(j?.data);
-        if (picked?.counts) return picked;
-      }
-    } catch {}
-
-    return { counts: emptyCounts(), my: null, total: 0 };
-  }
-
-async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
-
-  const myns = getNS();
-  const nsCandidates = [myns];
-  // 기존엔 UID를 후보로 추가했지만, 이제 이메일만 허용:
-  if (!isEmailNS(myns)) return [];   
-  
-  const seen = new Set();
-  const out  = [];
-
-  async function fetchByNs(nsVal) {
-    let cursor = null;
-    for (let p = 0; p < maxPages; p++) {
-      const qs = new URLSearchParams({ limit: String(Math.min(pageSize, 60)), ns: nsVal });
-      if (cursor) { qs.set("after", String(cursor)); qs.set("cursor", String(cursor)); }
-      const r = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include", cache: "no-store" });
-      if (!r || !r.ok) break;
-
-      const j = await r.json().catch(() => ({}));
-      const items = Array.isArray(j?.items) ? j.items : [];
-      for (const it of items) {
-        const id = String(it?.id || "");
-        if (!id || seen.has(id)) continue;
-        // 나와의 관계: ns 매치 또는 mine 플래그 또는 오너 uid 매치
-        const nsMatch    = String(it?.ns || "").toLowerCase() === nsVal;
-        const mineFlag   = (it?.mine === true);
-        const ownerMatch = (MY_UID != null) && (String(it?.user?.id || "").toLowerCase() === String(MY_UID).toLowerCase());
-        if (nsMatch || mineFlag || ownerMatch) {
-          seen.add(id);
-          out.push(it);
-        }
-      }
-      cursor = j?.nextCursor || null;
-      if (!cursor || items.length === 0) break;
-    }
-  }
-
-  // 1) 이메일 ns 우선
-  await fetchByNs(nsCandidates[0]);
-
-  // 2) 결과가 없고 uid 대안이 있으면 보강 조회
-  if (out.length === 0 && nsCandidates[1]) {
-    await fetchByNs(nsCandidates[1]);
-  }
-
-  return out;
+  return document.getElementById('lb-root');
 }
 
+const fmtLb = (n) => (Number(n || 0)).toLocaleString();
 
-  async function mapLimit(arr, limit, worker) {
-    const ret = new Array(arr.length);
-    let idx = 0, running = 0;
-    return await new Promise((resolve) => {
-      const pump = () => {
-        while (running < limit && idx < arr.length) {
-          const i = idx++; running++;
-          Promise.resolve(worker(arr[i], i))
-            .then((v) => { ret[i] = v; })
-            .catch(() => { ret[i] = null; })
-            .finally(() => { running--; (idx >= arr.length && running === 0) ? resolve(ret) : pump(); });
-        }
-      };
-      pump();
-    });
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function tableHTML(title, rows) {
+  const thead = `
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Account</th>
+        <th title="Posts created">Posts</th>
+        <th title="Total votes received on posts">Votes</th>
+        <th title="Matched / Participated">Match</th>
+        <th title="Match rate">Rate</th>
+      </tr>
+    </thead>`;
+  const tr = (r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>
+        <div class="acc">
+          ${r.avatarUrl ? `<img class="lb-avatar" src="${toAPI2(r.avatarUrl)}" alt="">` : ``}
+          <div>
+            <div>${esc(r.displayName || r.email || r.ns || "—")}</div>
+            <div class="muted">${esc(r.email || r.ns || "")}</div>
+          </div>
+        </div>
+      </td>
+      <td>${fmtLb(r.posts)}</td>
+      <td>${fmtLb(r.votes)}</td>
+      <td>${fmtLb(r.matched)} / ${fmtLb(r.participated)}</td>
+      <td>${Math.round(Number(r.rate || 0))}%</td>
+    </tr>`;
+  const tbody = `<tbody>${rows.map(tr).join("")}</tbody>`;
+  return `<article class="panel"><h3>${esc(title)}</h3><table class="lb">${thead}${tbody}</table></article>`;
+}
+
+function toAPI2(p) {
+  try {
+    const base = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || location.origin;
+    return new URL(String(p).replace(/^\/+/, "/"), base).toString();
+  } catch { return p; }
+}
+
+async function loadLeaderboardsIntoInsights() {
+  const host = ensureLeaderboardHost();
+  if (!host) return;
+
+  host.innerHTML = `<article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>`;
+
+  try {
+    const r = await fetch(toAPI2("/api/admin/leaderboards"), { credentials: "include", cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+
+    const P = Array.isArray(j.postsTop10) ? j.postsTop10 : [];
+    const V = Array.isArray(j.votesTop10) ? j.votesTop10 : [];
+    const R = Array.isArray(j.rateTop10)  ? j.rateTop10  : [];
+
+    host.innerHTML = `
+      ${tableHTML("Most Posts", P)}
+      ${tableHTML("Most Votes (received)", V)}
+      ${tableHTML("Best Match Rate", R)}
+    `;
+  } catch (e) {
+    console.error("[leaderboards] load failed:", e);
+    host.innerHTML = `<article class="panel"><div class="kpi-lg err">리더보드 불러오기 실패</div></article>`;
   }
-
-  const winnersOf = (counts) => {
-    const entries = Object.entries(counts || {});
-    if (!entries.length) return [];
-    const max = Math.max(...entries.map(([, n]) => Number(n || 0)), 0);
-    if (max <= 0) return [];
-    return entries.filter(([, n]) => Number(n || 0) === max).map(([k]) => k);
-  };
-
-  function setRateBar(rate = 0) {
-    const el = $("#m-rate-bar"); if (!el) return;
-    const clamped = Math.max(0, Math.min(100, Math.round(rate)));
-
-    if (el.tagName === "PROGRESS") {
-      el.max = 100; el.value = clamped;
-      el.setAttribute("aria-valuemin", "0");
-      el.setAttribute("aria-valuemax", "100");
-      el.setAttribute("aria-valuenow", String(clamped));
-    } else {
-      const step = Math.round(clamped / 5) * 5;
-      for (const c of Array.from(el.classList)) if (/^p(100|[0-9]{1,2})$/.test(c)) el.classList.remove(c);
-      el.classList.add(`p${step}`);
-      el.setAttribute("data-pct", String(step));
-    }
-  }
-
-  async function computeAndRenderInsights() {
-    const elPosts = $("#m-posts");
-    const elPart  = $("#m-participated");
-    const elRate  = $("#m-rate");
-    const elRateDetail = $("#m-rate-detail");
-
-    const myItems = await fetchAllMyItems();
-    const postCount = myItems.length;
-
-    const votes = await mapLimit(myItems, 6, async (it) => {
-      if (it?.votes || it?.counts || it?.totals) {
-        const vRaw = pickVotesFrom(it);
-        return { label: String(it.label || "").trim(), total: Number(vRaw.total || 0), tops: winnersOf(vRaw.counts) };
-      }
-      const v = await fetchVotesSafe(it.id, it.ns || getNS());
-      const total = Number(v.total || Object.values(v.counts || {}).reduce((s, n) => s + Number(n || 0), 0));
-      const tops  = winnersOf(v.counts);
-      return { label: String(it.label || "").trim(), total, tops };
-    });
-
-    const participated = votes.filter((v) => v && v.total > 0).length;
-    let matched = 0;
-    for (const v of votes) {
-      if (!v || v.total === 0) continue;
-      if (v.label && v.tops.includes(v.label)) matched++;
-    }
-    const rate = (participated > 0) ? Math.round((matched / participated) * 100) : 0;
-
-    try {
-      const ns = getNS();
-      const insights = { posts: postCount, participated, matched, rate };
-      if (isEmailNS(ns)) {
-        sessionStorage.setItem(`insights:${ns}`, JSON.stringify({ ...insights, t: Date.now() }));
-      }
-      window.dispatchEvent(new CustomEvent("insights:ready", { detail: { ns, ...insights } }));
-    } catch {}
-
-    elPosts && (elPosts.textContent = fmtInt(postCount));
-    elPart  && (elPart.textContent  = fmtInt(participated));
-    elRate  && (elRate.textContent  = `${rate}%`);
-    setRateBar(rate);
-    elRateDetail && (elRateDetail.textContent = `(${fmtInt(matched)} / ${fmtInt(participated)})`);
-    $("#k-posts") && ($("#k-posts").textContent = fmtInt(postCount));
-  }
+}
 
   /* ─────────────────────────────────────────────────────────────────────────────
    * 6) Profile & Password update
@@ -1639,14 +1827,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       quick.jibs   = readJibs().length;
     }
 
-    // ★ 초기 posts 0으로 덮이지 않게 캐시로 보강
-    try {
-      const ic = readInsightsCache(getNS());
-      if (ic && typeof ic.posts === "number" && ic.posts >= 0) {
-        quick.posts = ic.posts; // why: 부팅 첫 렌더에서 0으로 찍히는 깜박임 방지
-      }
-    } catch {}
-
     // 3) 1차 렌더(프로필/카운트) + 프로필 브로드캐스트
     renderProfile(me);
     await broadcastMyProfile({});
@@ -1689,7 +1869,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) {
-      computeAndRenderInsights().catch(() => {});
+      await loadLeaderboardsIntoInsights();
     }
   }
  
@@ -2313,6 +2493,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         btnSubmit.textContent = "Submitted ✓";
         setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
       }
+      try {
+        const m = document.querySelector("#admin-lab");
+        if (m && m.classList.contains("open")) loadAdminLab();
+      } catch {}
     } catch (e) {
       const msg = String(e?.message || e);
       if (msg.startsWith("submit_api_404")) {
@@ -2352,6 +2536,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
   if (btnClear) btnClear.addEventListener("click", clearAll);
   if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+ // 운영자면 캔버스 패널에도 바로 열기 버튼 붙이기
+ (async()=>{ if (await (typeof isAdmin==="function" ? isAdmin() : Promise.resolve(false))) {
+   const ctrl = document.querySelector(".lab-controls .spacer");
+   if (ctrl && !document.querySelector("#lab-view-list")) {
+     const b = document.createElement("button");
+     b.id="lab-view-list"; b.className="btn ghost"; b.textContent="View submissions";
+     b.addEventListener("click", openAdminLabModal);
+     ctrl.after(b);
+   }
+ }})();
 
   // a11y: space toggles play when canvas focused
   cvs.tabIndex = 0;
