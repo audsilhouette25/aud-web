@@ -581,7 +581,7 @@ header.nav{
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 10px;
-  min-height: 350px;
+  height: 400px;
 }
 .lab-head{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
