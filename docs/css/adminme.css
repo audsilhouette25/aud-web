@@ -1,701 +1,214 @@
 /* =====================================================================
-   0) Base & Tokens
+   adminme.css — Admin My Page (scoped, compact)
+   - Scope: .adminme … (다른 페이지 영향 X)
+   - Matches: adminme.js (lab/leaderboards/quick/profile)
 ===================================================================== */
-* { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* 0) Base & Tokens */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 :root{
-  /* Brand & UI */
   --accent: #FFA765;
   --text: #111;
   --muted: #666;
   --focus: #0B72FF;
-  --heart-red: #E53935;
-  /* Notice metrics */
-  --notice-h: 64px;      /* 알림 1개 기준 높이 */
-  --notice-gap: 8px;     /* .notify-list의 gap(.5rem ≒ 8px) */
-
-  /* Layout */
+  --bg: #F5F5F5;
+  --panel: #fff;
+  --line: rgba(0,0,0,.08);
+  --shadow: 0 6px 16px rgba(0,0,0,.08);
   --nav-h: 64px;
-  --container-w: clamp(350px, 85vw, 1000px);
-
-  /* Quick/Feed spacing */
-  --feed-top-gap: 32px;
-  --feed-bottom-gap: 32px;
-
-  /* Post Modal Layout tokens (PM) */
-  --pm-gutter: 14px;
-  --pm-left: 600px;          /* 좌측(미디어) 최대폭 */
-  --pm-right: 350px;         /* 우측(텍스트) 고정폭 */
-  --pm-left-min: 300px;      /* 세로 전환 임계 좌측폭 */
-  --pm-lock-h: 350px;
-
-  /* Sheet geometry */
-  --sheet-w-max: 1280px;
-  --sheet-ar-num: 16;
-  --sheet-ar-den: 9;
-  --pm-fixed-h: 92dvh;
-
-  /* Hero 배경 */
-  --green: #A9B9CF;
-  --green-deep: #A9B9CF;
-
-  /* Icons (data URI) */
-  --ico-bell-off: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%237b8192' d='m20,8c2.206,0,4-1.794,4-4s-1.794-4-4-4-4,1.794-4,4,1.794,4,4,4Zm0-6c1.103,0,2,.897,2,2s-.897,2-2,2-2-.897-2-2,.897-2,2-2Zm3.272,14.247l-.005-.019s0,0,0-.001h0l-1.573-6.473c-.538.158-1.105.247-1.694.247-.104,0-.205-.01-.308-.016l1.637,6.735c.002.007.007.012.008.02h-.004c.082.308.021.615-.169.866-.192.255-.476.395-.796.395H3.493c-.305,0-.589-.137-.778-.371-.192-.24-.264-.548-.207-.812l2.352-9.117c.746-3.356,3.682-5.7,7.14-5.7.773,0,1.523.132,2.232.361.188-.661.484-1.275.872-1.821-.979-.348-2.025-.539-3.104-.539C7.598,0,3.859,2.988,2.916,7.233L.564,16.352c-.197.89.018,1.811.591,2.528.573.712,1.426,1.12,2.338,1.12h3.608c.465,2.279,2.484,4,4.899,4s4.434-1.721,4.899-4h3.47c.947,0,1.817-.433,2.39-1.186.556-.733.739-1.66.514-2.55-.001-.006,0-.011,0-.017Zm-11.272,5.753c-1.302,0-2.402-.839-2.816-2h5.631c-.414,1.161-1.514,2-2.816,2Z'/></svg>");
-  --ico-bell-on:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF884D' d='m23.63,16.862l-2.03-7.973c-.356.073-.723.111-1.1.111-.733,0-1.431-.147-2.072-.408l2.14,8.408H3.419l2.291-8.955c.66-2.971,3.247-5.045,6.29-5.045,1.076,0,2.105.27,3.013.748-.004-.083-.013-.164-.013-.248,0-.993.269-1.923.731-2.729-1.154-.498-2.419-.771-3.731-.771C7.54,0,3.75,3.041,2.793,7.348L.321,17.011c-.153.702.035,1.47.503,2.053.478.596,1.188.937,1.951.937h4.142c.563,2.293,2.617,4,5.084,4s4.521-1.707,5.084-4h4.128c.789,0,1.515-.36,1.99-.986.407-.535.562-1.193.472-1.846-.004-.101-.019-.204-.045-.306Zm-6.63-13.362c0-1.93,1.57-3.5,3.5-3.5s3.5,1.57,3.5,3.5-1.57,3.5-3.5,3.5-3.5-1.57-3.5-3.5Z'/></svg>");
-  --notify-on: #FF884D;
+  --container: clamp(360px, 88vw, 1000px);
 }
-
 html, body { height: 100%; }
-body{
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: var(--text);
-  background: #F5F5F5;
-  min-width: 400px;
+body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); background: var(--bg); }
+
+/* 1) Common */
+.adminme .container { inline-size: var(--container); margin-inline: auto; }
+.adminme .row { display:flex; align-items:center; gap:.5rem; }
+.adminme .row.between { justify-content: space-between; }
+:where(.adminme a, .adminme button, .adminme [tabindex]):focus-visible{
+  outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 10px;
 }
 
-/* 접근성: 키보드 포커스 링 */
-:where(a, button, [role="button"], input, select, textarea):focus-visible{
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
+/* 2) Nav */
+.adminme header.nav{ position: sticky; top:0; z-index:100; height: var(--nav-h); background: var(--bg); }
+.adminme .nav-inner{ height:100%; display:flex; align-items:center; justify-content:space-between; padding:0 24px; }
+.adminme .menu{ list-style:none; display:flex; gap:18px; }
+.adminme .menu a{ color:#333; text-decoration:none; font-weight:600; font-size:14px; opacity:.9; }
+.adminme .menu a:hover{ opacity:1; color:#000; }
+.adminme .logo-cta img{ inline-size:27px; block-size:27px; object-fit:contain; }
 
-/* =====================================================================
-   1) Utilities
-===================================================================== */
-.container{ inline-size: var(--container-w); margin-inline: auto; }
-.fullbleed{
-  inline-size: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+/* 3) Profile hero */
+.adminme{ inline-size: var(--container); margin: 0 auto 56px; }
+.adminme .profile-hero{
+  margin-top:18px; padding:20px 22px; border-radius:22px;
+  background: linear-gradient(180deg, #A9B9CF, #A9B9CF);
+  color:#0d3800; display:flex; align-items:center; justify-content:space-between; gap:18px;
 }
-.row{ display:flex; align-items:center; gap:.5rem; }
-.row.between{ justify-content:space-between; }
+.adminme .ph-left{ display:flex; align-items:center; gap:14px; min-width:0; }
+.adminme .name-block{ min-width:0; }
+.adminme .display-name{ font-size:28px; line-height:1.1; font-weight:800; letter-spacing:-.2px; }
+.adminme .email{ margin-top:4px; font-weight:600; opacity:.9; }
+.adminme .badge-line{ margin-top:6px; }
+.adminme .grade-badge{ display:inline-block; padding:6px 10px; border-radius:9999px; font-weight:800; font-size:12px; background:#fff; border:1px solid rgba(0,0,0,.06); }
+.adminme .ph-right{ display:flex; gap:8px; }
 
-/* =====================================================================
-   2) Nav
-===================================================================== */
-header.nav{
-  position: sticky; top: 0; z-index: 100;
-  height: var(--nav-h);
-  background: #F5F5F5;
+/* 4) Avatar (CSS-only) */
+.adminme .avatar{
+  inline-size:88px; block-size:88px; border-radius:22px; display:grid; place-items:center;
+  font-weight:800; position:relative; overflow:hidden; user-select:none; box-shadow: var(--shadow);
+  background: hsl(var(--h) 75% 85%); color: hsl(var(--h) 60% 28%);
 }
-.nav-inner{
-  height: 100%;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 27px;
-}
-.menu{ list-style: none; display: flex; gap: 20px; }
-.menu a{
-  color: #333; text-decoration: none;
-  font-weight: 500; font-size: 15px;
-  opacity: .9; transition: opacity .2s ease, color .2s ease;
-}
-.menu a:hover{ opacity: 1; color: #000; }
-.menu a.active{ font-weight: 600; color: #000; }
-.logo-cta img{ inline-size: 27px; block-size: 27px; object-fit: contain; }
+.adminme .avatar::after{ content: attr(data-initials); font-size:30px; line-height:1; letter-spacing:.5px; }
+.adminme #me-avatar.avatar{ border-radius:50%; }
+.adminme #me-avatar .avatar-img{ display:none; width:100%; height:100%; object-fit:cover; }
+.adminme #me-avatar.url-mode .avatar-img{ display:block; }
+.adminme #me-avatar.url-mode::after{ content:""; }
+/* 24 hue buckets */
+.adminme .avatar.h0{--h:0}.adminme .avatar.h1{--h:15}.adminme .avatar.h2{--h:30}.adminme .avatar.h3{--h:45}.adminme .avatar.h4{--h:60}.adminme .avatar.h5{--h:75}
+.adminme .avatar.h6{--h:90}.adminme .avatar.h7{--h:105}.adminme .avatar.h8{--h:120}.adminme .avatar.h9{--h:135}.adminme .avatar.h10{--h:150}.adminme .avatar.h11{--h:165}
+.adminme .avatar.h12{--h:180}.adminme .avatar.h13{--h:195}.adminme .avatar.h14{--h:210}.adminme .avatar.h15{--h:225}.adminme .avatar.h16{--h:240}.adminme .avatar.h17{--h:255}
+.adminme .avatar.h18{--h:270}.adminme .avatar.h19{--h:285}.adminme .avatar.h20{--h:300}.adminme .avatar.h21{--h:315}.adminme .avatar.h22{--h:330}.adminme .avatar.h23{--h:345}
 
-/* =====================================================================
-   3) Profile Hero
-===================================================================== */
-.me{ inline-size: var(--container-w); margin: 0 auto 64px; }
-.profile-hero{
-  margin-top: 18px; padding: 20px 22px; border-radius: 22px;
-  background: linear-gradient(180deg,
-              color-mix(in oklab, var(--green) 90%, white 10%),
-              var(--green-deep));
-  color: #0d3800;
-  display: flex; align-items: center; justify-content: space-between; gap: 20px;
-}
-.ph-left{ display: flex; align-items: center; gap: 16px; min-width: 0; }
-
-/* =====================================================================
-   4) Avatar (no inline styles) + Avatar Modal
-===================================================================== */
-.avatar{
-  inline-size: 88px; block-size: 88px;
-  border-radius: 22px;
-  display: grid; place-items: center;
-  font-weight: 700;
-  position: relative; overflow: hidden;
-  background: hsl(var(--h) 75% 85%);
-  color: hsl(var(--h) 60% 28%);
-  user-select: none;
-  box-shadow: 0 6px 16px rgba(0,0,0,.08);
-}
-.avatar::after{
-  content: attr(data-initials);
-  font-size: 30px; line-height: 1; letter-spacing: .5px;
-}
-.avatar.url-mode{ background:#e9e9ec; color:transparent; }
-.avatar.url-mode::after{ content:""; }
-
-/* 24단계 Hue */
-.avatar.h0  { --h:   0 } .avatar.h1  { --h:  15 } .avatar.h2  { --h:  30 }
-.avatar.h3  { --h:  45 } .avatar.h4  { --h:  60 } .avatar.h5  { --h:  75 }
-.avatar.h6  { --h:  90 } .avatar.h7  { --h: 105 } .avatar.h8  { --h: 120 }
-.avatar.h9  { --h: 135 } .avatar.h10 { --h: 150 } .avatar.h11 { --h: 165 }
-.avatar.h12 { --h: 180 } .avatar.h13 { --h: 195 } .avatar.h14 { --h: 210 }
-.avatar.h15 { --h: 225 } .avatar.h16 { --h: 240 } .avatar.h17 { --h: 255 }
-.avatar.h18 { --h: 270 } .avatar.h19 { --h: 285 } .avatar.h20 { --h: 300 }
-.avatar.h21 { --h: 315 } .avatar.h22 { --h: 330 } .avatar.h23 { --h: 345 }
-
-#me-avatar.avatar{ border-radius: 50%; overflow: hidden; }
-#me-avatar.avatar .avatar-img{
-  display:none; width:100%; height:100%; object-fit:cover;
-}
-#me-avatar.avatar.url-mode .avatar-img{ display:block; }
-#me-avatar.avatar.url-mode::before{ content:""; }
-
-/* Avatar Modal */
-#avatar-modal .sheet{ inline-size: min(640px, 96vw); }
-#avatar-modal .cropper{
-  display:grid; place-items:center; margin:14px 0 10px;
-}
-#avatar-modal #av-canvas{
-  display:block; margin-inline:auto; max-inline-size:100%;
-  aspect-ratio: 1 / 1; block-size:auto;
-}
-
-/* =====================================================================
-   5) Typography blocks
-===================================================================== */
-.name-block{ min-width: 0; }
-.display-name{ margin: 0; font-size: 28px; letter-spacing: -.2px; font-weight: 800; line-height: 1.1; }
-.email{ margin: .25rem 0 0; color: #111; font-weight: 600; opacity: .9; }
-.badge-line{ margin-top: 6px; }
-.grade-badge{
-  display: inline-block; padding: 6px 10px; border-radius: 9999px;
-  font-weight: 700; font-size: 12px;
-  background: #fff; color: #111;
-  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 1px 0 rgba(0,0,0,.04) inset;
-}
-
-/* =====================================================================
-   6) Buttons
-===================================================================== */
-.ph-right{ display: flex; gap: 8px; flex: 0 0 auto; }
-.btn{
-  appearance: none;
-  border: 1px solid rgba(0,0,0,.12);
-  border-radius: 9999px;
-  padding: 10px 16px;
-  font-weight: 700; line-height: 1;
-  cursor: pointer;
-  background: #fff; color: #111;
+/* 5) Buttons */
+.adminme .btn{
+  appearance:none; border:1px solid rgba(0,0,0,.12); border-radius:9999px; padding:10px 16px;
+  font-weight:800; line-height:1; cursor:pointer; background:#fff; color:var(--text);
   transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, opacity .15s ease;
 }
-.btn:hover{ transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,.08); }
-.btn[aria-busy="true"]{ opacity: .7; pointer-events: none; }
-.btn.primary, .btn-primary{
-  background: var(--accent); color: #111; border-color: transparent;
-}
-.btn.primary:hover, .btn-primary:hover{ filter: brightness(.98); transform: translateY(-1px); }
-.btn.ghost{ background: #fff; color: #111; }
+.adminme .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow); }
+.adminme .btn[aria-busy="true"]{ opacity:.7; pointer-events:none; }
+.adminme .btn.primary{ background: var(--accent); border-color: transparent; }
+.adminme .btn.primary:hover{ filter:brightness(.98); transform: translateY(-1px); }
+.adminme .btn.ghost{ background:#fff; }
 
-/* --- Logout: 텍스트만 (아이콘 공간 제거) --- */
-.btn-logout{
-  appearance: none;
-  display: inline-flex; align-items: center; justify-content: center; gap: 0; /* ← 0으로 고정 */
-  min-width: 160px; padding: 12px 20px; line-height: 1;
-  font-size: 15px; font-weight: 600; letter-spacing: .2px;
-  border: 1px solid rgba(0,0,0,.14); border-radius: 9999px;
-  background: #e9e9ec; color: #111; cursor: pointer;
-  transition: background .18s ease, box-shadow .18s ease, transform .06s ease, color .18s ease, opacity .18s ease;
-  box-shadow: 0 1px 2px rgba(0,0,0,.06);
-}
-.btn-logout:hover{ background: #dedee2; }
-.btn-logout:focus{ outline: none; box-shadow: 0 0 0 3px rgba(255,167,101,.25); }
-.btn-logout:active{ background: var(--accent); color:#111; transform: translateY(1px); }
-.btn-logout[aria-busy="true"]{ background: var(--accent); color:#111; opacity: .95; pointer-events: none; }
+.adminme .btn-logout{ min-width:140px; padding:12px 18px; font-weight:700; background:#e9e9ec; border:1px solid rgba(0,0,0,.14); }
+.adminme .btn-logout:hover{ background:#dedee2; }
+.adminme .btn-delete{ inline-size:48px; block-size:48px; border-radius:50%; display:grid; place-items:center; background:#e9e9ec; border:1px solid rgba(0,0,0,.14); }
+.adminme .btn-delete:hover{ background:#dedee2; }
 
-/* --- Delete: 원형 버튼 + 마스크 아이콘 --- */
-/* --- Delete: 완전 원형 버튼 --- */
-.btn-delete{
-  /* 원형 고정 */
-  inline-size: 48px;         /* 지름 */
-  block-size: 48px;
-  aspect-ratio: 1 / 1;       /* 혹시라도 가로세로 비틀림 방지 */
-  border-radius: 50%;
-  padding: 0;
-
-  /* 레이아웃 */
-  display: inline-grid;
-  place-items: center;
-
-  /* 룩앤필 */
-  background: #e9e9ec;
-  color: #111;               /* 아이콘 색 (currentColor) */
-  border: 1px solid rgba(0,0,0,.14);
-  box-shadow: 0 1px 2px rgba(0,0,0,.06);
-  cursor: pointer;
-  transition: background .18s ease, transform .06s ease, opacity .18s ease, color .18s ease;
+/* 6) Panels (card shell) */
+.adminme .panel{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 
-/* 아이콘(마스크) */
-.btn-delete::before{
-  content: "";
-  inline-size: 22px; block-size: 22px;
-  background-color: currentColor;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M18 8L22 12M22 12L18 16M22 12H9M15 4.20404C13.7252 3.43827 12.2452 3 10.6667 3C5.8802 3 2 7.02944 2 12C2 16.9706 5.8802 21 10.6667 21C12.2452 21 13.7252 20.5617 15 19.796' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M18 8L22 12M22 12L18 16M22 12H9M15 4.20404C13.7252 3.43827 12.2452 3 10.6667 3C5.8802 3 2 7.02944 2 12C2 16.9706 5.8802 21 10.6667 21C12.2452 21 13.7252 20.5617 15 19.796' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
-}
-
-.btn-delete:hover{ background:#dedee2; }
-.btn-delete:active{ background: var(--accent); transform: translateY(1px); }
-.btn-delete[aria-busy="true"]{ opacity:.6; pointer-events:none; }
-
-/* =====================================================================
-   Leaderboards (insights 섹션 대체)
-   - .insights 영역 안에 JS가 #lb-root를 넣어줍니다.
-   - injection 없이 CSS에서 전역 스타일 제공
-===================================================================== */
-.lb-grid { display: grid; gap: 16px; }
-@media (min-width: 960px){
-  .lb-grid { grid-template-columns: 1fr 1fr; }
-}
-
-/* 패널 헤더 */
-.lb-grid .panel h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-/* 표 골격 */
-.lb-grid table.lb {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-/* 셀 공통 */
-.lb-grid table.lb th,
-.lb-grid table.lb td {
-  border-bottom: 1px solid rgba(0,0,0,.1);
-  padding: 8px 10px;
-  text-align: right;
-  vertical-align: middle;
-  font-size: 14px;
-}
-
-/* 열 정렬/너비 */
-.lb-grid table.lb th:nth-child(1),
-.lb-grid table.lb td:nth-child(1) { text-align: left; width: 64px; }
-.lb-grid table.lb th:nth-child(2),
-.lb-grid table.lb td:nth-child(2) { text-align: left; }
-
-/* 사용자 셀: 아바타+텍스트 정렬 */
-.lb-grid .acc {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;  /* ellipsis 작동용 */
-}
-.lb-grid .acc .avatar {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: 0 0 auto;
-  background: #e9e9ec;
-}
-.lb-grid .acc > div {
-  min-width: 0;
-}
-.lb-grid .acc > div > div {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* 보조 텍스트 */
-.lb-grid .muted {
-  opacity: .65;
-  font-size: 12px;
-}
-
-/* 오류/상태 표시 */
-.lb-grid .err { color: #ff7b7b; }
-
-/* 숫자 정렬을 위한 탭ular */
-.lb-grid table.lb td {
-  font-variant-numeric: tabular-nums;
-}
-
-/* =====================================================================
-   9) Quick Panels (컬렉션 요약 등)
-===================================================================== */
-/* === Quick 영역 === */
-.quick{
+/* 7) Quick section (Collection summary + Lab side-by-side) */
+.adminme .quick{
   margin-top: 18px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 30px;
 }
+.adminme .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.adminme .kpi{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.adminme .kpi b{ font-size:22px; line-height:1; }
+.adminme .kpi span{ font-size:12px; color:#777; }
 
-/* 왼쪽 첫 패널(= Collection) */
-.quick .panel:first-child{
-  display: grid;
+/* Desktop: Collection 세로 리스트화 */
+@media (min-width: 1001px){
+  .adminme .quick > .panel:first-child{ display:flex; flex-direction:column; }
+  .adminme .quick > .panel:first-child .grid-3{
+    display:flex; flex-direction:column; gap:18px; padding-block:35px; min-height:240px;
+  }
+  .adminme .quick > .panel:first-child .kpi{
+    flex-direction:row; align-items:baseline; justify-content:space-between; gap:12px; padding:0 6px;
+  }
 }
-
-/* 그리드 내용: 세로 가운데, 가로는 시작 정렬 */
-.quick .panel:first-child .grid-3{
-  block-size: 100%;
-  align-content: center;   /* vertical center */
-  justify-content: start;  /* horizontal start */
-  justify-items: start;    /* each cell start */
-}
-
-/* KPI: 숫자 왼쪽, 라벨 오른쪽, 기준선(아래) 맞춤 */
-.quick .panel:first-child .kpi{
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 8px;
-  text-align: left;
-}
-.quick .panel:first-child .kpi b{
-  font-size: 20px;
-  line-height: 1;
-}
-.quick .panel:first-child .kpi span{
-  font-size: 12px;
-  line-height: 1;
-  color: #777;
-}
-
-/* 기본 그리드 / KPI (다른 패널 공통) */
-.grid-3{
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.kpi{
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-/* 리스트 공통 */
-.panel .list{
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.panel .list li{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-}
-.panel .list li b{
-  font-variant-numeric: tabular-nums;
-  color: #333;
-}
-
-/* =====================================================================
-   11) PM Sheet
-===================================================================== */
-.pm.sheet{
-  inline-size: min(100%, var(--sheet-w-max));
-  margin-inline: auto;
-  display: grid;
-  grid-template-columns: minmax(var(--pm-left-min), var(--pm-left)) minmax(320px, var(--pm-right));
-  gap: var(--pm-gutter);
-  align-items: stretch;
-}
-.pm.sheet{ container-type: inline-size; }
-@container (max-width: 980px){
-  .pm.sheet{ grid-template-columns: 1fr; }
-}
+/* Narrow: stack */
 @media (max-width: 1000px){
-  .pm.sheet{ grid-template-columns: 1fr; }
-}
-.pm .left{ min-inline-size: 0; }
-.pm .right{
-  min-inline-size: 0;
-  position: relative;
-  max-block-size: var(--pm-fixed-h);
-  overflow: auto;
-  background: #fff; border-radius: 16px;
+  .adminme .quick{ grid-template-columns: 1fr; }
 }
 
-/* =====================================================================
-   12) Modal (편집 모달)
-===================================================================== */
-.modal{
-  position: fixed; inset: 0;
-  display: grid; place-items: center;
-  padding: 20px;
-  background: rgba(0,0,0,.0);
-  pointer-events: none; opacity: 0;
-  transition: opacity .18s ease, background .18s ease;
+/* 8) aud laboratory (canvas tool) */
+.adminme .lab-wrap{
+  display:grid; grid-template-columns: 1fr min(640px,55%); gap:16px; align-items:stretch;
 }
-.modal.open{
-  background: rgba(0,0,0,.36);
-  pointer-events: auto; opacity: 1;
-}
-.modal .sheet{
-  inline-size: min(560px, 92vw);
-  background: #fff; border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.22);
-  padding: 18px 18px 16px;
-  transform: translateY(8px);
-  transition: transform .18s ease, opacity .18s ease;
-  opacity: .98;
-}
-.modal.open .sheet{ transform: translateY(0); opacity: 1; }
-.modal .overlay{ position: fixed; inset: 0; background: transparent; border: 0; cursor: default; }
-.modal .title{ font-size: 20px; font-weight: 800; margin: 2px 4px 14px; }
-.form-row{ display: grid; gap: 6px; margin: 10px 4px; }
-.form-row > label{ font-size: 13px; font-weight: 700; color: #222; }
-.form-row > input{
-  appearance: none; background:#fff;
-  border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
-  padding: 12px 14px; font-size: 14px;
-}
-.form-row > input:focus-visible{ outline: 2px solid var(--focus); border-color: transparent; }
-.hint{ font-size: 12px; color: var(--muted); margin: 4px 4px 0; }
-.fieldset{
-  border: 1px solid rgba(0,0,0,.08); border-radius: 14px;
-  padding: 8px 10px 12px; margin: 12px 4px 8px;
-}
-.fieldset > legend{ padding: 0 6px; font-size: 12px; font-weight: 800; color: #333; }
-.actions{
-  display: flex; gap: 8px; justify-content: flex-end; align-items: center;
-  margin: 14px 4px 0;
-}
-.msg{ font-size: 13px; color: #FFA765; margin: 10px 4px 0; min-height: 1.2em; }
-@media (prefers-reduced-motion: reduce){
-  .modal, .modal .sheet{ transition: none; }
-}
+@media (max-width: 1000px){ .adminme .lab-wrap{ grid-template-columns:1fr; } }
 
-/* =====================================================================
-   13) Responsive (global)
-===================================================================== */
-@media (max-width: 860px){
-  .insights{ grid-template-columns: 1fr; }
-  .quick{ grid-template-columns: 1fr; }
-  .profile-hero{ flex-direction: column; align-items: flex-start; }
-  .ph-right{ align-self: stretch; }
-  .panel.notify .panel-head{ align-items:flex-start; }
-}
+.adminme .panel.lab{ display:grid; grid-template-rows:auto 1fr auto; gap:10px; min-height:420px; }
+.adminme .lab-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.adminme .lab-head h3{ font-size:16px; font-weight:800; }
+.adminme .lab-stats{ font-size:12px; color:var(--muted); }
 
-/* =====================================================================
-   14) Helpers
-===================================================================== */
-.sr-only{
-  position: absolute !important; inline-size: 1px; block-size: 1px;
-  padding: 0; margin: -1px; overflow: hidden;
-  clip: rect(0, 0, 1px, 1px); white-space: nowrap; border: 0;
-}
-
-/* ===== Footer (compact) ===== */
-.mine-footer{
-  margin-top: 48px;
-  padding: 24px 0 64px;
-  border-top: 1px solid rgba(0,0,0,.06);
-  background: transparent;
-}
-
-.mine-footer .footer-inner{
-  max-width: var(--container-max, 1500px);
-  padding: 0 var(--container-pad, 24px);
-  margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  gap: 12px;                 /* 버튼 간격은 gap으로만 관리 */
-}
-
-/* 로그아웃 버튼: 폭 줄이기(푸터 범위 한정) */
-.mine-footer .btn-logout{
-  min-width: auto;           /* 고정폭 해제 */
-  padding-inline: 18px;      /* 좌우 패딩 축소 */
-  white-space: nowrap;       /* 한 줄 유지 */
-}
-
-/* === Avatar normalization (me) — 2025-09-22 === */
-#me-avatar.avatar{ border-radius:50%; overflow:hidden; }
-#me-avatar.avatar .avatar-img{ display:none; width:100%; height:100%; object-fit:cover; }
-#me-avatar.avatar.url-mode .avatar-img{ display:block; }
-#me-avatar.avatar.url-mode::before{ content:""; }
-
-/* FILE: public/css/me.css */
-/* == append at end == */
-
-/* Lab layout next to Quick */
-.lab-wrap{
-  display: grid;
-  grid-template-columns: 1fr min(640px, 55%);
-  gap: 16px;
-  align-items: stretch;
-}
-@media (max-width: 1000px){
-  .lab-wrap{ grid-template-columns: 1fr; }
-}
-
-/* Lab panel */
-.panel.lab{
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 10px;
-  min-height: 420px;
-}
-.lab-head{
-  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
-}
-.lab-head h3{ font-size:16px; font-weight:700; }
-.lab-stats{ color: var(--muted); font-size: 12px; }
-
-.lab-canvas-wrap{
-  position: relative;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
-  overflow: hidden;
+.adminme .lab-canvas-wrap{
+  position:relative; border-radius:16px; background:#fff;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); overflow:hidden;
   height: clamp(300px, 42vh, 520px);
 }
-#aud-canvas{
-  display: block;
-  width: 100%;
-  height: 100%;          /* 래퍼 높이에 꼭 맞춤 */
-  touch-action: none;    /* 그리기용 포인터 이벤트 */
+.adminme #aud-canvas{
+  display:block; width:100%; height:100%;
   background: linear-gradient(180deg, #f8fafc, #eef2f7 50%, #e6ebf3);
+  touch-action:none;
 }
+.adminme #aud-canvas:focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
 
-.lab-controls{
-  display:flex; align-items:center; gap:8px;
+.adminme .lab-controls{ display:flex; align-items:center; gap:8px; }
+.adminme .lab-controls .spacer{ flex:1; }
+.adminme .panel.lab .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+
+/* 9) Admin Lab modal (gallery) */
+#admin-lab.modal{ position:fixed; inset:0; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.36); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:1000; }
+#admin-lab.modal.open{ opacity:1; pointer-events:auto; }
+#admin-lab .sheet{ width:min(92vw,980px); background:#fff; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.22); padding:18px; }
+#admin-lab .overlay{ position:fixed; inset:0; background:transparent; border:0; }
+#admin-lab .title{ font-size:20px; font-weight:800; margin:2px 4px 10px; }
+#admin-lab .admin-toolbar{ display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
+#admin-lab .admin-toolbar .spacer{ flex:1; }
+#admin-lab #admin-lab-q{ appearance:none; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; min-width:220px; }
+#admin-lab .admin-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; }
+#admin-lab .card{ border:1px solid var(--line); border-radius:12px; padding:12px 14px 14px; background:#fff; }
+#admin-lab .card img{ width:100%; height:130px; object-fit:cover; border-radius:12px; display:block; background:#f3f4f6; margin-bottom:10px; }
+#admin-lab .card .meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:6px 0 2px; font-size:12px; color:#6b7280; }
+#admin-lab .card .row--spaced{ display:flex; align-items:center; gap:12px; margin-top:10px; min-height:44px; }
+#admin-lab .empty{ color:#9ca3af; padding:24px; text-align:center; border:1px dashed #e5e7eb; border-radius:12px; }
+#admin-lab .card.is-hidden{ display:none; }
+
+/* 10) Leaderboards */
+.adminme .lb-grid{ display:grid; gap:16px; }
+@media (min-width: 960px){ .adminme .lb-grid{ grid-template-columns:1fr 1fr; } }
+
+.adminme .lb-grid .panel h3{ margin:0 0 8px; font-size:16px; font-weight:800; }
+.adminme table.lb{ width:100%; border-collapse:collapse; table-layout: fixed; }
+.adminme table.lb th, .adminme table.lb td{
+  border-bottom:1px solid rgba(0,0,0,.1); padding:8px 10px; text-align:right; vertical-align:middle; font-size:14px;
 }
-.lab-controls .spacer{ flex:1; }
+.adminme table.lb th:nth-child(1), .adminme table.lb td:nth-child(1){ text-align:left; width:64px; }
+.adminme table.lb th:nth-child(2), .adminme table.lb td:nth-child(2){ text-align:left; }
+.adminme .acc{ display:flex; align-items:center; gap:8px; min-width:0; }
+.adminme .acc .lb-avatar{ width:22px; height:22px; border-radius:50%; object-fit:cover; display:block; background:#e9e9ec; }
+.adminme .acc>div{ min-width:0; }
+.adminme .acc>div>div{ overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.adminme .muted{ opacity:.65; font-size:12px; }
+.adminme table.lb td{ font-variant-numeric: tabular-nums; }
+.adminme .kpi-lg{ padding:18px; }
 
-.panel.lab .btn.primary{
-  background: var(--accent);
-  color: #111;
-  border: none;
-}
-.panel.lab .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+/* 11) Edit / Avatar modals (shared) */
+.adminme .modal{ position:fixed; inset:0; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.0); pointer-events:none; opacity:0; transition:opacity .18s ease; }
+.adminme .modal.open{ background:rgba(0,0,0,.36); pointer-events:auto; opacity:1; }
+.adminme .modal .sheet{ inline-size:min(560px,92vw); background:#fff; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.22); padding:18px; }
+.adminme .modal .overlay{ position:fixed; inset:0; background:transparent; border:0; }
+.adminme .modal .title{ font-size:20px; font-weight:800; margin:2px 4px 14px; }
+.adminme .form-row{ display:grid; gap:6px; margin:10px 4px; }
+.adminme .form-row>label{ font-size:13px; font-weight:800; color:#222; }
+.adminme .form-row>input{ appearance:none; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:14px; }
+.adminme .form-row>input:focus-visible{ outline:2px solid var(--focus); border-color:transparent; }
+.adminme .fieldset{ border:1px solid var(--line); border-radius:14px; padding:8px 10px 12px; margin:12px 4px 8px; }
+.adminme .fieldset>legend{ padding:0 6px; font-size:12px; font-weight:800; color:#333; }
+.adminme .actions{ display:flex; gap:8px; justify-content:flex-end; align-items:center; margin:14px 4px 0; }
+.adminme .msg{ font-size:13px; color:var(--accent); margin:10px 4px 0; min-height:1.2em; }
+.adminme .cropper{ display:grid; place-items:center; margin:14px 0 10px; }
+.adminme #av-canvas{ display:block; margin-inline:auto; max-inline-size:100%; aspect-ratio:1/1; }
 
-/* High-contrast focus for a11y */
-#aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
+/* 12) Footer */
+.adminme .mine-footer{ margin-top:48px; padding:24px 0 64px; border-top:1px solid var(--line); background:transparent; }
+.adminme .mine-footer .footer-inner{ max-width:1500px; padding:0 24px; margin:0 auto; display:flex; justify-content:center; gap:12px; }
+.adminme .mine-footer .btn-logout{ min-width:auto; padding-inline:18px; white-space:nowrap; }
 
-/* ★ 넓은 화면(≥1001px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
-@media (min-width: 1001px){
-  .quick > .panel:first-child{
-    display: flex;
-    flex-direction: column;
-  }
-  .quick > .panel:first-child .grid-3{
-    display: flex !important;        /* grid → flex로 전환 */
-    flex-direction: column;
-    justify-content: flex-start;      /* ⬅ space-between 제거 */
-    gap: 18px;                        /* 라인 사이 간격 */
-    padding-block: 35px;              /* 위/아래 패딩 */
-    min-height: 240px;                /* 너무 납작 방지(옵션) */
-  }
-  .quick > .panel:first-child .kpi{
-    /* 라인 자체를 박스화 */
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: 30px 14px;               /* 내부 여백 */
-    background: transparent;
-    gap: 15px;
-  }
-  .quick > .panel:first-child .kpi b{ font-size: 22px; }
-  .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
-}
-
-
-/* ★ 좁은 화면(≤1000px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
-@media (max-width: 1000px){
-  .quick{
-    grid-template-columns: 1fr;               /* 스택 */
-  }
-  .quick > .panel:first-child .grid-3{
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 20px;
-    row-gap: 12px;
-    justify-items: start;
-  }
-}
-
-/* ===== admin aud-lab modal (full-page overlay) ===== */
-#admin-lab.modal{ z-index: 1000; }                /* 네비(z=100) 위로 */
-#admin-lab .sheet { max-width: 980px; width: min(92vw, 980px); }
-
-/* 오버레이 클릭영역: 화면 전체 */
-#admin-lab .overlay{
-  position: fixed;
-  inset: 0;
-}
-
-/* 나머지 카드/툴바 스타일 동일 */
-#admin-lab .admin-toolbar { display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
-#admin-lab .admin-toolbar .spacer { flex:1; }
-#admin-lab .nsbar { display:flex; flex-wrap:wrap; gap:6px; }
-#admin-lab .nsbar .pill {
-  padding:6px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.08);
-  background:#f5f6f8; cursor:pointer; font-size:13px; font-weight:600;
-}
-#admin-lab .nsbar .pill.active { background:#111; color:#fff; border-color:#111; }
-#admin-lab .admin-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; }
-#admin-lab .card { border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:10px; background:#fff; }
-#admin-lab .card img { width:100%; height:130px; object-fit:cover; border-radius:8px; display:block; background:#f3f4f6; }
-#admin-lab .card .meta { margin-top:6px; font-size:12px; color:#6b7280; display:flex; justify-content:space-between; gap:8px; }
-#admin-lab .empty { color:#9ca3af; padding:24px; text-align:center; border:1px dashed #e5e7eb; border-radius:12px; }
-
-.row--spaced { margin-top:6px; gap:6px; }
-
-/* Admin Lab card: inner spacing & readable layout */
-#admin-lab .card {
-  padding: 12px 14px 14px;       /* 카드 안쪽 여백 증가 */
-  row-gap: 10px;                 /* 세로 간격 기본 */
-}
-
-#admin-lab .card img {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-bottom: 10px;           /* 이미지와 메타 간격 */
-  border-radius: 12px;           /* 시각적 여유 */
-}
-
-#admin-lab .card .meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;                     /* owner / ns / time 간격 */
-  margin: 6px 0 2px;             /* 메타 주변 여백 */
-  line-height: 1.3;
-}
-
-#admin-lab .card .meta .owner,
-#admin-lab .card .meta .ns,
-#admin-lab .card .meta .time {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;       /* 긴 문자열도 깔끔하게 */
-}
-
-#admin-lab .card .row--spaced {
-  display: flex;
-  align-items: center;
-  gap: 12px;                     /* 버튼 사이 간격 ↑ */
-  margin-top: 10px;              /* 메타와 버튼 사이 간격 ↑ */
-  min-height: 44px;              /* 터치 타겟 확보 */
-}
-
-#admin-lab .card .btn {
-  padding: 10px 16px;            /* 버튼 내부 여백 ↑ */
-}
-
-/* 터치 환경에서 조금 더 여유 */
-@media (pointer: coarse) {
-  #admin-lab .card { padding: 14px 16px 16px; }
-  #admin-lab .card .row--spaced { gap: 14px; margin-top: 12px; }
-  #admin-lab .card .btn { padding: 12px 18px; }
+/* 13) Responsive tweaks */
+@media (max-width: 860px){
+  .adminme .profile-hero{ flex-direction:column; align-items:flex-start; }
+  .adminme .ph-right{ align-self: stretch; }
 }
