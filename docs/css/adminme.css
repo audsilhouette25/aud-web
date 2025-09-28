@@ -245,128 +245,79 @@ header.nav{
 .btn-delete:active{ background: var(--accent); transform: translateY(1px); }
 .btn-delete[aria-busy="true"]{ opacity:.6; pointer-events:none; }
 
-/* ===== Leaderboard: 3-Column Layout (KPI 제거 유지) ===== */
-/* 다른 코드 건드리지 말고 이 블록만 추가/대체 */
-
-/* 섹션 래퍼: 프로필과 간격만 책임 */
-.lb-section{ margin-top: 18px; }
-
-/* 그리드: 컨테이너(.container / .me) 폭에 맞춰 균등 3열 */
-.lb-grid{
+/* =====================================================================
+   7) Insights (상단 KPI)
+===================================================================== */
+.insights{
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  margin: 20px 0 8px;
 }
+.panel{ background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.panel h3{ margin: 0 0 10px; font-size: 16px; }
+.kpi-lg{ display: flex; align-items: baseline; gap: 10px; }
+.kpi-lg b{ font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; }
+.kpi-lg span{ font-size: 13px; color: var(--muted); }
+.rate-box h3{ font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.rate{ display: grid; gap: 8px; }
+.rate .bar{ height: 10px; background: #f1f3f5; border-radius: 999px; overflow: hidden; }
+.rate .bar i{ display: block; height: 100%; width: 0%; background: #222; transition: width .35s ease; }
+.rate .num{ display: flex; gap: 8px; align-items: baseline; }
+.rate .num b{ font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.rate .num span{ font-size: 12px; color: var(--muted); }
 
-/* ≥700px: 2열 */
-@media (min-width: 700px){
-  .lb-grid{ grid-template-columns: 1fr 1fr; }
+/* =====================================================================
+   8) Progress Bar — <progress> / div.pXX
+===================================================================== */
+progress#m-rate-bar{
+  --bar-h: 8px;
+  inline-size: 100%; block-size: var(--bar-h);
+  border: none; border-radius: 9999px;
+  background: #e9e9ec; overflow: hidden;
 }
-
-/* ≥1100px: 3열 — “프로필 카드와 가로 맞춤” */
-@media (min-width: 1100px){
-  .lb-grid{ grid-template-columns: repeat(3, 1fr); }
+progress#m-rate-bar::-moz-progress-bar{
+  background: linear-gradient(90deg, var(--accent), #ffc79f);
+  border-radius: 9999px;
 }
-
-/* 카드(패널) 스킨: 기존 .panel과 톤은 맞추되 여백/모서리 통일 */
-.lb-grid .panel{
-  background: #fff;
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  display: grid;                 /* why: 헤더/내용/푸터 세로 정렬 균일 */
-  grid-template-rows: auto 1fr auto;
-  min-height: 140px;             /* why: 3열에서 카드 높이 들쑥 방지 */
+progress#m-rate-bar::-webkit-progress-bar{
+  background: #e9e9ec; border-radius: 9999px;
 }
-
-/* 패널 헤더 */
-.lb-grid .panel h3{
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -.01em;
+progress#m-rate-bar::-webkit-progress-value{
+  background: linear-gradient(90deg, var(--accent), #ffc79f);
+  border-radius: 9999px;
 }
-
-/* 표(리더보드) */
-.lb-grid table.lb{
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;           /* why: 열 너비 안정화 */
-  background: #fff;
-  border-radius: 12px;
-  overflow: hidden;              /* radius 적용 */
+#m-rate-bar{
+  position: relative;
+  inline-size: 100%; block-size: 8px;
+  background: #e9e9ec; border-radius: 9999px; overflow: hidden;
 }
-
-/* 셀 공통 */
-.lb-grid table.lb th,
-.lb-grid table.lb td{
-  border-bottom: 1px solid rgba(0,0,0,.08);
-  padding: 10px 12px;
-  vertical-align: middle;
-  text-align: right;
-  font-size: 14px;
+#m-rate-bar::before{
+  content: ""; position: absolute; inset: 0; inline-size: 0%;
+  background: linear-gradient(90deg, var(--accent), #ffc79f);
+  border-radius: inherit;
 }
-
-/* 1,2열은 좌측 정렬 (Rank, Account) */
-.lb-grid table.lb th:nth-child(1),
-.lb-grid table.lb td:nth-child(1),
-.lb-grid table.lb th:nth-child(2),
-.lb-grid table.lb td:nth-child(2){
-  text-align: left;
-}
-
-/* Rank: 고정폭 + 숫자 자간 안정화 */
-.lb-grid table.lb th:nth-child(1),
-.lb-grid table.lb td:nth-child(1){
-  width: 64px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 숫자열: 동일 폭/자간 */
-.lb-grid table.lb td:nth-child(3),
-.lb-grid table.lb td:nth-child(4),
-.lb-grid table.lb td:nth-child(5),
-.lb-grid table.lb td:nth-child(6){
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 마지막 행 경계선 제거 */
-.lb-grid table.lb tbody tr:last-child td{ border-bottom: 0; }
-
-/* 계정 셀(아바타+이름) */
-.lb-grid .acc{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.lb-grid .lb-avatar{
-  width: 22px; height: 22px; border-radius: 50%;
-  object-fit: cover; display: block; flex: 0 0 22px;
-}
-.lb-grid .acc > div{ min-width: 0; display: grid; gap: 2px; }
-.lb-grid .acc > div > div{
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.lb-grid .muted{ opacity: .65; font-size: 12px; }
-
-/* 로딩/에러 자리표시자(선택) */
-.lb-grid .kpi-lg{
-  display: grid; place-items: center;
-  min-height: 56px; font-weight: 700;
-}
-.lb-grid .err{ color: #ff6b6b; }
-
-/* 모바일: 덜 중요한 열 숨김 (Rate) */
-@media (max-width: 520px){
-  .lb-grid table.lb th:nth-child(6),
-  .lb-grid table.lb td:nth-child(6){ display: none; }
-}
-
-/* 프로필 카드(.profile-hero)와 시각적 라인 맞춤(옵션):
-   컨테이너 기준 여백만 재정렬하므로 기존 레이아웃 영향 無 */
-.profile-hero{ margin-bottom: 16px; }
+#m-rate-bar.p0::before   { inline-size: 0% }
+#m-rate-bar.p5::before   { inline-size: 5% }
+#m-rate-bar.p10::before  { inline-size: 10% }
+#m-rate-bar.p15::before  { inline-size: 15% }
+#m-rate-bar.p20::before  { inline-size: 20% }
+#m-rate-bar.p25::before  { inline-size: 25% }
+#m-rate-bar.p30::before  { inline-size: 30% }
+#m-rate-bar.p35::before  { inline-size: 35% }
+#m-rate-bar.p40::before  { inline-size: 40% }
+#m-rate-bar.p45::before  { inline-size: 45% }
+#m-rate-bar.p50::before  { inline-size: 50% }
+#m-rate-bar.p55::before  { inline-size: 55% }
+#m-rate-bar.p60::before  { inline-size: 60% }
+#m-rate-bar.p65::before  { inline-size: 65% }
+#m-rate-bar.p70::before  { inline-size: 70% }
+#m-rate-bar.p75::before  { inline-size: 75% }
+#m-rate-bar.p80::before  { inline-size: 80% }
+#m-rate-bar.p85::before  { inline-size: 85% }
+#m-rate-bar.p90::before  { inline-size: 90% }
+#m-rate-bar.p95::before  { inline-size: 95% }
+#m-rate-bar.p100::before { inline-size: 100% }
 
 /* =====================================================================
    9) Quick Panels (컬렉션 요약 등)
