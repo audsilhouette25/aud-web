@@ -394,6 +394,10 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   width:950px; height:645px; background:#fff; border-radius:25px; box-shadow:0 20px 60px rgba(0,0,0,.35);
   display:grid; grid-template-rows:45px 1fr; overflow:hidden; isolation:isolate;  --im-ar: 1 / 1;   --im-fit: contain;  
 }
+/* 1:2면 좌측 300 + 우측 350 = 650px */
+:is(.labelmine-body, body:has(.labelmine-body)) .imodal[data-ar="1:2"]{
+  width: 650px !important;
+}
 :is(.labelmine-body, body:has(.labelmine-body)) .im-head{
   position:relative; display:grid; grid-template-columns:45px 1fr 45px; align-items:center; border-bottom:1px solid #e5e7eb;
 }
@@ -524,6 +528,19 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 :is(.labelmine-body, body:has(.labelmine-body)) .cmodal{
   width:600px; height:645px; background:#fff; border-radius:25px; box-shadow:0 20px 60px rgba(0,0,0,.35);
   display:grid; grid-template-rows:45px 1fr; overflow:hidden; isolation:isolate; position:relative; z-index:1000;
+}
+/* 스테이지가 1:2로 토글되면 모달 컨테이너도 300px로 동기화 */
+:is(.labelmine-body, body:has(.labelmine-body)) .cmodal:has(.cm-stage.is-ratio-12){
+  width: 300px !important; /* 300 = 1:2 스테이지 폭 */
+}
+/* (선택) 1:2에서 헤더 버튼/제목이 과도하게 들떠 보이지 않게 중앙정렬 보강 */
+:is(.labelmine-body, body:has(.labelmine-body)) .cmodal:has(.cm-stage.is-ratio-12) .cm-head,
+:is(.labelmine-body, body:has(.labelmine-body)) .imodal[data-ar="1:2"] .im-head{
+  grid-template-columns:45px 1fr 45px; /* 동일 유지: 가운데 타이틀이 항상 정중앙 */
+}
+:is(.labelmine-body, body:has(.labelmine-body)) .cm-stage.is-ratio-12 canvas{
+  width: 100% !important;
+  height: 100% !important;
 }
 /* Header */
 :is(.labelmine-body, body:has(.labelmine-body)) .cm-head{
