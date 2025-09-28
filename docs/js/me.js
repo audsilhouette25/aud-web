@@ -2004,12 +2004,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
   }
 
-  // 재가입시 1회 정리를 다시 실행할 수 있도록 wiped-flag 제거
-  try {
-    const cur = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-    if (cur) localStorage.removeItem(`auth:wiped:${cur}`);
-  } catch {}
-
   // === 탈퇴 전용: 경고 + 하드 정리 + 백엔드 삭제 ===
   async function __confirmAndDeleteAccount() {
     const ok = window.confirm("Are you sure you want to permanently delete your account?\nThis action cannot be undone and all saved data will be removed.");

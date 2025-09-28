@@ -650,10 +650,11 @@
 
         // ✅ 같은 이메일로 재가입했을 때 섞이지 않도록 ns별 1회 캐시 정리
         const wipedKey = `auth:wiped:${normEmail}`;
-        if (!sessionStorage.getItem(wipedKey)) {
+        if (!localStorage.getItem(wipedKey)) {
           wipeLocalForNs(normEmail);
-          ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"].forEach(k => localStorage.removeItem(k));
-          sessionStorage.setItem(wipedKey, "1");
+          ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"]
+            .forEach(k => localStorage.removeItem(k)); // 레거시 전역키 정리
+          localStorage.setItem(wipedKey, "1");
         }
       } catch {}
     }
