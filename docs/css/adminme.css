@@ -1,143 +1,307 @@
 /* =====================================================================
-   me.css — Admin edition (drop-in replacement)
-   - No inline styles. Safe defaults for all sections adminme.js uses.
-   - 2025-09-28
+   0) Base & Tokens
 ===================================================================== */
-
-/* ========== 0) Reset & tokens ========== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root{
-  --bg: #F5F6F8;
-  --panel: #FFFFFF;
-  --line: rgba(0,0,0,.08);
-  --shadow: 0 6px 20px rgba(0,0,0,.06);
-  --text: #111;
-  --muted: #68707D;
+  /* Brand & UI */
   --accent: #FFA765;
+  --text: #111;
+  --muted: #666;
   --focus: #0B72FF;
+  --heart-red: #E53935;
 
-  --container-w: clamp(360px, 88vw, 1100px);
+  /* Notice metrics */
+  --notice-h: 64px;      /* 알림 1개 기준 높이 */
+  --notice-gap: 8px;     /* .notify-list의 gap(.5rem ≒ 8px) */
+
+  /* Layout */
   --nav-h: 64px;
+  --container-w: clamp(350px, 85vw, 1000px);
 
-  /* avatar hue bucket (set via class) */
-  --h: 210;
+  /* Quick/Feed spacing */
+  --feed-top-gap: 32px;
+  --feed-bottom-gap: 32px;
 
-  /* spacing */
-  --gap: 16px;
-  --radius: 16px;
+  /* Post Modal Layout tokens (PM) */
+  --pm-gutter: 14px;
+  --pm-left: 600px;      /* 좌측(미디어) 최대폭 */
+  --pm-right: 350px;     /* 우측(텍스트) 고정폭 */
+  --pm-left-min: 300px;  /* 세로 전환 임계 좌측폭 */
+  --pm-lock-h: 350px;
+
+  /* Sheet geometry */
+  --sheet-w-max: 1280px;
+  --sheet-ar-num: 16;
+  --sheet-ar-den: 9;
+  --pm-fixed-h: 92dvh;
+
+  /* Hero 배경 */
+  --green: #A9B9CF;
+  --green-deep: #A9B9CF;
+
+  /* Icons (data URI) */
+  --ico-bell-off: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%237b8192' d='m20,8c2.206,0,4-1.794,4-4s-1.794-4-4-4-4,1.794-4,4,1.794,4,4,4Zm0-6c1.103,0,2,.897,2,2s-.897,2-2,2-2-.897-2-2,.897-2,2-2Zm3.272,14.247l-.005-.019s0,0,0-.001h0l-1.573-6.473c-.538.158-1.105.247-1.694.247-.104,0-.205-.01-.308-.016l1.637,6.735c.002.007.007.012.008.02h-.004c.082.308.021.615-.169.866-.192.255-.476.395-.796.395H3.493c-.305,0-.589-.137-.778-.371-.192-.24-.264-.548-.207-.812l2.352-9.117c.746-3.356,3.682-5.7,7.14-5.7.773,0,1.523.132,2.232.361.188-.661.484-1.275.872-1.821-.979-.348-2.025-.539-3.104-.539C7.598,0,3.859,2.988,2.916,7.233L.564,16.352c-.197.89.018,1.811.591,2.528.573.712,1.426,1.12,2.338,1.12h3.608c.465,2.279,2.484,4,4.899,4s4.434-1.721,4.899-4h3.47c.947,0,1.817-.433,2.39-1.186.556-.733.739-1.66.514-2.55-.001-.006,0-.011,0-.017Zm-11.272,5.753c-1.302,0-2.402-.839-2.816-2h5.631c-.414,1.161-1.514,2-2.816,2Z'/></svg>");
+  --ico-bell-on:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF884D' d='m23.63,16.862l-2.03-7.973c-.356.073-.723.111-1.1.111-.733,0-1.431-.147-2.072-.408l2.14,8.408H3.419l2.291-8.955c.66-2.971,3.247-5.045,6.29-5.045,1.076,0,2.105.27,3.013.748-.004-.083-.013-.164-.013-.248,0-.993.269-1.923.731-2.729-1.154-.498-2.419-.771-3.731-.771C7.54,0,3.75,3.041,2.793,7.348L.321,17.011c-.153.702.035,1.47.503,2.053.478.596,1.188.937,1.951.937h4.142c.563,2.293,2.617,4,5.084,4s4.521-1.707,5.084-4h4.128c.789,0,1.515-.36,1.99-.986.407-.535.562-1.193.472-1.846-.004-.101-.019-.204-.045-.306Zm-6.63-13.362c0-1.93,1.57-3.5,3.5-3.5s3.5,1.57,3.5,3.5-1.57,3.5-3.5,3.5-3.5-1.57-3.5-3.5Z'/></svg>");
+  --notify-on: #FF884D;
 }
 
 html, body { height: 100%; }
+
 body{
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
+  background: #F5F5F5;
+  min-width: 400px;
 }
 
-:where(a,button,[role="button"],input,select,textarea):focus-visible{
+/* 접근성: 키보드 포커스 링 */
+:where(a, button, [role="button"], input, select, textarea):focus-visible{
   outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 8px;
 }
 
-/* utilities */
+/* =====================================================================
+   1) Utilities
+===================================================================== */
 .container{ inline-size: var(--container-w); margin-inline: auto; }
-.fullbleed{ inline-size: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
+
+.fullbleed{
+  inline-size: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
 .row{ display:flex; align-items:center; gap:.5rem; }
-.row.between{ justify-content: space-between; }
+.row.between{ justify-content:space-between; }
 
-/* ========== 1) Panels (공통 카드) ========== */
-.panel{
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-.panel .panel-head{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom: 10px; }
-.panel h3{ font-size: 16px; font-weight: 800; }
-
-/* ========== 2) Header/Nav (선택적) ========== */
+/* =====================================================================
+   2) Nav
+===================================================================== */
 header.nav{
-  position: sticky; top: 0; z-index: 50;
-  height: var(--nav-h); background: var(--bg);
-  display:flex; align-items:center;
-  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  background: #F5F5F5;
 }
-.nav-inner{ inline-size: var(--container-w); margin: 0 auto; padding: 0 20px; display:flex; align-items:center; justify-content:space-between; }
-.menu{ list-style:none; display:flex; gap:18px; }
-.menu a{ text-decoration:none; color:#333; font-weight:600; opacity:.9; }
-.menu a:hover{ opacity:1; }
 
-/* ========== 3) Profile hero ========== */
-.adminme{ inline-size: var(--container-w); margin: 18px auto 28px; }
+.nav-inner{
+  height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 27px;
+}
+
+.menu{ list-style: none; display: flex; gap: 20px; }
+
+.menu a{
+  color: #333; text-decoration: none;
+  font-weight: 500; font-size: 15px;
+  opacity: .9; transition: opacity .2s ease, color .2s ease;
+}
+
+.menu a:hover{ opacity: 1; color: #000; }
+.menu a.active{ font-weight: 600; color: #000; }
+
+.logo-cta img{
+  inline-size: 27px;
+  block-size: 27px;
+  object-fit: contain;
+}
+
+/* =====================================================================
+   3) Profile Hero
+===================================================================== */
+.adminme{ inline-size: var(--container-w); margin: 0 auto 64px; }
+
 .profile-hero{
-  display:flex; align-items:center; justify-content:space-between; gap: 16px;
-  padding: 18px; border-radius: 22px;
-  background: linear-gradient(180deg, #A9B9CF, #A9B9CF);
-  color: #0d3800; /* 제목계 컬러는 어두운 녹색 톤 */
-}
-.ph-left{ display:flex; align-items:center; gap: 14px; min-width: 0; }
-.name-block{ min-width: 0; }
-.display-name{ font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -.2px; color:#0d3800; }
-.email{ margin-top: 4px; font-size: 14px; color:#0d3800; opacity:.85; font-weight: 700; }
-.badge-line{ margin-top: 6px; }
-.grade-badge{
-  display:inline-block; padding:6px 10px; border-radius: 9999px;
-  background: #fff; color:#111; border: 1px solid var(--line); font-weight: 800; font-size: 12px;
+  margin-top: 18px; padding: 20px 22px; border-radius: 22px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--green) 90%, white 10%),
+    var(--green-deep)
+  );
+  color: #0d3800;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
 }
 
-.ph-right{ display:flex; gap:8px; flex:0 0 auto; }
+.ph-left{ display: flex; align-items: center; gap: 16px; min-width: 0; }
 
-/* avatar */
+/* =====================================================================
+   4) Avatar (no inline styles) + Avatar Modal
+===================================================================== */
 .avatar{
-  inline-size: 88px; block-size: 88px; border-radius: 22px;
-  display:grid; place-items:center; font-weight:800;
-  background: hsl(var(--h) 75% 86%); color: hsl(var(--h) 60% 28%);
-  position:relative; overflow:hidden; user-select:none; box-shadow: var(--shadow);
+  inline-size: 88px; block-size: 88px;
+  border-radius: 22px;
+  display: grid; place-items: center;
+  font-weight: 700;
+  position: relative; overflow: hidden;
+  background: hsl(var(--h) 75% 85%);
+  color: hsl(var(--h) 60% 28%);
+  user-select: none;
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
 }
-.avatar::after{ content: attr(data-initials); font-size: 30px; letter-spacing:.5px; }
-#me-avatar.avatar{ border-radius: 50%; }
-#me-avatar.avatar .avatar-img{ display:none; width:100%; height:100%; object-fit: cover; }
+
+.avatar::after{
+  content: attr(data-initials);
+  font-size: 30px; line-height: 1; letter-spacing: .5px;
+}
+
+.avatar.url-mode{ background:#e9e9ec; color:transparent; }
+.avatar.url-mode::after{ content:""; }
+
+/* 24단계 Hue */
+.avatar.h0  { --h:   0 } .avatar.h1  { --h:  15 } .avatar.h2  { --h:  30 }
+.avatar.h3  { --h:  45 } .avatar.h4  { --h:  60 } .avatar.h5  { --h:  75 }
+.avatar.h6  { --h:  90 } .avatar.h7  { --h: 105 } .avatar.h8  { --h: 120 }
+.avatar.h9  { --h: 135 } .avatar.h10 { --h: 150 } .avatar.h11 { --h: 165 }
+.avatar.h12 { --h: 180 } .avatar.h13 { --h: 195 } .avatar.h14 { --h: 210 }
+.avatar.h15 { --h: 225 } .avatar.h16 { --h: 240 } .avatar.h17 { --h: 255 }
+.avatar.h18 { --h: 270 } .avatar.h19 { --h: 285 } .avatar.h20 { --h: 300 }
+.avatar.h21 { --h: 315 } .avatar.h22 { --h: 330 } .avatar.h23 { --h: 345 }
+
+#me-avatar.avatar{ border-radius: 50%; overflow: hidden; }
+
+#me-avatar.avatar .avatar-img{
+  display:none; width:100%; height:100%; object-fit:cover;
+}
+
 #me-avatar.avatar.url-mode .avatar-img{ display:block; }
-#me-avatar.avatar.url-mode::after{ content:""; }
-.avatar.h0{--h:0}.avatar.h1{--h:15}.avatar.h2{--h:30}.avatar.h3{--h:45}.avatar.h4{--h:60}.avatar.h5{--h:75}
-.avatar.h6{--h:90}.avatar.h7{--h:105}.avatar.h8{--h:120}.avatar.h9{--h:135}.avatar.h10{--h:150}.avatar.h11{--h:165}
-.avatar.h12{--h:180}.avatar.h13{--h:195}.avatar.h14{--h:210}.avatar.h15{--h:225}.avatar.h16{--h:240}.avatar.h17{--h:255}
-.avatar.h18{--h:270}.avatar.h19{--h:285}.avatar.h20{--h:300}.avatar.h21{--h:315}.avatar.h22{--h:330}.avatar.h23{--h:345}
+#me-avatar.avatar.url-mode::before{ content:""; }
 
-/* ========== 4) Buttons ========== */
+/* Avatar Modal */
+#avatar-modal .sheet{ inline-size: min(640px, 96vw); }
+
+#avatar-modal .cropper{
+  display:grid; place-items:center; margin:14px 0 10px;
+}
+
+#avatar-modal #av-canvas{
+  display:block; margin-inline:auto; max-inline-size:100%;
+  aspect-ratio: 1 / 1; block-size:auto;
+}
+
+/* =====================================================================
+   5) Typography blocks
+===================================================================== */
+.name-block{ min-width: 0; }
+
+.display-name{
+  margin: 0; font-size: 28px; letter-spacing: -.2px;
+  font-weight: 800; line-height: 1.1;
+}
+
+.email{
+  margin: .25rem 0 0; color: #111;
+  font-weight: 600; opacity: .9;
+}
+
+.badge-line{ margin-top: 6px; }
+
+.grade-badge{
+  display: inline-block; padding: 6px 10px; border-radius: 9999px;
+  font-weight: 700; font-size: 12px;
+  background: #fff; color: #111;
+  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 1px 0 rgba(0,0,0,.04) inset;
+}
+
+/* =====================================================================
+   6) Buttons
+===================================================================== */
+.ph-right{ display: flex; gap: 8px; flex: 0 0 auto; }
+
 .btn{
-  appearance:none; border:1px solid var(--line);
-  background:#fff; color:#111; font-weight:800;
-  padding: 10px 16px; border-radius: 9999px; cursor:pointer;
-  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, opacity .15s ease;
+  appearance: none;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 9999px;
+  padding: 10px 16px;
+  font-weight: 700; line-height: 1;
+  cursor: pointer;
+  background: #fff; color: #111;
+  transition: transform .15s ease, box-shadow .15s ease,
+              filter .15s ease, opacity .15s ease;
 }
-.btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow); }
-.btn[aria-busy="true"]{ opacity:.7; pointer-events:none; }
-.btn.primary, .btn-primary{ background: var(--accent); border-color: transparent; color:#111; }
-.btn.primary:hover, .btn-primary:hover{ filter: brightness(.98); }
-.btn.ghost{ background:#fff; color:#111; }
 
+.btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
+}
+
+.btn[aria-busy="true"]{ opacity: .7; pointer-events: none; }
+
+.btn.primary, .btn-primary{
+  background: var(--accent); color: #111; border-color: transparent;
+}
+
+.btn.primary:hover, .btn-primary:hover{
+  filter: brightness(.98); transform: translateY(-1px);
+}
+
+.btn.ghost{ background: #fff; color: #111; }
+
+/* --- Logout: 텍스트만 (아이콘 공간 제거) --- */
 .btn-logout{
-  display:inline-flex; align-items:center; justify-content:center; gap:0;
-  min-width: 160px; padding: 12px 20px; font-weight:700;
-  border:1px solid var(--line); border-radius:9999px; background:#e9e9ec;
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0; /* ← 0으로 고정 */
+  min-width: 160px; padding: 12px 20px; line-height: 1;
+  font-size: 15px; font-weight: 600; letter-spacing: .2px;
+  border: 1px solid rgba(0,0,0,.14); border-radius: 9999px;
+  background: #e9e9ec; color: #111; cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease,
+              transform .06s ease, color .18s ease, opacity .18s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
 }
-.btn-logout:hover{ background:#dedee2; }
-.btn-logout[aria-busy="true"]{ background: var(--accent); color:#111; }
 
-.btn-delete{
-  inline-size: 48px; block-size: 48px; aspect-ratio: 1 / 1; border-radius: 50%;
-  display:grid; place-items:center; background:#e9e9ec; border:1px solid var(--line);
+.btn-logout:hover{ background: #dedee2; }
+
+.btn-logout:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255,167,101,.25);
 }
+
+.btn-logout:active{
+  background: var(--accent); color:#111; transform: translateY(1px);
+}
+
+.btn-logout[aria-busy="true"]{
+  background: var(--accent); color:#111; opacity: .95; pointer-events: none;
+}
+
+/* --- Delete: 원형 버튼 + 마스크 아이콘 --- */
+/* --- Delete: 완전 원형 버튼 --- */
+.btn-delete{
+  /* 원형 고정 */
+  inline-size: 48px;           /* 지름 */
+  block-size: 48px;
+  aspect-ratio: 1 / 1;         /* 혹시라도 가로세로 비틀림 방지 */
+  border-radius: 50%;
+  padding: 0;
+
+  /* 레이아웃 */
+  display: inline-grid;
+  place-items: center;
+
+  /* 룩앤필 */
+  background: #e9e9ec;
+  color: #111;                 /* 아이콘 색 (currentColor) */
+  border: 1px solid rgba(0,0,0,.14);
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  cursor: pointer;
+  transition: background .18s ease, transform .06s ease,
+              opacity .18s ease, color .18s ease;
+}
+
+/* 아이콘(마스크) */
 .btn-delete::before{
-  content:""; inline-size:22px; block-size:22px; background: currentColor;
+  content: "";
+  inline-size: 22px; block-size: 22px;
+  background-color: currentColor;
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M18 8L22 12M22 12L18 16M22 12H9M15 4.20404C13.7252 3.43827 12.2452 3 10.6667 3C5.8802 3 2 7.02944 2 12C2 16.9706 5.8802 21 10.6667 21C12.2452 21 13.7252 20.5617 15 19.796' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
           mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M18 8L22 12M22 12L18 16M22 12H9M15 4.20404C13.7252 3.43827 12.2452 3 10.6667 3C5.8802 3 2 7.02944 2 12C2 16.9706 5.8802 21 10.6667 21C12.2452 21 13.7252 20.5617 15 19.796' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
 }
+
 .btn-delete:hover{ background:#dedee2; }
+.btn-delete:active{ background: var(--accent); transform: translateY(1px); }
+.btn-delete[aria-busy="true"]{ opacity:.6; pointer-events:none; }
 
 /* ========== 5) Insights → Leaderboards ========== */
 /* adminme.js 가 section.insights 안에 #lb-root.lb-grid 를 주입 */
