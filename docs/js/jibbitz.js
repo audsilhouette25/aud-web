@@ -1,4 +1,4 @@
-// /js/jibbitz.js  — server-backed story + fallback endpoints (admin과 동일 전략)
+// /js/jibbitz.js  — server-backed story + fallback endpoints (admin과 동일 전략) + app-assets.js 사용
 (() => {
   "use strict";
 
@@ -26,7 +26,7 @@
   const JIB_SYNC      = () => `jib:sync:${currentNS()}`;
   const BC_NAME       = () => `aud:sync:${currentNS()}`;
 
-  // ⚠️ BUGFIX: WINDOW → window
+  // ⚠️ WINDOW → window (버그픽스)
   const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || window.JIBS;
   if (!Array.isArray(JIBS) || !JIBS.length) throw new Error("APP_CONFIG.JIBBITZ missing");
   const isKind = (v) => typeof v === "string" && JIBS.includes(v);
@@ -95,7 +95,6 @@
     } catch {}
   }
 
-  // ⬇️ jibbitz.js의 readCollectedSet / writeCollectedSet 교체
   function readCollectedSet() {
     try {
       const raw = plane().getItem(JIB_COLLECTED());
@@ -195,20 +194,11 @@
   })();
 
   /* =========================
-   * UI: Preview
+   * UI: Preview (app-assets.js 사용)
    * ========================= */
   (function preview() {
     const BOX_ID = "jibPreviewBox";
-    const SRC = {
-      bloom:"./asset/bloom.png",
-      tail:"./asset/tail.png",
-      cap:"./asset/cap.png",
-      keyring:"./asset/keyring.png",
-      duck:"./asset/duck.png",
-      twinkle:"./asset/twinkle.png",
-      xmas:"./asset/xmas.png",
-      bunny:"./asset/bunny.png",
-    };
+
     function render() {
       const box = document.getElementById(BOX_ID);
       if (!box) return;
@@ -216,13 +206,25 @@
       const k = getSelected();
       if (!k) { box.classList.add("is-empty"); return; }
       box.classList.remove("is-empty");
+
       const img = document.createElement("img");
-      img.alt = k; img.src = SRC[k] || ""; img.decoding = "async"; img.loading = "lazy";
+      img.alt = k;
+
+      // why: SSOT. attachJibImg가 있으면 안전 폴백 포함, 없으면 getJibImg 사용.
+      if (window.ASSETS?.attachJibImg) {
+        window.ASSETS.attachJibImg(img, k);
+      } else {
+        img.src = window.ASSETS?.getJibImg?.(k) || "";
+      }
+      img.decoding = "async";
+      img.loading = "lazy";
       box.appendChild(img);
     }
-    onReady(() => render());
-    addEventListener(EVT_SELECTED, render());
+
+    onReady(render);
+    addEventListener(EVT_SELECTED, render);             // ⚠️ 함수 참조로 바인딩
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") render(); });
+    window.addEventListener("ASSETS:ready", render, { once:false }); // 에셋 준비 시 재렌더
   })();
 
   /* =========================
@@ -324,7 +326,7 @@
       });
     }
 
-    onReady(() => renderJibStory());
+    onReady(renderJibStory);
     addEventListener(EVT_SELECTED, renderJibStory);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") renderJibStory();
@@ -391,7 +393,7 @@
       mount.appendChild(btn);
     }
 
-    onReady(() => render());
+    onReady(render);
     addEventListener(EVT_SELECTED, render);
     addEventListener(EVT_COLLECTED, render);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") render(); });
