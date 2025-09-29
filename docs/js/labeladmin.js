@@ -43,10 +43,19 @@ function emitStorySocket(payload){
     s?.emit("label:update", payload, () => {});
   } catch {}
 }
-// 저장 버튼 핸들러 내부는 이미 다음을 호출함:
-// __bcLabelStory?.postMessage({ kind:"label:story-updated", label, story });
-// emitStorySocket({ label, story });
 
+// === add: global setter (optional) =========================
+function setSelectedLabel(label) {
+  if (!isLabel(label)) return;
+  try {
+    const prev = sessionStorage.getItem(SELECTED_KEY);
+    if (prev !== label) {
+      sessionStorage.setItem(SELECTED_KEY, label);
+      window.dispatchEvent(new Event(EVT));
+    }
+  } catch {}
+}
+try { window.setSelectedLabel = window.setSelectedLabel || setSelectedLabel; } catch {}
 
 /* ======================= API 헬퍼 ======================= */
 const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
@@ -393,6 +402,18 @@ function syncAll(){
   renderLabelGalleryBox();
   loadStoryToEditor();
 }
+
+// === add: bootstrap from URL ?label=… ======================
+(function bootstrapSelectedFromURL(){
+  try {
+    const sp = new URL(location.href).searchParams;
+    const q  = sp.get("label") || sp.get("lb") || sp.get("l");
+    if (q && isLabel(q)) {
+      setSelectedLabel(q); // 세션에 심고 EVT 발생
+    }
+  } catch {}
+})();
+
 
 ensureReady(()=>{
   // ① 최초 진입: URL ?label=... -> sessionStorage 반영
