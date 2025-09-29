@@ -682,6 +682,7 @@
     if (src) inner.appendChild(createMedia(src, 0.6));
     btn.appendChild(inner);
 
+    // mine.js - makeLabelTile() 클릭 핸들러 안
     btn.addEventListener("click", () => {
       window.auth?.markNavigate?.();
       queueMicrotask(() => {
@@ -690,8 +691,10 @@
           else sessionStorage.setItem(SELECTED_KEY, label);
         } catch { try { sessionStorage.setItem(SELECTED_KEY, label); } catch {} }
       });
-      location.assign(toLabelHref(label)); // ← label 사용
+      // ⛏️ lb → label 로 수정
+      location.assign(toLabelHref(label));
     });
+
 
     return btn;
   }
@@ -732,14 +735,22 @@
     const base  = isAdmin ? 'labeladmin.html' : 'labelmine.html';
 
     const qs = new URLSearchParams();
+
+    // 관리자는 어떤 계정 컨텍스트에서 관리하는지 전달(있을 때만)
     if (isAdmin) {
-      // 관리자는 어떤 계정 컨텍스트에서 관리하는지 전달
-      try { qs.set('ns', (typeof getNS === 'function' ? getNS() : 'default')); } catch {}
+      try {
+        const ns = (typeof getNS === 'function' ? getNS() : 'default');
+        if (ns) qs.set('ns', ns);
+      } catch {}
     }
-    // ✅ 어떤 페이지든 라벨을 명시적으로 넘겨줌
+
+    // 어떤 페이지든 라벨은 명시적으로 넘겨줌
     if (label) qs.set('label', String(label));
-    return `${safeHref(base)}?${qs.toString()}`;
+
+    const q = qs.toString();
+    return q ? `${safeHref(base)}?${q}` : safeHref(base);
   }
+
 
   /* =========================================================
    * 6) STORAGE REHYDRATE (세션 인증 시에만)
