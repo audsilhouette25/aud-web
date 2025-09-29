@@ -180,6 +180,7 @@
       }
     });
   }
+
   // ====== Hero 애니메이션 ======
   function heroIn() {
     const hero = document.querySelector(".gallery .hero");
@@ -211,10 +212,6 @@
       bindStoreEvents();
     });
     heroIn();
-
-    // socket 재시도
-    setTimeout(bindSocket, 50);
-    setTimeout(bindSocket, 250);
   });
 })();
 
