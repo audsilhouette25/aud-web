@@ -102,7 +102,25 @@
     const src = icon ? (isOn ? icon.orange : icon.black) : "";
 
     if (src && src.endsWith(".mp4")) {
+      // 비디오(등록 상태)
       wrap.appendChild(createVideo(src, 0.6));
+    } else if (src) {
+      // 이미지(미등록 상태)
+      const img = document.createElement("img");
+      img.decoding = "async";
+      img.loading  = "lazy";
+      // 비디오와 비슷한 스케일로 맞추고 싶다면:
+      img.style.width = "190%";
+      img.style.height = "190%";
+      img.style.objectFit = "contain";
+
+      // 블랙 → 실패 시 오렌지로 자동 폴백
+      if (!isOn && window.ASSETS?.attachLabelImg) {
+        ASSETS.attachLabelImg(img, label, { prefer: "blackImage" });
+      } else {
+        img.src = src;
+      }
+      wrap.appendChild(img);
     }
 
     el.appendChild(wrap);

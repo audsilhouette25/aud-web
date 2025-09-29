@@ -71,8 +71,12 @@
   function mapForGallery(){
     const ICONS = {};
     for (const lb of LABELS) {
-      const vid = getLabelVideo(lb, { black:false });
-      ICONS[lb] = { orange: vid, black: vid };
+      ICONS[lb] = {
+        // 등록: 오렌지 비디오
+        orange: getLabelVideo(lb, { black:false }),
+        // 미등록: 블랙 이미지를 사용
+        black:  getLabelImg(lb, { black:true }),
+      };
     }
     return ICONS;
   }
