@@ -190,7 +190,7 @@ function renderEditorFrame() {
   if (!host) return;
 
   host.innerHTML = `
-    <section class="label-admin__editor" aria-label="Label story editor">
+    <section class="jibbitz-admin__editor" aria-label="Label story editor">
       <div class="editor-head">
         <div class="editor-title">Story</div>
         <div id="storyStatus" class="story-status" aria-live="polite"></div>
