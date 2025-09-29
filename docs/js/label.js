@@ -87,23 +87,49 @@ window.addEventListener("auth:state", (ev)=>{
   }catch{}
 });
 
-/* ── admin detect (ADD) ─────────────────────────────────── */
-// why: 다양한 auth 구현을 호환해야 해서 후보를 모두 확인
+/* ===== [ADD] admin 캐시 & 바디 클래스 동기화 헬퍼 ===== */
+let __authUser = null;
+
+function syncAdminClass() {
+  try { document.body.classList.toggle("is-admin", isAdmin()); } catch {}
+}
+
+function hideAdminOnlyWidgetsIfNeeded() {
+  // why: 렌더 전/후 모두에서 한 번 더 강제 적용 (초기 플리커/레이스 방지)
+  const admin = isAdmin();
+  const ts = document.getElementById("timestamp");
+  const hb = document.getElementById("heartButton");
+  if (ts) ts.style.display = admin ? "none" : "";
+  if (hb) {
+    hb.style.display = admin ? "none" : "";
+    if (admin) hb.innerHTML = ""; // 클릭 핸들러/아이콘 제거
+  }
+}
+
+// === [REPLACE] admin detect (ev.detail 캐시 + 다양한 형태 지원) ===
 function isAdmin() {
   try {
     const a = window.auth || {};
-    if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
-    const u = typeof a.user === "function" ? a.user() : a.user;
-    if (!u) return false;
+    // 이벤트로 캐싱된 사용자(가장 신뢰)
+    const u = __authUser ?? (typeof a.user === "function" ? a.user() : a.user);
 
+    // 함수형 헬퍼 우선
+    if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
+
+    if (!u) return false;
     if (u.isAdmin === true) return true;
     if (typeof u.role === "string" && u.role.toLowerCase() === "admin") return true;
-    if (Array.isArray(u.roles) && u.roles.map(s=>String(s).toLowerCase()).includes("admin")) return true;
+    if (Array.isArray(u.roles) && u.roles.map(s => String(s).toLowerCase()).includes("admin")) return true;
     if (u.claims && (u.claims.admin === true || u.claims.isAdmin === true)) return true;
+
+    // 일부 백엔드: permissions/scopes 형태
+    if (Array.isArray(u.permissions) && u.permissions.includes("admin")) return true;
+    if (Array.isArray(u.scopes) && u.scopes.includes("admin")) return true;
 
     return false;
   } catch { return false; }
 }
+
 
 /* ── utils ─────────────────────────────────────────────── */
 const isLabel = (x) => OK.includes(String(x));
@@ -455,17 +481,23 @@ try {
 } catch {}
 
 /* ── compose & wire ───────────────────────────────────── */
-// === [REPLACE] compose & wire ===============================
 function syncAll() {
+  hideAdminOnlyWidgetsIfNeeded();   // [ADD] 가장 먼저 강제 적용
+
   renderCategoryRow();
   renderLastLabel();
   renderLabelGalleryBox();
-  renderTimestamp();      // admin이면 내부에서 숨김/skip
+  renderTimestamp();      // admin이면 내부에서 숨김/skip (이중 안전망)
   renderHeartButton();    // admin이면 내부에서 숨김/skip
   renderLabelStory();
 }
 
+
 ensureReady(() => whenStoreReady(() => {
+  // auth 준비 직후 한 번 바디 클래스/표시 상태 동기화
+  syncAdminClass();
+  hideAdminOnlyWidgetsIfNeeded();
+
   // 첫 렌더
   syncAll();
 
@@ -476,8 +508,13 @@ ensureReady(() => whenStoreReady(() => {
   });
   window.addEventListener("pageshow", scheduleSync); // BFCache 복귀
 
-  // 🔁 역할/로그인 상태 변경되면 즉시 재렌더 (admin ↔ user)
-  window.addEventListener("auth:state", scheduleSync);
+  // 🔁 역할/로그인 상태 변경되면 즉시 반영 (admin ↔ user)
+  window.addEventListener("auth:state", (ev) => {
+    try { __authUser = ev?.detail?.user ?? __authUser; } catch {}
+    syncAdminClass();
+    hideAdminOnlyWidgetsIfNeeded();
+    scheduleSync();
+  });
 
   // store.js 브로드캐스트(기존 유지)
   window.addEventListener("label:timestamps-changed", scheduleSync);
@@ -514,6 +551,10 @@ ensureReady(() => whenStoreReady(() => {
   window.addEventListener("auth:logout", () => {
     try { sessionStorage.removeItem(SELECTED_KEY); } catch {}
     try { localStorage.removeItem(MIRROR_KEY); } catch {}
+    // 로그아웃 즉시 admin 해제
+    __authUser = null;
+    syncAdminClass();
+    hideAdminOnlyWidgetsIfNeeded();
     scheduleSync();
   });
 }));
