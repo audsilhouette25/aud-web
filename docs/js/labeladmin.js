@@ -2,11 +2,8 @@
 "use strict";
 
 /* ======================= 기본 셋업 ======================= */
-// 선택 라벨은 기존 사이트 규칙(sessionStorage) 그대로 사용
 const SELECTED_KEY = "aud:selectedLabel";
 const EVT          = "aud:selectedLabel-changed";
-
-// 선택 라벨 허용 목록 (UI 표시/이미지용)
 const OK = ["thump","miro","whee","track","echo","portal"];
 
 const MAP = {
@@ -27,11 +24,9 @@ const IMG_SRC = {
   portal:"./asset/portal.png",
 };
 
-// BroadcastChannel(게스트 동기화용) — 선택 라벨 수신만
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
 
-// ... (상단 선언부 아래에 추가)
 let __bcLabelStory = null;
 try { __bcLabelStory = new BroadcastChannel("aud:label-story"); } catch {}
 
@@ -69,7 +64,6 @@ const toAPI = (p) => {
 };
 function readSignedCookie(name){
   try {
-    // 간단 파서(서명 무검증) — 서버가 쿠키를 헤더로만 확인하면 충분
     const m = document.cookie.split(";").map(s=>s.trim()).find(s=>s.startsWith(name+"="));
     return m ? decodeURIComponent(m.split("=").slice(1).join("=")) : null;
   } catch { return null; }
@@ -78,19 +72,14 @@ function readSignedCookie(name){
 async function api(path, opt = {}) {
   const url = toAPI(path);
   const base = { credentials: "include", cache: "no-store", ...opt };
-
-  // window.auth.apiFetch가 없다면 CSRF 헤더를 best-effort로 붙여줌
   if (!window.auth?.apiFetch) {
     const csrf = readSignedCookie((window.PROD ? "__Host-csrf" : "csrf"));
     base.headers = { ...(base.headers || {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) };
   }
-
   const fn = window.auth?.apiFetch || fetch;
   try { return await fn(url, base); } catch { return null; }
 }
 
-
-// 다양한 응답 스키마에서 story 텍스트만 추출
 function pickStoryFrom(obj){
   if (!obj || typeof obj !== "object") return "";
   const cands = [
@@ -101,7 +90,6 @@ function pickStoryFrom(obj){
   return String(cands.find(v => typeof v === "string") || "").trim();
 }
 
-// 스토리 GET (여러 엔드포인트 시도)
 async function fetchLabelStory(lb){
   const L = encodeURIComponent(lb);
   const tryGet = async (path) => {
@@ -119,7 +107,6 @@ async function fetchLabelStory(lb){
   );
 }
 
-// 스토리 SAVE (PUT → POST 폴백)
 async function saveLabelStory(lb, story){
   const L = encodeURIComponent(lb);
   const body = JSON.stringify({ story });
@@ -237,6 +224,38 @@ function renderLabelGalleryBox() {
   box.appendChild(img);
 }
 
+/* ======================= 에디터 DOM (추가) ======================= */
+// why: 기존 코드엔 에디터 마크업 생성이 없어 textarea가 존재하지 않음 → 입력창이 안뜸.
+let __editorBooted = false;
+function renderEditorFrame() {
+  if (__editorBooted) return;
+
+  const host = document.getElementById("labelAdmin");
+  if (!host) return;
+
+  host.innerHTML = `
+    <section class="label-admin__editor" aria-label="Label story editor">
+      <div class="editor-head">
+        <div class="editor-title">Story</div>
+        <div id="storyStatus" class="story-status" aria-live="polite"></div>
+      </div>
+
+      <textarea id="storyEditor" class="story-editor"
+        placeholder="라벨 스토리를 입력하세요. 빈 줄은 문단으로 인식됩니다."></textarea>
+
+      <div class="editor-actions">
+        <button id="discardStoryBtn" class="btn ghost" type="button">되돌리기</button>
+        <button id="saveStoryBtn" class="btn primary" type="button">저장</button>
+      </div>
+
+      <div class="preview-title">미리보기</div>
+      <div id="previewStory" class="label-story__container preview" aria-live="polite"></div>
+    </section>
+  `;
+  host.hidden = false; // 숨김 해제
+  __editorBooted = true;
+}
+
 /* ======================= 에디터 UI ======================= */
 const STORY_TTL = 5 * 60 * 1000;
 function storyCacheKey(lb){ return `label:story:${lb}`; }
@@ -259,7 +278,6 @@ function writeStoryCache(lb, story){
   } catch {}
 }
 
-
 function setStatus(msg, kind=""){
   const s = document.getElementById("storyStatus");
   if (!s) return;
@@ -273,7 +291,6 @@ function renderPreview(text){
   if (!root) return;
   root.innerHTML = "";
   if (!text) return;
-  // \r\n, \r 정규화 후 빈 줄 기준 문단 분리, 줄바꿈은 <br>로 보존
   text.replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).forEach(block=>{
     const p = document.createElement("p");
     const lines = block.split("\n");
@@ -285,8 +302,8 @@ function renderPreview(text){
   });
 }
 
-let currentLoadedStory = "";  // 서버/캐시에서 마지막으로 로드된 텍스트
-function loadStoryToEditor(){
+let currentLoadedStory = "";
+async function loadStoryToEditor(){
   const label = readSelected();
   const textarea = document.getElementById("storyEditor");
   if (!textarea) return;
@@ -299,7 +316,6 @@ function loadStoryToEditor(){
     return;
   }
 
-  // 캐시 → 서버
   const cached = readStoryCache(label);
   if (cached != null){
     textarea.value = cached;
@@ -311,35 +327,28 @@ function loadStoryToEditor(){
     currentLoadedStory = "";
   }
 
-  (async ()=>{
-    const s = await fetchLabelStory(label);
-    if (s != null){
-      writeStoryCache(label, s);
-      // 현재 선택이 바뀌지 않았다면 반영
-      if (readSelected() === label){
-        textarea.value = s;
-        renderPreview(s);
-        currentLoadedStory = s;
-      }
+  const s = await fetchLabelStory(label);
+  if (s != null){
+    writeStoryCache(label, s);
+    if (readSelected() === label){
+      textarea.value = s;
+      renderPreview(s);
+      currentLoadedStory = s;
     }
-  })();
+  }
 }
 
+let __wired = false;
 function wireEditor(){
+  if (__wired) return; // why: 이벤트 중복 방지
   const ta = document.getElementById("storyEditor");
   const saveBtn = document.getElementById("saveStoryBtn");
   const discardBtn = document.getElementById("discardStoryBtn");
-
   if (!ta) return;
 
   ta.addEventListener("input", ()=>{
     renderPreview(ta.value);
-    // 변경 감지
-    if (ta.value !== currentLoadedStory) {
-      setStatus("변경됨 (저장 필요)", "warn");
-    } else {
-      setStatus("", "");
-    }
+    setStatus(ta.value !== currentLoadedStory ? "변경됨 (저장 필요)" : "", ta.value !== currentLoadedStory ? "warn" : "");
   });
 
   if (discardBtn){
@@ -353,7 +362,6 @@ function wireEditor(){
   if (saveBtn){
     saveBtn.addEventListener("click", async ()=>{
       const label = readSelected();
-      const ta = document.getElementById("storyEditor");
       if (!label){ setStatus("라벨이 선택되지 않았습니다.", "error"); return; }
 
       saveBtn.disabled = true;
@@ -368,16 +376,13 @@ function wireEditor(){
         return;
       }
 
-      // 캐시/상태 갱신
       writeStoryCache(label, ta.value);
       currentLoadedStory = ta.value;
       setStatus("저장 완료", "ok");
 
-      // 실시간 반영
       try { __bcLabelStory?.postMessage({ kind:"label:story-updated", label, story: ta.value }); } catch {}
       emitStorySocket({ label, story: ta.value });
 
-      // 약간의 여유 후 버튼 복구
       setTimeout(()=>{
         saveBtn.disabled = false;
         saveBtn.removeAttribute("aria-busy");
@@ -385,22 +390,24 @@ function wireEditor(){
     });
   }
 
-  // 페이지 이탈 경고(미저장 시)
   window.addEventListener("beforeunload", (e)=>{
-    if (!ta) return;
     if (ta.value !== currentLoadedStory){
       e.preventDefault();
       e.returnValue = "";
     }
   });
+
+  __wired = true;
 }
 
 /* ======================= 합쳐서 동작 ======================= */
 function syncAll(){
+  renderEditorFrame();      // [ADD] 먼저 DOM 생성/표시
   renderCategoryRow();
   renderLastLabel();
   renderLabelGalleryBox();
-  loadStoryToEditor();
+  wireEditor();             // [MOVE] DOM 생성 이후 바인딩
+  loadStoryToEditor();      // [MOVE] 바인딩 이후 데이터 로드
 }
 
 // === add: bootstrap from URL ?label=… ======================
@@ -409,14 +416,12 @@ function syncAll(){
     const sp = new URL(location.href).searchParams;
     const q  = sp.get("label") || sp.get("lb") || sp.get("l");
     if (q && isLabel(q)) {
-      setSelectedLabel(q); // 세션에 심고 EVT 발생
+      setSelectedLabel(q);
     }
   } catch {}
 })();
 
-
 ensureReady(()=>{
-  // ① 최초 진입: URL ?label=... -> sessionStorage 반영
   (function adoptLabelFromURL(){
     try{
       const u = new URL(location.href);
@@ -430,12 +435,13 @@ ensureReady(()=>{
       }
     } catch {}
   })();
-  // 초기 렌더
+
+  // [ADD] 초기 부트에서도 DOM 먼저
+  renderEditorFrame();
+  wireEditor();
   syncAll();
 
-  // 라벨 선택 변경(같은 탭)
   window.addEventListener(EVT, scheduleSync);
-  // ② popstate: 히스토리 이동으로 URL이 바뀌면 다시 채택
   window.addEventListener("popstate", () => {
     try{
       const u = new URL(location.href);
@@ -452,14 +458,11 @@ ensureReady(()=>{
     } catch {}
   });
 
-  // 다른 탭/창에서 선택 라벨 동기화(게스트용 BroadcastChannel 수신)
   try{
     if (__bcLabel){
       __bcLabel.addEventListener("message", (e)=>{
         const m = e?.data;
-        if (!m || m.kind !== "label:selected") return;
-        if (m.label && isLabel(m.label)) {
-          // 동일 탭에 반영(세션 저장 + 이벤트)
+        if (m?.kind === "label:selected" && m.label && isLabel(m.label)) {
           try { sessionStorage.setItem(SELECTED_KEY, m.label); } catch {}
           window.dispatchEvent(new Event(EVT));
         }
@@ -467,10 +470,8 @@ ensureReady(()=>{
     }
   } catch{}
 
-  // storage 이벤트(로그인 상태에서 localStorage 브로드캐스트를 쓰는 환경이 있을 수 있으니 대비)
   window.addEventListener("storage", (e)=>{
-    if (!e) return;
-    if (e.key === "aud:selectedLabel:mirror" && e.newValue){
+    if (e?.key === "aud:selectedLabel:mirror" && e.newValue){
       try {
         const { label } = JSON.parse(e.newValue);
         if (isLabel(label)){
@@ -481,10 +482,8 @@ ensureReady(()=>{
       } catch {}
     }
   });
-
-  // 에디터 이벤트 바인딩
-  wireEditor();
 });
+
 // ── socket join (window.SOCKET 우선, window.sock도 호환)
 (() => {
   let joined = false;
