@@ -92,32 +92,51 @@ function hideAdminOnlyWidgetsIfNeeded() {
 }
 
 // === [REPLACE] admin detect (ev.detail 캐시 + 다양한 형태 지원) ===
+// === [REPLACE] admin detect (more tolerant) ===
 function isAdmin() {
   try {
     const a = window.auth || {};
-    // 이벤트로 캐싱된 사용자(가장 신뢰)
-    const u = __authUser
-          ?? (typeof a.user === "function" ? a.user() : a.user)
-          ?? a.state?.user
-          ?? null;
 
-    // 함수형 헬퍼 우선
+    // Helper: normalize any "truthy" admin-ish value
+    const truthy = (v) => {
+      if (v === true) return true;
+      if (typeof v === "number") return v === 1;
+      if (typeof v === "string") return ["1", "true", "yes", "admin"].includes(v.toLowerCase());
+      return false;
+    };
+
+    // 1) Top-level helper/property
     if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
+    if (truthy(a.isAdmin)) return true;                 // <-- handle boolean/number/string property
 
+    // 2) Resolve current user from various places
+    const u = (__authUser != null ? __authUser
+             : (typeof a.user === "function" ? a.user() : a.user)
+             ) || a.state?.user || null;
     if (!u) return false;
-    if (u.isAdmin === true) return true;
-    if (typeof u.role === "string" && u.role.toLowerCase() === "admin") return true;
-    if (Array.isArray(u.roles) && u.roles.map(s => String(s).toLowerCase()).includes("admin")) return true;
-    if (u.claims && (u.claims.admin === true || u.claims.isAdmin === true)) return true;
 
-    // 일부 백엔드: permissions/scopes 형태
-    if (Array.isArray(u.permissions) && u.permissions.includes("admin")) return true;
-    if (Array.isArray(u.scopes) && u.scopes.includes("admin")) return true;
+    // 3) Common direct flags
+    if (truthy(u.isAdmin)) return true;
+    if (truthy(u.is_admin)) return true;                // snake_case variants
+    if (truthy(u.admin)) return true;
+
+    // 4) Role/roles
+    if (typeof u.role === "string" && u.role.toLowerCase() === "admin") return true;
+    if (Array.isArray(u.roles) && u.roles.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
+
+    // 5) Claims / permissions / scopes
+    const claims = u.claims || a.claims || null;
+    if (claims && (truthy(claims.admin) || truthy(claims.isAdmin) || truthy(claims.is_admin))) return true;
+
+    const perms = Array.isArray(u.permissions) ? u.permissions : Array.isArray(a.permissions) ? a.permissions : null;
+    if (perms && perms.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
+
+    const scopes = Array.isArray(u.scopes) ? u.scopes : Array.isArray(a.scopes) ? a.scopes : null;
+    if (scopes && scopes.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
 
     return false;
   } catch { return false; }
 }
-
 
 /* ── utils ─────────────────────────────────────────────── */
 const isLabel = (x) => LABELS.includes(String(x));
