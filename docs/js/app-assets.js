@@ -27,7 +27,7 @@
       imgBlack:   `${BASE}${lb}black.png`,     // e.g. thumpblack.png
       video:      `${BASE}${lb}video.mp4`,     // e.g. thumpvideo.mp4
       // 현재 에셋 구조상 '블랙 비디오'가 없음. 필요하면 오렌지 비디오를 재사용.
-      videoBlack: `${BASE}black${lb}video.mp4`,
+      videoBlack: `${BASE}black${lb}.mp4`,
     };
   }
 
