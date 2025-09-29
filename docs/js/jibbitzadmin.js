@@ -190,14 +190,14 @@ function renderEditorFrame() {
   if (!host) return;
 
   host.innerHTML = `
-    <section class="jibbitz-admin__editor" aria-label="Label story editor">
+    <section class="jibbitz-admin__editor" aria-jibbitz="Jibbitz story editor">
       <div class="editor-head">
         <div class="editor-title">Story</div>
         <div id="storyStatus" class="story-status" aria-live="polite"></div>
       </div>
 
       <textarea id="storyEditor" class="story-editor"
-        placeholder="ENTER THE LABEL STORY. BLANK LINES ARE TREATED AS PARAGRAPHS."></textarea>
+        placeholder="ENTER THE JIBBITZ STORY. BLANK LINES ARE TREATED AS PARAGRAPHS."></textarea>
 
       <div class="editor-actions">
         <button id="discardStoryBtn" class="btn ghost" type="button">REVERT</button>
@@ -265,7 +265,7 @@ async function loadStoryToEditor(){
   setStatus("", "");
 
   if (!jib){
-    setStatus("NO LABEL SELECTED.", "warn"); // jibbitzadmin과 문구/UX 통일
+    setStatus("NO JIBBITZ SELECTED.", "warn"); // jibbitzadmin과 문구/UX 통일
     return;
   }
 
@@ -311,7 +311,7 @@ function wireEditor(){
 
   saveBtn?.addEventListener("click", async ()=>{
     const jib = readSelected();
-    if (!jib){ setStatus("NO LABEL SELECTED.", "error"); return; }
+    if (!jib){ setStatus("NO JIBBITZ SELECTED.", "error"); return; }
 
     saveBtn.disabled = true;
     saveBtn.setAttribute("aria-busy","true");
