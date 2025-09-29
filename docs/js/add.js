@@ -15,7 +15,8 @@ const MAP = {
   echo:   { category: "asmr", stars: 2 },
   portal: { category: "play", stars: 2 },
 };
-const OK = ["thump","miro","whee","track","echo","portal"];
+const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const IMG_SRC = {
   thump:"./asset/thump.png",
@@ -27,12 +28,12 @@ const IMG_SRC = {
 };
 
 /* ───────────── Helpers ───────────── */
-const isLabel = (x) => OK.includes(String(x));
+const isLabel = (x) => LABELS.includes(String(x));
 
 function readSelected() {
   try {
     const v = sessionStorage.getItem(SELECTED_KEY);
-    return (v && OK.includes(v)) ? v : null;
+    return (v && LABELS.includes(v)) ? v : null;
   } catch { return null; }
 }
 
