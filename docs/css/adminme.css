@@ -264,37 +264,8 @@ header.nav{
 #admin-lab-msg{ margin-top: 8px; }
 
 /* =====================================================================
-   Leaderboard (ONLY) — 3 Columns Layout & Table Skin
-   NOTE: 다른 섹션에는 영향 없음
+   Leaderboard (ONLY) — 3 Columns Layout & Table Skin  [정렬 수정본]
 ===================================================================== */
-/* 프로필 카드와 리더보드 사이 여백 */
-.profile-hero + .insights{ margin-top: 20px; }
-/* adminme.html 구조: section.insights > #lb-root > .panel* */
-#lb-root{
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)); /* 데스크탑: 3열 */
-  gap: 16px;
-  align-items: start;
-}
-@media (max-width: 1099px){
-  #lb-root{ grid-template-columns: 1fr; }
-}
-/* 카드 스킨(패널 톤 일치) */
-.insights #lb-root .panel{
-  background: #fff;
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  display: grid;
-  grid-template-rows: auto 1fr auto; /* why: 높이 균일 */
-  min-height: 140px;
-}
-.insights #lb-root .panel h3{
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -.01em;
-}
 
 /* 리더보드 표 */
 .lb-grid table.lb{
@@ -310,11 +281,11 @@ header.nav{
   border-bottom: 1px solid rgba(0,0,0,.08);
   padding: 10px 12px;
   vertical-align: middle;
-  text-align: center; /* ← 기본을 가운데로 */
+  text-align: center;        /* 기본: 모두 가운데 */
   font-size: 14px;
 }
 
-/* Rank(1열): 고정폭 + 숫자 탭 + 가운데 */
+/* Rank(1열): 폭/숫자 탭 + 가운데 */
 .lb-grid table.lb th:nth-child(1),
 .lb-grid table.lb td:nth-child(1){
   width: 64px;
@@ -322,22 +293,20 @@ header.nav{
   text-align: center;
 }
 
-/* Account(2열): 헤더만 가운데, 셀은 좌측 */
-.lb-grid table.lb th:nth-child(2){ text-align: center; }
-.lb-grid table.lb td:nth-child(2){ text-align: left; }
+/* Account(2열): 헤더만 가운데, 본문은 좌측 */
+.lb-grid table.lb thead th:nth-child(2){ text-align: center; }
+.lb-grid table.lb tbody td:nth-child(2){ text-align: left; }
 
-/* 숫자 열(3+): 자간 고정(정렬은 기본 center 유지) */
-.lb-grid table.lb td:nth-child(3),
-.lb-grid table.lb td:nth-child(4),
-.lb-grid table.lb td:nth-child(5),
-.lb-grid table.lb td:nth-child(6){
-  white-space: nowrap;
+/* 지표열(3+): 숫자 탭 유지(정렬은 기본 center) */
+.lb-grid table.lb th:nth-child(n+3),
+.lb-grid table.lb td:nth-child(n+3){
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .lb-grid table.lb tbody tr:last-child td{ border-bottom: 0; }
 
-/* 계정 셀(아바타 + 텍스트) */
+/* 계정 셀(아바타+텍스트) */
 .lb-grid .acc{
   display: flex;
   align-items: center;
@@ -354,15 +323,12 @@ header.nav{
 }
 .lb-grid .muted{ opacity: .65; font-size: 12px; }
 
-/* 로딩/에러 자리표시자(선택) */
-.lb-grid .kpi-lg{ display: grid; place-items: center; min-height: 56px; font-weight: 700; }
-.lb-grid .err{ color: #ff6b6b; }
-
-/* 모바일에서 덜 중요한 열 숨김 예시: Rate */
+/* 모바일: Rate 숨김 */
 @media (max-width: 520px){
   .lb-grid table.lb th:nth-child(6),
   .lb-grid table.lb td:nth-child(6){ display: none; }
 }
+
 
 
 /* =====================================================================
