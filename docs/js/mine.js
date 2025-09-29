@@ -230,26 +230,31 @@
   let __bcFeed = null;
 
   /* =========================================================
-   * 1) ICONS / JIBS (탭 타일 렌더 데이터)
-   * ========================================================= */
-  const ICONS = {
-    thump:  { orange: "./asset/thumpvideo.mp4",  black: "./asset/blackthump.png" },
-    miro:   { orange: "./asset/mirovideo.mp4",   black: "./asset/blackmiro.png" },
-    whee:   { orange: "./asset/wheevideo.mp4",   black: "./asset/blackwhee.png" },
-    track:  { orange: "./asset/trackvideo.mp4",  black: "./asset/blacktrack.png" },
-    echo:   { orange: "./asset/echovideo.mp4",   black: "./asset/blackecho.png" },
-    portal: { orange: "./asset/portalvideo.mp4", black: "./asset/blackportal.png" }
-  };
-  const JIBS = {
-    bloom:   "./asset/bloomvideo.mp4",
-    tail:    "./asset/tailvideo.mp4",
-    cap:     "./asset/capvideo.mp4",
-    keyring: "./asset/keyringvideo.mp4",
-    duck:    "./asset/duckvideo.mp4",
-    twinkle: "./asset/twinklevideo.mp4",
-    xmas:    "./asset/xmasvideo.mp4",
-    bunny:   "./asset/bunnyvideo.mp4"
-  };
+  * 1) ICONS / JIBS (app-assets.js 기반 SSOT, no fallback)
+  * ========================================================= */
+  let ICONS = {};
+  let JIBS  = {};
+  let __assetsReady = false;
+
+  function initAssetsForMineStrict() {
+    if (!(window.ASSETS && typeof window.ASSETS.mapForMine === "function")) return false;
+    const { ICONS: _ICONS, JIBS: _JIBS } = window.ASSETS.mapForMine();
+    ICONS = _ICONS || {};
+    JIBS  = _JIBS  || {};
+    __assetsReady = true;
+    return true;
+  }
+
+  // app-assets.js가 먼저 로드됐으면 즉시 초기화
+  initAssetsForMineStrict();
+
+  // 늦게 로드되는 경우를 위해 준비 신호에 맞춰 재시도 → 렌더 트리거
+  window.addEventListener("ASSETS:ready", () => {
+    if (initAssetsForMineStrict()) {
+      try { renderTabsOnly(); } catch {}
+      try { scheduleRender(); } catch {}
+    }
+  });
 
   /* =========================================================
    * 2) AUTH HELPERS
@@ -571,11 +576,12 @@
    * ========================================================= */
   function createMedia(src, speed = 1, opts = { lazy: true }) {
     if (!src) return document.createComment("no-media");
-    const isVideo = /\.mp4(\?|$)/i.test(src);
+    const resolved = (typeof toAPI === "function") ? toAPI(src) : src;
+    const isVideo = /\.mp4(\?|$)/i.test(resolved);
     const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     if (!isVideo) {
       const img = document.createElement("img");
-      img.src = src;
+      img.src = resolved;
       img.decoding = "async";
       img.loading = "lazy";
       img.className = "media-fill";
@@ -592,7 +598,7 @@
       v.preload    = "metadata";
       v.tabIndex   = -1;
       v.className  = "media-fill";
-      v.src        = src;
+      v.src        = resolved;
       v.style.pointerEvents = "none";
       v.addEventListener("loadedmetadata", () => { try { v.playbackRate = speed; } catch {} });
       if (!reduceMotion) v.addEventListener("loadeddata", () => v.play().catch(()=>{}), { once: true });
@@ -785,6 +791,7 @@
    * 7) RENDER (탭 전용 / 전체)
    * ========================================================= */
   function renderTabsOnly() {
+    if (!__assetsReady) return;
     const gridLbl = $("#grid-labels");
     const gridJib = $("#grid-jibs");
     if (!gridLbl || !gridJib) return;
@@ -809,6 +816,7 @@
   }
 
   function renderAll() {
+    if (!__assetsReady) return;
     const root = $("#all-grid");
     if (!root) { try { renderTabsOnly(); } catch {} return; }
 
