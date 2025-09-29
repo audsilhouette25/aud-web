@@ -488,7 +488,7 @@ header.nav{
 /* 링크 룩앤필 */
 .quick-list__link{
   text-decoration: none;
-  font-weight: 600; font-size: 12px;
+  font-weight: 600; font-size: 13px;
   color: #111;
 }
 .quick-list__link:hover{ text-decoration: underline; }
