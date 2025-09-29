@@ -9,16 +9,6 @@ const FALLBACK_URL = "./gallery.html";
 const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
-// 우선 검은 버전 시도 → 실패하면 일반 png로 폴백
-const IMG_SRC = {
-  thump:"./asset/thumpblack.png",
-  miro:"./asset/miroblack.png",
-  whee:"./asset/wheeblack.png",
-  track:"./asset/trackblack.png",
-  echo:"./asset/echoblack.png",
-  portal:"./asset/portalblack.png",
-};
-
 /* ───────────── Helpers ───────────── */
 const isLabel = (x) => LABELS.includes(String(x));
 
@@ -84,18 +74,7 @@ function renderAddGalleryBox() {
   const img = document.createElement("img");
   img.alt = label;
 
-  // 1차 경로(black) → 실패 시 일반 png로 폴백
-  img.src = IMG_SRC[label] || `./asset/${label}.png`;
-  img.addEventListener("error", () => {
-    // 폴백도 실패하면 빈 상태로 처리
-    if (img.dataset.fallbackTried === "1") {
-      box.classList.add("is-empty");
-      img.remove();
-      return;
-    }
-    img.dataset.fallbackTried = "1";
-    img.src = `./asset/${label}.png`;
-  });
+  window.ASSETS.attachLabelImg(img, label, { prefer: "blackImage" });
 
   box.appendChild(img);
 }

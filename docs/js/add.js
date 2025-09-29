@@ -18,15 +18,6 @@ const MAP = {
 const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
-const IMG_SRC = {
-  thump:"./asset/thump.png",
-  miro:"./asset/miro.png",
-  whee:"./asset/whee.png",
-  track:"./asset/track.png",
-  echo:"./asset/echo.png",
-  portal:"./asset/portal.png",
-};
-
 /* ───────────── Helpers ───────────── */
 const isLabel = (x) => LABELS.includes(String(x));
 
@@ -128,7 +119,7 @@ function renderAddGalleryBox() {
   box.classList.remove("is-empty");
   const img = document.createElement("img");
   img.alt = label;
-  img.src = IMG_SRC[label];
+  window.ASSETS.attachLabelImg(img, label, { prefer: "blackImage" });
   box.appendChild(img);
 }
 

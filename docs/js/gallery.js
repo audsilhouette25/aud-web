@@ -11,15 +11,8 @@
   const LABEL_COLLECTED_EVT = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";
 
   // ====== assets ======
-  const ICONS = {
-    thump: { orange: `./asset/thumpvideo.mp4`,  black: `./asset/blackthump.mp4` },
-    miro:  { orange: `./asset/mirovideo.mp4`,   black: `./asset/blackmiro.mp4` },
-    whee:  { orange: `./asset/wheevideo.mp4`,   black: `./asset/blackwhee.mp4` },
-    track: { orange: `./asset/trackvideo.mp4`,  black: `./asset/blacktrack.mp4` },
-    echo:  { orange: `./asset/echovideo.mp4`,   black: `./asset/blackecho.mp4` },
-    portal:{ orange: `./asset/portalvideo.mp4`, black: `./asset/blackportal.mp4` },
-  };
-
+  const ICONS = window.ASSETS.mapForGallery();
+  
   // ====== 헬퍼 ======
   function setSelectedLabel(label){
     if (!LABELS.includes(label)) return;

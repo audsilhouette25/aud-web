@@ -1,12 +1,23 @@
-// /js/custom.js
+// /public/js/custom.js (전체 대체본)
+// JS가 SSOT(ASSETS)로 비디오 타일을 렌더링
 (function () {
   "use strict";
 
   const DEST_URL = "./jibbitz.html";
-  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.JIBS_JIBS;
-  if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
+  // why: 현재 파일에 JIBS 폴백이 window.JIBS_JIBS로 잘못되어 있었음 → 표준 폴백으로 수정. :contentReference[oaicite:2]{index=2}
+  const JIBS =
+    (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) ||
+    window.ALL_JIBS ||
+    window.JIBS ||
+    [];
+
+  if (!Array.isArray(JIBS) || !JIBS.length) {
+    throw new Error("APP_CONFIG.JIBBITZ missing");
+  }
+
   const isKind = (v) => typeof v === "string" && JIBS.includes(v);
 
+  // why: 사용자/네임스페이스별 동기화 보존
   function isAuthed() {
     try { return !!(window.auth?.isAuthed?.()) || sessionStorage.getItem("auth:flag") === "1"; }
     catch { return false; }
@@ -26,68 +37,69 @@
     try {
       plane().setItem(KEY_SELECTED(), kind);
       window.dispatchEvent(new Event("jib:selected-changed"));
-      // 선택 브로드캐스트
       const SYNC = `jib:sync:${currentNS()}`;
       localStorage.setItem(SYNC, JSON.stringify({ type:"select", k:kind, t:Date.now() }));
       try { new BroadcastChannel(`aud:sync:${currentNS()}`).postMessage({ kind:"jib:sync", payload:{ type:"select", k:kind, t:Date.now() } }); } catch {}
     } catch {}
   }
 
-  function wireTiles() {
-    const tiles = document.querySelectorAll('.tile[data-jib], .tile[aria-label], .tile'); // 범위를 약간 확대
-    if (!tiles.length) return;
+  function mkTile(kind) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tile';
+    btn.setAttribute('role', 'listitem');
+    btn.setAttribute('aria-label', kind);
 
-    tiles.forEach((tile) => {
-      if (tile.__bound) return;
-      tile.__bound = true;
+    const wrap = document.createElement('div');
+    wrap.className = 'tile__content';
 
-      tile.addEventListener("click", () => {
-        const kind = (tile.dataset.jib || tile.getAttribute("aria-label") || "")
-          .trim().toLowerCase();
-        if (!isKind(kind)) return;
+    const video = document.createElement('video');
+    video.autoplay = true; video.muted = true; video.loop = true; video.playsInline = true;
+    video.preload = 'metadata';
 
-        setSelected(kind);
-        tile.style.pointerEvents = "none";
-        window.auth?.markNavigate?.();
-        const url = `${DEST_URL}?jib=${encodeURIComponent(kind)}`;
-        window.location.href = url;
-      }, { passive: true });
-    });
+    const src = document.createElement('source');
+    src.type = 'video/mp4';
+    // SSOT 경로
+    src.src = window.ASSETS?.getJibVideo?.(kind) || "";
+    video.appendChild(src);
+
+    // 실패 시 텍스트 폴백
+    video.addEventListener('error', () => {
+      if (!btn.querySelector('.fallback')) {
+        const fb = document.createElement('span');
+        fb.className = 'fallback';
+        fb.textContent = kind;
+        wrap.appendChild(fb);
+      }
+    }, { once: true });
+
+    wrap.appendChild(video);
+    btn.appendChild(wrap);
+
+    btn.addEventListener('click', () => {
+      if (!isKind(kind)) return;
+      setSelected(kind);
+      btn.style.pointerEvents = 'none';
+      window.auth?.markNavigate?.();
+      window.location.href = `${DEST_URL}?jib=${encodeURIComponent(kind)}`;
+    }, { passive: true });
+
+    return btn;
   }
 
-  // ★ 타일이 비어 있거나 1개만 있을 때 JIBS을 기준으로 안전 주입
-  function ensureTiles() {
-    // 후보 컨테이너들(프로젝트마다 다를 수 있어 느슨하게 선택)
+  function renderTiles() {
     const container =
-      document.querySelector('#custom-jib-list') ||
-      document.querySelector('.custom .tiles') ||
-      document.querySelector('#all-grid') ||
+      document.getElementById('custom-jib-list') ||
+      document.querySelector('.custom .custom-grid') ||
       document.querySelector('.custom [role="list"]');
+
     if (!container) return;
 
-    const existing = Array.from(container.querySelectorAll('.tile[aria-label], .tile[data-jib]'))
-                          .map(el => (el.getAttribute('aria-label') || el.dataset.jib || '').trim().toLowerCase())
-                          .filter(Boolean);
-    if (existing.length >= JIBS.length) return;        // 이미 충분히 그려져 있음
-    if (existing.length > 1) return;                  // 최소 2개 이상 있으면 주입 생략
+    // 기존 수동 타일 제거(HTML에서 ./asset를 뺐기 때문에 비어있게 유지하는 게 목표)
+    container.innerHTML = "";
 
-    // 주입: 이미 있는 건 건너뛰고 없는 것만 추가
-    const mk = (kind) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'tile';
-      btn.setAttribute('role', 'listitem');
-      btn.setAttribute('aria-label', kind);
-      btn.textContent = kind; // 디자인은 CSS로 대체 가능
-      btn.addEventListener('click', () => {
-        setSelected(kind);
-        btn.style.pointerEvents = 'none';
-        window.auth?.markNavigate?.();
-        location.href = `${DEST_URL}?jib=${encodeURIComponent(kind)}`;
-      }, { passive: true });
-      return btn;
-    };
-    JIBS.forEach(k => { if (!existing.includes(k)) container.appendChild(mk(k)); });
+    // SSOT 목록으로 전부 동적 생성
+    JIBS.forEach(kind => container.appendChild(mkTile(kind)));
   }
 
   function heroIn() {
@@ -104,5 +116,5 @@
     }
   }
 
-  onReady(() => { ensureTiles(); wireTiles(); heroIn(); });
+  onReady(() => { renderTiles(); heroIn(); });
 })();

@@ -1,6 +1,108 @@
+// /public/js/app-assets.js
+// Single Source of Truth for ./asset paths (labels & jibbitz)
+(function initAppAssets(){
+  "use strict";
+
+  const BASE = "./asset/"; // 변경은 여기 한 곳
+
+  const LABELS =
+    (window.APP_CONFIG && window.APP_CONFIG.LABELS) ||
+    window.ALL_LABELS ||
+    [];
+
+  const JIBS =
+    (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) ||
+    window.ALL_JIBS ||
+    window.JIBS ||
+    [];
+
+  const LABEL_MAP = {};
+  for (const lb of LABELS) {
+    LABEL_MAP[lb] = {
+      img:        `${BASE}${lb}.png`,
+      imgBlack:   `${BASE}${lb}black.png`,
+      video:      `${BASE}${lb}video.mp4`,
+      videoBlack: `${BASE}black${lb}.mp4`,
+    };
+  }
+
+  const JIB_MAP = {};
+  for (const jb of JIBS) {
+    JIB_MAP[jb] = {
+      img:   `${BASE}${jb}.png`,
+      video: `${BASE}${jb}video.mp4`,
+    };
+  }
+
+  function getLabelImg(label, opt = {}) {
+    const m = LABEL_MAP[label]; if (!m) return "";
+    return opt.black ? m.imgBlack : m.img;
+  }
+  function getLabelVideo(label, opt = {}) {
+    const m = LABEL_MAP[label]; if (!m) return "";
+    return opt.black ? m.videoBlack : m.video;
+  }
+  function getJibImg(jib) {
+    const m = JIB_MAP[jib]; return m ? m.img : "";
+  }
+  function getJibVideo(jib) {
+    const m = JIB_MAP[jib]; return m ? m.video : "";
+  }
+
+  // why: 각 페이지에서 폴백/이벤트 처리 중복 방지
+  function attachLabelImg(imgEl, label, opt = { prefer: "blackImage" }) {
+    if (!imgEl || !label) return;
+    const prefer = String(opt.prefer || "blackImage");
+    const first  = (prefer === "blackImage") ? getLabelImg(label, { black:true }) : getLabelImg(label, { black:false });
+    const alt    = (prefer === "blackImage") ? getLabelImg(label, { black:false }) : getLabelImg(label, { black:true });
+    imgEl.src = first;
+    const onerr = () => {
+      if (imgEl.dataset.fallbackTried === "1") return;
+      imgEl.dataset.fallbackTried = "1";
+      imgEl.src = alt || "";
+      imgEl.removeEventListener("error", onerr);
+    };
+    imgEl.addEventListener("error", onerr);
+  }
+
+  function mapForGallery(){
+    const ICONS = {};
+    for (const lb of LABELS) {
+      ICONS[lb] = { orange: getLabelVideo(lb, { black:false }), black: getLabelVideo(lb, { black:true }) };
+    }
+    return ICONS;
+  }
+  function mapForMine(){
+    const ICONS = {};
+    for (const lb of LABELS) {
+      ICONS[lb] = { orange: getLabelVideo(lb, { black:false }), black: getLabelImg(lb, { black:true }) };
+    }
+    const JMAP = {};
+    for (const jb of JIBS) JMAP[jb] = getJibVideo(jb);
+    return { ICONS, JIBS: JMAP };
+  }
+
+  const api = Object.freeze({
+    base: BASE,
+    labels: Object.freeze({ ...LABEL_MAP }),
+    jibs:   Object.freeze({ ...JIB_MAP }),
+    getLabelImg, getLabelVideo,
+    getJibImg, getJibVideo,
+    attachLabelImg,
+    mapForGallery, mapForMine,
+  });
+
+  try { window.ASSETS = Object.freeze({ ...(window.ASSETS || {}), ...api }); }
+  catch { window.ASSETS = api; }
+})();
+
+
 // /js/jibbitz.js
 (() => {
   "use strict";
+
+  // TDZ 회피: setSelected에서 사용하기 전에 선언
+  let __bc = null;
 
   /* =========================
    * NS / Storage helpers
@@ -10,9 +112,7 @@
     catch { return false; }
   }
   function currentNS() {
-    // store.js가 이미 계산해 둔 값을 최우선으로 사용
     try { const ns = (window.__STORE_NS || "").trim().toLowerCase(); if (ns) return ns; } catch {}
-    // 폴백(아주 초기 부팅 타이밍)
     if (!isAuthed()) return "default";
     try {
       const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
@@ -28,12 +128,16 @@
   const JIB_SYNC      = () => `jib:sync:${currentNS()}`;
   const BC_NAME       = () => `aud:sync:${currentNS()}`;
 
-  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || WINDOW.JIBS;
-  if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
+  const JIBS =
+    (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) ||
+    window.ALL_JIBS ||
+    window.JIBS;
+
+  if (!Array.isArray(JIBS) || !JIBS.length) throw new Error("APP_CONFIG.JIBBITZ missing");
   const isKind = (v) => typeof v === "string" && JIBS.includes(v);
 
   /* =========================
-  * URL → 선택 부트스트랩 (SSOT: URL)
+  * URL → 선택 부트스트랩
   * ========================= */
   function urlSelectedKind() {
     try {
@@ -45,22 +149,18 @@
   function bootstrapSelectedFromURL() {
     const q = urlSelectedKind();
     if (q && isKind(q)) {
-      // URL이 있으면 그것을 '사실'로 저장 → 이후 전체 UI/스토리지/브로드캐스트가 일치
       if (typeof setSelected === "function") setSelected(q);
       else {
-        // (아주 드문 경우) setSelected가 아직 바인딩 전이면 직접 평면에 기록
         try { plane().setItem(JIB_SELECTED(), q); dispatchEvent(new Event(EVT_SELECTED)); } catch {}
       }
     }
   }
 
-  // DOM 준비되면 1회만 실행 (type="module" defer 환경 포함)
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootstrapSelectedFromURL, { once: true });
   } else {
     bootstrapSelectedFromURL();
   }
-
 
   /* =========================
    * 1회 레거시 → NS 마이그레이션
@@ -98,15 +198,14 @@
       plane().setItem(JIB_SELECTED(), kind);
       window.dispatchEvent(new Event(EVT_SELECTED));
       localStorage.setItem(JIB_SYNC(), JSON.stringify({ type: "select", k: kind, t: Date.now() }));
-      try { __bc?.postMessage({ kind: "jib:sync", payload: { type: "select", k: kind, t: Date.now() } }); } catch {}
+      try { __bc && __bc.postMessage({ kind: "jib:sync", payload: { type: "select", k: kind, t: Date.now() } }); } catch {}
     } catch {}
   }
 
-// ⬇️ jibbitz.js의 readCollectedSet / writeCollectedSet 교체
-
+  // ⬇️ jibbitz.js의 readCollectedSet / writeCollectedSet 교체
   function readCollectedSet() {
     try {
-      const raw = plane().getItem(JIB_COLLECTED()); // ← NS 전용 키만
+      const raw = plane().getItem(JIB_COLLECTED());
       const arr = raw ? JSON.parse(raw) : [];
       return new Set(arr.filter(isKind));
     } catch { 
@@ -120,16 +219,12 @@
     const key = `jib:collected:${ns}`;
     const v   = JSON.stringify(arr);
 
-    // 1) NS 평면에만 기록 (authed=localStorage, guest=sessionStorage)
     try { plane().setItem(key, v); } catch {}
-
-    // 2) UI 알림
     try { window.dispatchEvent(new Event(EVT_COLLECTED)); } catch {}
 
-    // 3) 로그인 상태면 탭 간 동기화(로컬스토리지 이벤트/BC)
     if (isAuthed()) {
       try { localStorage.setItem(JIB_SYNC(), JSON.stringify({ type: "set", arr, t: Date.now() })); } catch {}
-      try { __bc?.postMessage({ kind: "jib:sync", payload: { type: "set", arr, t: Date.now() } }); } catch {}
+      try { __bc && __bc.postMessage({ kind: "jib:sync", payload: { type: "set", arr, t: Date.now() } }); } catch {}
     }
   }
 
@@ -140,7 +235,6 @@
   function getCollected(){ return Array.from(readCollectedSet()); }
   function isCollected(k){ return readCollectedSet().has(k); }
 
-  // 전역 노출
   window.jib = Object.assign(window.jib || {}, {
     setSelected, getSelected, add, remove, toggle, clear, getCollected, isCollected
   });
@@ -148,7 +242,6 @@
   /* =========================
    * Cross-tab sync
    * ========================= */
-  let __bc = null;
   try { __bc = new BroadcastChannel(BC_NAME()); } catch {}
   if (__bc) {
     __bc.addEventListener("message", (e) => {
@@ -177,7 +270,7 @@
   });
 
   /* =========================
-   * onReady helper
+   * onReady
    * ========================= */
   const onReady = (fn) =>
     (document.readyState === "loading")
@@ -214,20 +307,10 @@
   })();
 
   /* =========================
-   * UI: Preview
+   * UI: Preview  (./asset 제거)
    * ========================= */
   (function preview() {
     const BOX_ID = "jibPreviewBox";
-    const SRC = {
-      bloom:"./asset/bloom.png",
-      tail:"./asset/tail.png",
-      cap:"./asset/cap.png",
-      keyring:"./asset/keyring.png",
-      duck:"./asset/duck.png",
-      twinkle:"./asset/twinkle.png",
-      xmas:"./asset/xmas.png",
-      bunny:"./asset/bunny.png",
-    };
     function render() {
       const box = document.getElementById(BOX_ID);
       if (!box) return;
@@ -236,7 +319,11 @@
       if (!k) { box.classList.add("is-empty"); return; }
       box.classList.remove("is-empty");
       const img = document.createElement("img");
-      img.alt = k; img.src = SRC[k] || ""; img.decoding = "async"; img.loading = "lazy";
+      img.alt = k;
+      img.decoding = "async";
+      img.loading = "lazy";
+      // SSOT: 지비츠 PNG 경로
+      img.src = window.ASSETS?.getJibImg?.(k) || "";
       box.appendChild(img);
     }
     onReady(() => render());
@@ -298,7 +385,7 @@
         btn.addEventListener("click", () => {
           const k = getSelected(); if (!k) return;
           toggle(k);
-          render(); // 즉시 UI
+          render();
           try { (window.mineRenderAll?.() || window.renderAll?.()); } catch {}
         }, { passive: true });
       }
@@ -312,4 +399,3 @@
     window.addEventListener("storage", (e) => { if (e.key === JIB_SYNC()) render(); });
   })();
 })();
-

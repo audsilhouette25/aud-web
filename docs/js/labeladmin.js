@@ -16,14 +16,6 @@ const MAP = {
   portal: { category: "play", stars: 2 },
 };
 
-const IMG_SRC = {
-  thump:"./asset/thump.png",
-  miro:"./asset/miro.png",
-  whee:"./asset/whee.png",
-  track:"./asset/track.png",
-  echo:"./asset/echo.png",
-  portal:"./asset/portal.png",
-};
 
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
@@ -221,7 +213,7 @@ function renderLabelGalleryBox() {
   box.classList.remove("is-empty");
   const img = document.createElement("img");
   img.alt = label;
-  img.src = IMG_SRC[label];
+  window.ASSETS.attachLabelImg(img, label, { prefer: "blackImage" });
   box.appendChild(img);
 }
 
