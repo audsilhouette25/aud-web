@@ -9,51 +9,52 @@
   <link rel="stylesheet" href="./css/labeladmin.css" />
 </head>
 <body>
-  <!-- ===== Navigation ===== -->
-  <header class="nav">
-    <div class="nav-inner">
-      <ul class="menu">
-        <li><a href="./home.html">HOME</a></li>
-        <li><a href="./collect.html">Collect</a></li>
-        <li><a href="./gallery.html">Gallery</a></li>
-        <li><a href="./custom.html">Custom</a></li>
-      </ul>
-      <div class="logo-cta">
-        <a href="./mine.html">
-          <img src="./asset/logo2.png" alt="logo">
-        </a>
+  <main class="labelmine-body">
+    <!-- ===== Navigation ===== -->
+    <header class="nav">
+      <div class="nav-inner">
+        <ul class="menu">
+          <li><a href="./home.html">HOME</a></li>
+          <li><a href="./collect.html">Collect</a></li>
+          <li><a href="./gallery.html">Gallery</a></li>
+          <li><a href="./custom.html">Custom</a></li>
+        </ul>
+        <div class="logo-cta">
+          <a href="./mine.html">
+            <img src="./asset/logo2.png" alt="logo">
+          </a>
+        </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <!-- ===== Hero (프리뷰 헤더) ===== -->
-  <section class="labeladmin-page">
-    <div class="hero">
-      <!-- 카테고리 + 별 -->
-      <div id="categoryRow" class="category-row"></div>
-      <!-- 선택된 라벨명 -->
-      <h1 id="lastLabel" class="title"></h1>
-    </div>
-  </section>
+    <!-- ===== Hero (프리뷰 헤더) ===== -->
+    <section class="labeladmin-page">
+      <div class="hero">
+        <!-- 카테고리 + 별 -->
+        <div id="categoryRow" class="category-row"></div>
+        <!-- 선택된 라벨명 -->
+        <h1 id="lastLabel" class="title"></h1>
+      </div>
+    </section>
 
-  <!-- ===== Body1 (프리뷰 메타) ===== -->
-  <section class="labeladmin-sub">
-    <div class="stack">
-      <div id="timestamp" class="timestamp" aria-live="polite"></div>
-      <div id="heartButton" class="heart"></div>
-    </div>
-  </section>
+    <!-- ===== Body1 (프리뷰 메타) ===== -->
+    <section class="labeladmin-sub">
+      <div class="stack">
+        <div id="timestamp" class="timestamp" aria-live="polite"></div>
+        <div id="heartButton" class="heart"></div>
+      </div>
+    </section>
 
-  <!-- ===== Body2 (프리뷰 + 관리자 에디터) ===== -->
-  <section class="labeladmin-body">
-    <div class="container">
-      <!-- 라벨 이미지 프리뷰 -->
-      <div id="labeladminGalleryBox" class="labeladmin-gallery-box"></div>
-      <!-- 관리자: 스토리 작성/수정용 에디터 컨테이너 (labeladmin.js가 렌더/권한 제어) -->
-      <div id="labelAdmin" class="label-admin__container" hidden></div>
-    </div>
-  </section>
-
+    <!-- ===== Body2 (프리뷰 + 관리자 에디터) ===== -->
+    <section>
+      <div class="container">
+        <!-- 라벨 이미지 프리뷰 -->
+        <div id="labeladminGalleryBox" class="labeladmin-gallery-box"></div>
+        <!-- 관리자: 스토리 작성/수정용 에디터 컨테이너 (labeladmin.js가 렌더/권한 제어) -->
+        <div id="labelAdmin" class="label-admin__container" hidden></div>
+      </div>
+    </section>
+  </main>
   <!-- 필요 시 소켓 -->
   <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
 
