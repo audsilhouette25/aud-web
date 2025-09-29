@@ -11,17 +11,28 @@
   // me.js 상단 유틸로 추가
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
-  window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+  window.API_BASE    = "https://aud-api-dtd1.onrender.com/";
+  window.STATIC_BASE = location.origin + "/";
 
   // [ADD] admin allowlist
   const ADMIN_EMAILS = ["audsilhouette@gmail.com"]; // 운영자 이메일
 
+  // 🔁 기존 window.__toAPI 교체
   window.__toAPI = function (u) {
     const s = String(u || "");
     if (!s) return s;
-    if (/^https?:\/\//i.test(s)) return s;               // 이미 절대 URL이면 그대로
-    const base = window.API_BASE || location.origin + "/"; // 폴백: 현재 사이트
-    return new URL(s.replace(/^\/+/, ""), base).toString();
+    if (/^https?:\/\//i.test(s)) return s; // 절대 URL은 통과
+
+    const p = s.replace(/^\/+/, "/"); // 정규화
+    const isAPI     = p.startsWith("/api/") || p.startsWith("auth/");
+    const isUploads = p.startsWith("/uploads/");
+
+    const base =
+      isAPI     ? (window.API_BASE    || location.origin + "/") :
+      isUploads ? (window.STATIC_BASE || location.origin + "/") :
+                  (window.STATIC_BASE || location.origin + "/");
+
+    return new URL(p.replace(/^\/+/, ""), base).toString();
   };
 
   const $  = (sel, root = document) => root.querySelector(sel);
@@ -229,12 +240,8 @@
   const toAPI = (u) =>
   (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
 
-  // [NEW] admin/leaderboards, 이미지 등 공용 URL 생성
   function toAPI2(p) {
-    try {
-      const base = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || location.origin;
-      return new URL(String(p).replace(/^\/+/, "/"), base).toString();
-    } catch { return p; }
+    return (typeof window.__toAPI === "function") ? window.__toAPI(p) : String(p || "");
   }
 
   // Auth helpers (no-op safe)
@@ -863,7 +870,7 @@
     // 3) 폴백: strokes 합성
     // jsonUrl이 없으면 규칙대로 유추
     if (!jsonUrl) {
-      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const base = window.STATIC_BASE || location.origin;
       jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
     }
     try {
