@@ -168,7 +168,7 @@ function renderCategoryRow() {
   const label = readSelected();
   if (!label) return;
 
-  const info = MAP[label] || { category: "play", stars: 0 };
+  const info = (window.LABEL_META && window.LABEL_META.get(label)) || { category: "play", stars: 0 };
 
   const pill = document.createElement("div");
   pill.className = "pill";
