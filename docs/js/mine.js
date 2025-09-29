@@ -705,6 +705,7 @@
     return btn;
   }
 
+  // 기존 makeJibTile 변경: 고정 이동 → toJibHref 사용
   function makeJibTile(kind) {
     const src = JIBS[kind];
     const btn = document.createElement("button");
@@ -727,10 +728,29 @@
         try { plane.setItem(key, kind); window.dispatchEvent(new Event("jib:selected-changed")); } catch {}
       }
       window.auth?.markNavigate?.();
-      location.assign(`./jibbitz.html?jib=${encodeURIComponent(kind)}`);
+      location.assign(toJibHref(kind)); // ⬅️ 변경 지점
     });
 
     return btn;
+  }
+
+  // admin이면 jibbitzadmin.html?jib=&ns=, 아니면 jibbitz.html?jib=
+  function toJibHref(kind){
+    const flag   = (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
+    const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
+    const isAdmin = (flag === true) || cached;
+    const base  = isAdmin ? 'jibbitzadmin.html' : 'jibbitz.html';
+
+    const qs = new URLSearchParams();
+    if (kind) qs.set('jib', String(kind));
+    if (isAdmin) {
+      try {
+        const ns = (typeof getNS === 'function' ? getNS() : 'default');
+        if (ns) qs.set('ns', ns);
+      } catch {}
+    }
+    const q = qs.toString();
+    return q ? `./${base}?${q}` : `./${base}`;
   }
 
   // admin이면 labeladmin.html?ns=, 아니면 labelmine.html?label=
