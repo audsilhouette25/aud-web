@@ -1207,9 +1207,6 @@
     `.trim();
     return document.getElementById('lb-root');
   }
-
-  const fmtLb = (n) => (Number(n || 0)).toLocaleString();
-
   function esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
