@@ -442,6 +442,46 @@ header.nav{
   font-variant-numeric: tabular-nums;
   color: #333;
 }
+/* === Quick Lists (labels / jibbitz) === */
+.quick-list{ margin-top: 12px; }
+
+.quick-list__title{
+  margin: 0 0 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  color: #555; text-transform: uppercase;
+}
+
+.quick-list__ul{
+  list-style: none;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px 10px; /* 줄 바꿈 시 위아래도 살짝 간격 */
+  margin: 0; padding: 0;
+}
+
+.quick-list__li{
+  display: inline-flex; align-items: center;
+}
+
+/* 이걸로 교체 */
+.quick-list__li:not(:last-child)::after{
+  content: " |";
+  opacity: .45;
+  margin-left: 6px;
+}
+
+/* 링크 룩앤필 */
+.quick-list__link{
+  text-decoration: none;
+  font-weight: 700; font-size: 14px;
+  color: #111;
+}
+.quick-list__link:hover{ text-decoration: underline; }
+
+/* 좁은 화면에서 줄바꿈되어도 간격 보기 좋게 */
+@media (max-width: 600px){
+  .quick-list__ul{ gap: 6px 8px; }
+  .quick-list__link{ font-size: 13px; }
+}
 
 /* =====================================================================
    11) PM Sheet

@@ -2268,400 +2268,624 @@
     bindLogoutButtonForMe();
     bindDeleteButtonForMe();
   }
+  /* ========= adminme.js : Quick Panel Lists (Labels & Jibbitz) =========
+  * Drop-in: paste near the bottom of adminme.js (before the last IIFE closes).
+  * No inline styles; pure DOM + classes.  */
 
-  /* ==== PATCH: append to bottom of public/js/me.js ==== */
-/* aud laboratory inlined into me.js (isolated via IIFE). 
-   Why: keep single-file page JS without polluting globals. */
-(() => {
-  // --- fast exit if lab UI is not on this page ---
-  const $ = (s, r = document) => r.querySelector(s);
-  const cvs = $("#aud-canvas");
-  if (!cvs) return; // lab not present → do nothing
+  /* ── constants ─────────────────────────────────────────── */
+  (function QuickPanelLinks(){
+    "use strict";
 
-  // --- DOM refs ---
-  const btnPlay = $("#lab-play");
-  const btnUndo = $("#lab-undo");
-  const btnClear = $("#lab-clear");
-  const btnSubmit = $("#lab-submit");
-  const spanStrokes = $("#lab-strokes");
-  const spanPoints = $("#lab-points");
-  const btnViewList = $("#lab-view-list");
+    const LABELS = ["thump","miro","whee","track","echo","portal"];
+    const JIBS   = ["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"];
 
-  // --- API base (reuse existing globals if present) ---
-  const API = (path) => {
-    const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const u = new URL(String(path).replace(/^\/+/, ""), base);
-    return u.toString();
-  };
+    const SELECTED_LABEL_KEY = "aud:selectedLabel"; // sessionStorage
+    const LABEL_COL_EVT      = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";
+    const JIB_COL_EVT        = window.JIB_COLLECTED_EVT   || "jib:collection-changed";
 
-  // --- Canvas & drawing state ---
-  const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-  let W = 900, H = 500;
-  const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
+    const QK_LABEL_HOST_IDS = ["#quick-labels-list", "#qk-label-list"];
+    const QK_JIB_HOST_IDS   = ["#quick-jibbitz-list", "#qk-jib-list"];
 
-  /** @typedef {{x:number,y:number,t:number}} Point */
-  /** @typedef {{points: Point[]}} Stroke */
-  const strokes = [];
-  let curStroke = null;
-  let isDrawing = false;
+    /* ── helpers ─────────────────────────────────────────── */
+    const $ = (s, r=document)=> r.querySelector(s);
 
-  // --- Audio state ---
-  let AC = null, master = null, osc = null;
-  let playing = false;
-  let lastNoteAt = 0;
-
-  /* === Recorder (NEW) === */
-  let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
-
-  function startRecorder(){
-    if (!AC) return;
-    if (!recDest) recDest = AC.createMediaStreamDestination();
-    if (master && recDest && !master.__recWired){
-      master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
-      master.__recWired = true;
+    function isAuthed(){
+      try { return !!(window.auth?.isAuthed?.() || window.auth?.state?.authed) || sessionStorage.getItem("auth:flag")==="1"; }
+      catch { return false; }
     }
-    if (!mediaRecorder) {
-      const mtype =
-        MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
-        MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
-        "audio/webm";
-      mediaRecorder = new MediaRecorder(recDest.stream, {
-        mimeType: mtype,
-        audioBitsPerSecond: 128000
-      });
-      mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
-      mediaRecorder.onstop = ()=>{
-        try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
-        catch { lastRecording = null; }
-        recChunks = [];
-      };
+    function currentNS(){
+      try { return (window.__STORE_NS || localStorage.getItem("auth:userns") || "default").trim().toLowerCase() || "default"; }
+      catch { return "default"; }
     }
-    if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
-  }
+    function plane(){ return currentNS()==="default" ? sessionStorage : localStorage; }
 
-  function stopRecorder(){
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
+    function readCollectedLabels(){
+      // store 우선
+      let collected = [];
+      try {
+        if (typeof window.store?.getCollected === "function") {
+          collected = window.store.getCollected() || [];
+        } else if (Array.isArray(window.store?.registered)) {
+          collected = window.store.registered || [];
+        }
+      } catch {}
+      // 게스트/초기 fallback: collectedLabels:<ns> (session/local 병합)
+      try {
+        const ns = currentNS();
+        const KEY = `collectedLabels:${ns}`;
+        const s = JSON.parse(sessionStorage.getItem(KEY) || "[]");
+        const l = JSON.parse(localStorage.getItem(KEY)    || "[]");
+        collected = Array.from(new Set([...(collected||[]), ...(Array.isArray(s)?s:[]), ...(Array.isArray(l)?l:[])]));
+      } catch {}
+      // 허용된 라벨만
+      return collected.filter(lb => LABELS.includes(lb));
     }
-  }
 
-  // --- Helpers ---
-  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-  function now(){ return performance.now(); }
-
-  function resizeCanvas() {
-    const rect = cvs.getBoundingClientRect();
-    W = Math.max(320, Math.floor(rect.width * DPR));
-    H = Math.max(180, Math.floor(rect.height * DPR));
-    cvs.width = W; cvs.height = H;
-    drawAll();
-  }
-
-  function updateCounters(){
-    const p = strokes.reduce((s, st)=>s + st.points.length, 0);
-    if (spanStrokes) spanStrokes.textContent = String(strokes.length);
-    if (spanPoints)  spanPoints.textContent  = String(p);
-    if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
-    if (btnClear) btnClear.disabled = strokes.length === 0;
-  }
-
-  function drawAll() {
-    // background bands
-    ctx2d.fillStyle = "#eef2f7";
-    ctx2d.fillRect(0,0,W,H);
-    const bands = 8;
-    for (let i=0;i<bands;i++){
-      const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
-      ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
-      ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
-      if (i%2) {
-        ctx2d.fillStyle = "rgba(0,0,0,.03)";
-        ctx2d.fillRect(0, y0, W, 1);
-      }
+    function readCollectedJibs(){
+      try {
+        if (typeof window.jib?.getCollected === "function") {
+          return (window.jib.getCollected() || []).filter(k => JIBS.includes(k));
+        }
+      } catch {}
+      // 평면(NS) fallback
+      try {
+        const raw = plane().getItem(`jib:collected:${currentNS()}`);
+        const arr = raw ? JSON.parse(raw) : [];
+        return (Array.isArray(arr) ? arr : []).filter(k => JIBS.includes(k));
+      } catch { return []; }
     }
-    // strokes
-    ctx2d.lineJoin = "round";
-    ctx2d.lineCap = "round";
-    for (const st of strokes) {
-      if (st.points.length < 2) continue;
-      ctx2d.strokeStyle = "#111";
-      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-      ctx2d.beginPath();
-      ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
-      for (let i=1;i<st.points.length;i++){
-        const p = st.points[i];
-        ctx2d.lineTo(p.x*W, p.y*H);
-      }
-      ctx2d.stroke();
-    }
-  }
 
-  function startAudio(){
-    if (AC) return;
-    AC = new (window.AudioContext || window.webkitAudioContext)();
-    master = AC.createGain();
-    master.gain.value = 0.0;
-    master.connect(AC.destination);   // 스피커
-
-    osc = AC.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = 440;
-    osc.connect(master);
-    osc.start();
-
-    // (NEW) 녹음 경로도 준비
-    startRecorder();
-  }
-
-  function freqFromY(yNorm){
-    // y=0(top) -> high, y=1(bottom) -> low
-    const fMin = 110;  // A2
-    const fMax = 1760; // A6
-    const inv = 1 - clamp(yNorm, 0, 1);
-    return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
-  }
-
-  function applySoundForPoint(pxNorm, pyNorm){
-    if (!AC) startAudio();
-    if (AC.state === "suspended") AC.resume();
-
-    const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
-    const f = freqFromY(pyNorm);
-
-    const t = AC.currentTime;
-    const portamento = 0.02 + 0.18 * legato; // smoother to the right
-    osc.frequency.cancelScheduledValues(t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
-
-    const nowMs = now();
-    const staccato = 1 - legato;
-    const retriggerGap = 18 + 120 * staccato; // ms
-    const a = 0.003 + 0.020 * legato; // attack
-    const r = 0.030 + 0.250 * (1 - legato); // release
-
-    // Left: chopped via retrigger; Right: sustained
-    if (staccato > 0.12) {
-      if (nowMs - lastNoteAt > retriggerGap) {
-        lastNoteAt = nowMs;
-        master.gain.cancelScheduledValues(t);
-        master.gain.setValueAtTime(0.0, t);
-        master.gain.linearRampToValueAtTime(0.9, t + a);
-        master.gain.linearRampToValueAtTime(0.0, t + a + r);
-      }
-    } else {
-      master.gain.cancelScheduledValues(t);
-      const g = 0.15 + 0.75 * legato;
-      master.gain.linearRampToValueAtTime(g, t + a);
-    }
-  }
-
-  function noteOff(){
-    if (!AC || !master) return;
-    const t = AC.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.linearRampToValueAtTime(0.0, t + 0.08);
-  }
-
-  // --- Pointer handlers ---
-  function getXY(e){
-    const rect = cvs.getBoundingClientRect();
-    const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
-    const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
-    return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
-  }
-  function toNorm({x,y}){
-    const rect = cvs.getBoundingClientRect();
-    return { x: x/rect.width, y: y/rect.height };
-  }
-
-  function beginStroke(e){
-    if (!playing) return; // only when play ON
-    isDrawing = true;
-    curStroke = { points: [] };
-    const p = toNorm(getXY(e));
-    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-    strokes.push(curStroke);
-    applySoundForPoint(p.x, p.y);
-    updateCounters();
-    drawAll();
-  }
-
-  function moveStroke(e){
-    if (!isDrawing || !curStroke) return;
-    const p = toNorm(getXY(e));
-    curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-    applySoundForPoint(p.x, p.y);
-    // incremental draw
-    const lastTwo = curStroke.points.slice(-2);
-    if (lastTwo.length === 2){
-      ctx2d.strokeStyle = "#111";
-      ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-      ctx2d.beginPath();
-      ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
-      ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
-      ctx2d.stroke();
-    }
-    if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
-  }
-
-  function endStroke(){
-    if (!isDrawing) return;
-    isDrawing = false;
-    curStroke = null;
-    if (!playing) noteOff();
-    updateCounters();
-  }
-
-  function undoStroke(){
-    if (!strokes.length) return;
-    strokes.pop();
-    drawAll();
-    updateCounters();
-  }
-
-  function clearAll(){
-    strokes.length = 0;
-    drawAll();
-    updateCounters();
-  }
-
-  function togglePlay(){
-    playing = !playing;
-    if (btnPlay) {
-      btnPlay.setAttribute("aria-pressed", String(playing));
-      btnPlay.textContent = playing ? "Pause" : "Play";
-    }
-    if (playing) {
-      startAudio();
-      startRecorder();
-    } else {
-      noteOff();
-      stopRecorder();
-    }
-  }
-
-  // --- Submit ---
-  function blobToDataURL(blob){
-    return new Promise((resolve,reject)=>{
-      const fr = new FileReader();
-      fr.onload = ()=> resolve(fr.result);
-      fr.onerror = reject;
-      fr.readAsDataURL(blob);
-    });
-  }
-
-  async function submitLab(){
-    if (btnSubmit) btnSubmit.disabled = true;
-    try {
-      // 1) 캔버스 → PNG dataURL
-      const dataURL = cvs.toDataURL("image/png", 0.92);
-
-      // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
-      if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
-      // stop 이벤트가 비동기라 아주 잠깐 대기
-      await new Promise(r => setTimeout(r, 120));
-
-      // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
-      let audioDataURL = "";
-      if (lastRecording && lastRecording.size > 0) {
-        audioDataURL = await blobToDataURL(lastRecording);
-      }
-
-      // 4) 페이로드 구성 (이메일 userns만 허용)
-      const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
-        .toString().trim().toLowerCase();
-
-      if (!isEmailNS(nsEmail)) {
-        alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
-        if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
+    function selectLabel(label){
+      // why: label 페이지가 URL 파라미터만으로 부트스트랩되지 않는 상황 대비
+      if (typeof window.setSelectedLabel === "function") {
+        window.setSelectedLabel(label);
         return;
       }
-
-      const payload = {
-        ns: nsEmail,
-        width: W,
-        height: H,
-        strokes,
-        previewDataURL: dataURL,
-        audioDataURL
-      };
-
-      // 5) 전송
-      const res = await fetch(API("/api/audlab/submit"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      // 6) 응답 처리(기존 로직 유지)
-      const ct = res.headers.get("content-type") || "";
-      const isJSON = /\bapplication\/json\b/i.test(ct);
-      let j = null, text = null;
-      if (!res.ok) {
-        text = await res.text().catch(()=> "");
-        const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
-        throw new Error(`submit_api_${res.status}${hint}`);
-      }
-      j = isJSON ? await res.json().catch(()=>null) : null;
-      if (!j || j.ok === false) {
-        if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
-        throw new Error(j?.error || "submit_failed");
-      }
-
-      if (btnSubmit){
-        btnSubmit.textContent = "Submitted ✓";
-        setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
-      }
       try {
-        const m = document.querySelector("#admin-lab");
-        if (m && m.classList.contains("open")) loadAdminLab();
+        sessionStorage.setItem(SELECTED_LABEL_KEY, label);
+        window.dispatchEvent(new Event("aud:selectedLabel-changed"));
       } catch {}
-    } catch (e) {
-      const msg = String(e?.message || e);
-      if (msg.startsWith("submit_api_404")) {
-        alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
-      } else if (msg.startsWith("submit_api_401")) {
-        alert("제출 실패: 로그인이 필요합니다(401).");
-      } else if (msg.startsWith("submit_api_")) {
-        alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
-      } else {
-        alert("제출 실패: " + msg);
-      }
-    } finally {
-      if (btnSubmit) btnSubmit.disabled = strokes.length===0;
     }
-  }
 
-  document.addEventListener("visibilitychange", () => {
-    try {
-      if (document.hidden && AC && master && AC.state !== "closed") {
-        master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
+    function selectJib(kind){
+      if (typeof window.jib?.setSelected === "function") {
+        window.jib.setSelected(kind);
+        return;
       }
-    } catch {}
-  });
+      // custom.js와 동일한 안전 평면 키
+      try {
+        const ns = currentNS();
+        const KEY = `jib:selected:${ns}`;
+        plane().setItem(KEY, kind);
+        window.dispatchEvent(new Event("jib:selected-changed"));
+        const SYNC = `jib:sync:${ns}`;
+        localStorage.setItem(SYNC, JSON.stringify({ type:"select", k:kind, t:Date.now() }));
+        try { new BroadcastChannel(`aud:sync:${ns}`).postMessage({ kind:"jib:sync", payload:{ type:"select", k:kind, t:Date.now() } }); } catch {}
+      } catch {}
+    }
 
-  // --- Wire up ---
-  window.addEventListener("resize", resizeCanvas);
-  resizeCanvas();
-  updateCounters();
+    function isLabelRegistered(label){
+      try {
+        if (typeof window.store?.isCollected === "function") return !!window.store.isCollected(label);
+        if (Array.isArray(window.store?.registered)) return window.store.registered.includes(label);
+      } catch {}
+      return readCollectedLabels().includes(label);
+    }
 
-  cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
-  cvs.addEventListener("pointermove", moveStroke);
-  cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
-  cvs.addEventListener("pointercancel", endStroke);
-  cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+    function linkForLabel(label){
+      const registered = isLabelRegistered(label);
+      const url = new URL(registered ? "./label.html" : "./aud.html", document.baseURI);
+      url.searchParams.set("label", label);
+      return url.toString();
+    }
+    function linkForJib(kind){
+      const url = new URL("./jibbitz.html", document.baseURI);
+      url.searchParams.set("jib", kind);
+      return url.toString();
+    }
 
-  if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
-  if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
-  if (btnClear) btnClear.addEventListener("click", clearAll);
-  if (btnViewList) btnViewList.addEventListener("click", openAdminLabModal);
+    function goto(url){
+      try { window.auth?.markNavigate?.(); } catch {}
+      location.assign(url); // why: 세션에 선택값을 먼저 기록했으므로 동일 탭 이동을 보장
+    }
 
-  // a11y: space toggles play when canvas focused
-  cvs.tabIndex = 0;
-  cvs.addEventListener("keydown", (e)=>{
-    if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
-  });
-})(); 
+    function ensureHost(ids, fallbackAfter, autoId){
+      for (const id of ids) {
+        const el = $(id);
+        if (el) return el;
+      }
+      // 자동 생성: 이미 만들어둔 autoId가 있으면 그걸 반환
+      if (autoId) {
+        const existed = document.getElementById(autoId);
+        if (existed) return existed;
+      }
+      const host = document.createElement("div");
+      host.className = "quick-list";
+      host.setAttribute("role","region");
+      if (autoId) host.id = autoId;
+      host.setAttribute("data-quick-host","1");
+      if (fallbackAfter && fallbackAfter.parentNode) {
+        fallbackAfter.parentNode.insertBefore(host, fallbackAfter.nextSibling);
+      } else {
+        document.body.appendChild(host);
+      }
+      return host;
+    }
+
+    function renderList(host, headerText, items){
+      host.innerHTML = "";
+      const h = document.createElement("h4");
+      h.className = "quick-list__title";
+      h.textContent = headerText;
+
+      const ul = document.createElement("ul");
+      ul.className = "quick-list__ul";
+      ul.setAttribute("role","list");
+
+      for (const it of items) {
+        const li = document.createElement("li");
+        li.className = "quick-list__li";
+        const a = document.createElement("a");
+        a.className = "quick-list__link";
+        a.textContent = it.text;
+        a.href = it.href;             // 새 탭/복사 등 기본 기능 유지
+        a.setAttribute("role","link");
+        a.dataset.kind = it.kind;
+        a.dataset.type = it.type;     // "label" | "jib"
+        a.addEventListener("click", (e)=>{
+          e.preventDefault(); // why: 먼저 선택 상태를 저장해야 대상 페이지가 즉시 렌더
+          if (it.type === "label") selectLabel(it.kind);
+          else if (it.type === "jib") selectJib(it.kind);
+          goto(it.href);
+        }, { passive: false });
+        li.appendChild(a);
+        ul.appendChild(li);
+      }
+      host.appendChild(h);
+      host.appendChild(ul);
+    }
+
+    function renderQuickLists(){
+      // 라벨 리스트
+      const labelHost = ensureHost(
+        QK_LABEL_HOST_IDS,
+        $("#k-labels")?.closest?.(".panel") || $("#k-labels"),
+        "qk-auto-labels"
+      );
+      const collectedLabels = readCollectedLabels();
+      const labelItems = (collectedLabels.length ? collectedLabels : LABELS)
+        .map(lb => ({ type:"label", kind: lb, text: lb.toUpperCase(), href: linkForLabel(lb) }));
+      renderList(labelHost, "Labels", labelItems);
+
+      // 지비츠 리스트
+      const jibHost = ensureHost(
+        QK_JIB_HOST_IDS,
+        $("#k-jibs")?.closest?.(".panel") || $("#k-jibs"),
+        "qk-auto-jibs"
+      );
+      const collectedJibs = readCollectedJibs();
+      const jibItems = (collectedJibs.length ? collectedJibs : JIBS)
+        .map(k => ({ type:"jib", kind: k, text: k, href: linkForJib(k) }));
+      renderList(jibHost, "Jibbitz", jibItems);
+    }
+
+    /* ── bindings ────────────────────────────────────────── */
+    function bind(){
+      renderQuickLists();
+
+      // 스토어/지비츠/스토리지/가시성 변화에 따라 재렌더
+      window.addEventListener(LABEL_COL_EVT, renderQuickLists);
+      window.addEventListener("label:collected-changed", renderQuickLists);
+      window.addEventListener(JIB_COL_EVT, renderQuickLists);
+      window.addEventListener("storage", (e)=>{
+        if (!e?.key) return;
+        const ns = currentNS();
+        if (e.key === `jib:sync:${ns}` || e.key === `collectedLabels:${ns}`) renderQuickLists();
+        if (/^jib:collected:/.test(e.key)) renderQuickLists();
+      });
+      document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="visible") renderQuickLists(); });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bind, { once:true });
+    } else {
+      bind();
+    }
+  })();
+
+  /* ==== PATCH: append to bottom of public/js/me.js ==== */
+  /* aud laboratory inlined into me.js (isolated via IIFE). 
+    Why: keep single-file page JS without polluting globals. */
+  (() => {
+    // --- fast exit if lab UI is not on this page ---
+    const $ = (s, r = document) => r.querySelector(s);
+    const cvs = $("#aud-canvas");
+    if (!cvs) return; // lab not present → do nothing
+
+    // --- DOM refs ---
+    const btnPlay = $("#lab-play");
+    const btnUndo = $("#lab-undo");
+    const btnClear = $("#lab-clear");
+    const btnSubmit = $("#lab-submit");
+    const spanStrokes = $("#lab-strokes");
+    const spanPoints = $("#lab-points");
+    const btnViewList = $("#lab-view-list");
+
+    // --- API base (reuse existing globals if present) ---
+    const API = (path) => {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const u = new URL(String(path).replace(/^\/+/, ""), base);
+      return u.toString();
+    };
+
+    // --- Canvas & drawing state ---
+    const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    let W = 900, H = 500;
+    const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
+
+    /** @typedef {{x:number,y:number,t:number}} Point */
+    /** @typedef {{points: Point[]}} Stroke */
+    const strokes = [];
+    let curStroke = null;
+    let isDrawing = false;
+
+    // --- Audio state ---
+    let AC = null, master = null, osc = null;
+    let playing = false;
+    let lastNoteAt = 0;
+
+    /* === Recorder (NEW) === */
+    let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
+
+    function startRecorder(){
+      if (!AC) return;
+      if (!recDest) recDest = AC.createMediaStreamDestination();
+      if (master && recDest && !master.__recWired){
+        master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
+        master.__recWired = true;
+      }
+      if (!mediaRecorder) {
+        const mtype =
+          MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
+          MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
+          "audio/webm";
+        mediaRecorder = new MediaRecorder(recDest.stream, {
+          mimeType: mtype,
+          audioBitsPerSecond: 128000
+        });
+        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
+        mediaRecorder.onstop = ()=>{
+          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
+          catch { lastRecording = null; }
+          recChunks = [];
+        };
+      }
+      if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+    }
+
+    function stopRecorder(){
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+    }
+
+    // --- Helpers ---
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+    function now(){ return performance.now(); }
+
+    function resizeCanvas() {
+      const rect = cvs.getBoundingClientRect();
+      W = Math.max(320, Math.floor(rect.width * DPR));
+      H = Math.max(180, Math.floor(rect.height * DPR));
+      cvs.width = W; cvs.height = H;
+      drawAll();
+    }
+
+    function updateCounters(){
+      const p = strokes.reduce((s, st)=>s + st.points.length, 0);
+      if (spanStrokes) spanStrokes.textContent = String(strokes.length);
+      if (spanPoints)  spanPoints.textContent  = String(p);
+      if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
+      if (btnClear) btnClear.disabled = strokes.length === 0;
+    }
+
+    function drawAll() {
+      // background bands
+      ctx2d.fillStyle = "#eef2f7";
+      ctx2d.fillRect(0,0,W,H);
+      const bands = 8;
+      for (let i=0;i<bands;i++){
+        const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
+        ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
+        ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
+        if (i%2) {
+          ctx2d.fillStyle = "rgba(0,0,0,.03)";
+          ctx2d.fillRect(0, y0, W, 1);
+        }
+      }
+      // strokes
+      ctx2d.lineJoin = "round";
+      ctx2d.lineCap = "round";
+      for (const st of strokes) {
+        if (st.points.length < 2) continue;
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
+        for (let i=1;i<st.points.length;i++){
+          const p = st.points[i];
+          ctx2d.lineTo(p.x*W, p.y*H);
+        }
+        ctx2d.stroke();
+      }
+    }
+
+    function startAudio(){
+      if (AC) return;
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain();
+      master.gain.value = 0.0;
+      master.connect(AC.destination);   // 스피커
+
+      osc = AC.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      osc.connect(master);
+      osc.start();
+
+      // (NEW) 녹음 경로도 준비
+      startRecorder();
+    }
+
+    function freqFromY(yNorm){
+      // y=0(top) -> high, y=1(bottom) -> low
+      const fMin = 110;  // A2
+      const fMax = 1760; // A6
+      const inv = 1 - clamp(yNorm, 0, 1);
+      return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
+    }
+
+    function applySoundForPoint(pxNorm, pyNorm){
+      if (!AC) startAudio();
+      if (AC.state === "suspended") AC.resume();
+
+      const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
+      const f = freqFromY(pyNorm);
+
+      const t = AC.currentTime;
+      const portamento = 0.02 + 0.18 * legato; // smoother to the right
+      osc.frequency.cancelScheduledValues(t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
+
+      const nowMs = now();
+      const staccato = 1 - legato;
+      const retriggerGap = 18 + 120 * staccato; // ms
+      const a = 0.003 + 0.020 * legato; // attack
+      const r = 0.030 + 0.250 * (1 - legato); // release
+
+      // Left: chopped via retrigger; Right: sustained
+      if (staccato > 0.12) {
+        if (nowMs - lastNoteAt > retriggerGap) {
+          lastNoteAt = nowMs;
+          master.gain.cancelScheduledValues(t);
+          master.gain.setValueAtTime(0.0, t);
+          master.gain.linearRampToValueAtTime(0.9, t + a);
+          master.gain.linearRampToValueAtTime(0.0, t + a + r);
+        }
+      } else {
+        master.gain.cancelScheduledValues(t);
+        const g = 0.15 + 0.75 * legato;
+        master.gain.linearRampToValueAtTime(g, t + a);
+      }
+    }
+
+    function noteOff(){
+      if (!AC || !master) return;
+      const t = AC.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.linearRampToValueAtTime(0.0, t + 0.08);
+    }
+
+    // --- Pointer handlers ---
+    function getXY(e){
+      const rect = cvs.getBoundingClientRect();
+      const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
+      const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
+      return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
+    }
+    function toNorm({x,y}){
+      const rect = cvs.getBoundingClientRect();
+      return { x: x/rect.width, y: y/rect.height };
+    }
+
+    function beginStroke(e){
+      if (!playing) return; // only when play ON
+      isDrawing = true;
+      curStroke = { points: [] };
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      strokes.push(curStroke);
+      applySoundForPoint(p.x, p.y);
+      updateCounters();
+      drawAll();
+    }
+
+    function moveStroke(e){
+      if (!isDrawing || !curStroke) return;
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      applySoundForPoint(p.x, p.y);
+      // incremental draw
+      const lastTwo = curStroke.points.slice(-2);
+      if (lastTwo.length === 2){
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
+        ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
+        ctx2d.stroke();
+      }
+      if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
+    }
+
+    function endStroke(){
+      if (!isDrawing) return;
+      isDrawing = false;
+      curStroke = null;
+      if (!playing) noteOff();
+      updateCounters();
+    }
+
+    function undoStroke(){
+      if (!strokes.length) return;
+      strokes.pop();
+      drawAll();
+      updateCounters();
+    }
+
+    function clearAll(){
+      strokes.length = 0;
+      drawAll();
+      updateCounters();
+    }
+
+    function togglePlay(){
+      playing = !playing;
+      if (btnPlay) {
+        btnPlay.setAttribute("aria-pressed", String(playing));
+        btnPlay.textContent = playing ? "Pause" : "Play";
+      }
+      if (playing) {
+        startAudio();
+        startRecorder();
+      } else {
+        noteOff();
+        stopRecorder();
+      }
+    }
+
+    // --- Submit ---
+    function blobToDataURL(blob){
+      return new Promise((resolve,reject)=>{
+        const fr = new FileReader();
+        fr.onload = ()=> resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+    }
+
+    async function submitLab(){
+      if (btnSubmit) btnSubmit.disabled = true;
+      try {
+        // 1) 캔버스 → PNG dataURL
+        const dataURL = cvs.toDataURL("image/png", 0.92);
+
+        // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
+        if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
+        // stop 이벤트가 비동기라 아주 잠깐 대기
+        await new Promise(r => setTimeout(r, 120));
+
+        // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
+        let audioDataURL = "";
+        if (lastRecording && lastRecording.size > 0) {
+          audioDataURL = await blobToDataURL(lastRecording);
+        }
+
+        // 4) 페이로드 구성 (이메일 userns만 허용)
+        const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
+          .toString().trim().toLowerCase();
+
+        if (!isEmailNS(nsEmail)) {
+          alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
+          if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
+          return;
+        }
+
+        const payload = {
+          ns: nsEmail,
+          width: W,
+          height: H,
+          strokes,
+          previewDataURL: dataURL,
+          audioDataURL
+        };
+
+        // 5) 전송
+        const res = await fetch(API("/api/audlab/submit"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        // 6) 응답 처리(기존 로직 유지)
+        const ct = res.headers.get("content-type") || "";
+        const isJSON = /\bapplication\/json\b/i.test(ct);
+        let j = null, text = null;
+        if (!res.ok) {
+          text = await res.text().catch(()=> "");
+          const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
+          throw new Error(`submit_api_${res.status}${hint}`);
+        }
+        j = isJSON ? await res.json().catch(()=>null) : null;
+        if (!j || j.ok === false) {
+          if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
+          throw new Error(j?.error || "submit_failed");
+        }
+
+        if (btnSubmit){
+          btnSubmit.textContent = "Submitted ✓";
+          setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
+        }
+        try {
+          const m = document.querySelector("#admin-lab");
+          if (m && m.classList.contains("open")) loadAdminLab();
+        } catch {}
+      } catch (e) {
+        const msg = String(e?.message || e);
+        if (msg.startsWith("submit_api_404")) {
+          alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
+        } else if (msg.startsWith("submit_api_401")) {
+          alert("제출 실패: 로그인이 필요합니다(401).");
+        } else if (msg.startsWith("submit_api_")) {
+          alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
+        } else {
+          alert("제출 실패: " + msg);
+        }
+      } finally {
+        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      try {
+        if (document.hidden && AC && master && AC.state !== "closed") {
+          master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
+        }
+      } catch {}
+    });
+
+    // --- Wire up ---
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    updateCounters();
+
+    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
+    cvs.addEventListener("pointermove", moveStroke);
+    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
+    cvs.addEventListener("pointercancel", endStroke);
+    cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+
+    if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
+    if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
+    if (btnClear) btnClear.addEventListener("click", clearAll);
+    if (btnViewList) btnViewList.addEventListener("click", openAdminLabModal);
+
+    // a11y: space toggles play when canvas focused
+    cvs.tabIndex = 0;
+    cvs.addEventListener("keydown", (e)=>{
+      if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
+    });
+  })(); 
 
 })();
