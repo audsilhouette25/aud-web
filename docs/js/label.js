@@ -91,23 +91,25 @@ function hideAdminOnlyWidgetsIfNeeded() {
   }
 }
 
-// === [REPLACE] admin detect (ev.detail 캐시 + 다양한 형태 지원) ===
 // === [REPLACE] admin detect (more tolerant) ===
+// path: /scripts/label.js — REPLACE isAdmin() (fast caches + allowlist)
 function isAdmin() {
   try {
-    const a = window.auth || {};
+    // why: 초기 렌더에서 auth 준비 전 플리커 방지
+    if (typeof window.__IS_ADMIN === "boolean") return !!window.__IS_ADMIN;
+    try { if (sessionStorage.getItem("auth:isAdmin") === "1") return true; } catch {}
 
-    // Helper: normalize any "truthy" admin-ish value
+    const a = window.auth || {};
     const truthy = (v) => {
       if (v === true) return true;
       if (typeof v === "number") return v === 1;
-      if (typeof v === "string") return ["1", "true", "yes", "admin"].includes(v.toLowerCase());
+      if (typeof v === "string") return ["1","true","yes","admin"].includes(v.toLowerCase());
       return false;
     };
 
     // 1) Top-level helper/property
     if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
-    if (truthy(a.isAdmin)) return true;                 // <-- handle boolean/number/string property
+    if (truthy(a.isAdmin)) return true;
 
     // 2) Resolve current user from various places
     const u = (__authUser != null ? __authUser
@@ -117,22 +119,34 @@ function isAdmin() {
 
     // 3) Common direct flags
     if (truthy(u.isAdmin)) return true;
-    if (truthy(u.is_admin)) return true;                // snake_case variants
+    if (truthy(u.is_admin)) return true;
     if (truthy(u.admin)) return true;
 
     // 4) Role/roles
     if (typeof u.role === "string" && u.role.toLowerCase() === "admin") return true;
-    if (Array.isArray(u.roles) && u.roles.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
+    const roles = Array.isArray(u.roles) ? u.roles.map(String).map(s=>s.toLowerCase()) : [];
+    if (roles.includes("admin") || roles.includes("admins") || roles.includes("administrator")) return true;
 
     // 5) Claims / permissions / scopes
     const claims = u.claims || a.claims || null;
     if (claims && (truthy(claims.admin) || truthy(claims.isAdmin) || truthy(claims.is_admin))) return true;
 
-    const perms = Array.isArray(u.permissions) ? u.permissions : Array.isArray(a.permissions) ? a.permissions : null;
-    if (perms && perms.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
+    const perms = Array.isArray(u.permissions) ? u.permissions
+               : Array.isArray(a.permissions) ? a.permissions : null;
+    if (perms && perms.map(String).map(s=>s.toLowerCase()).some(s => s==="admin")) return true;
 
-    const scopes = Array.isArray(u.scopes) ? u.scopes : Array.isArray(a.scopes) ? a.scopes : null;
-    if (scopes && scopes.map(String).map(s => s.toLowerCase()).includes("admin")) return true;
+    const scopes = Array.isArray(u.scopes) ? u.scopes
+                : Array.isArray(a.scopes) ? a.scopes : null;
+    if (scopes && scopes.map(String).map(s=>s.toLowerCase()).some(s => s==="admin")) return true;
+
+    // 6) Email allowlist (frontend fallback)
+    try {
+      const email = String(u.email || "").trim().toLowerCase();
+      const allow = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS
+                   : Array.isArray(window.ADMIN_ALLOWLIST) ? window.ADMIN_ALLOWLIST
+                   : [];
+      if (email && allow.map(s=>String(s).trim().toLowerCase()).includes(email)) return true;
+    } catch {}
 
     return false;
   } catch { return false; }
