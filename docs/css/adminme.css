@@ -334,7 +334,7 @@ header.nav{
 }
 .lb-grid table.lb th:last-child,
 .lb-grid table.lb td:last-child{
-  width: 80px;
+  width: 64px;
   white-space: nowrap;   /* 줄바꿈 방지 */
   /* padding-right는 그대로 두면 테두리와 적당히 떨어짐 */
 }
