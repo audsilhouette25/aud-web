@@ -26,7 +26,6 @@
       img:        `${BASE}${lb}.png`,
       imgBlack:   `${BASE}${lb}black.png`,     // e.g. thumpblack.png
       video:      `${BASE}${lb}video.mp4`,     // e.g. thumpvideo.mp4
-      // 현재 에셋 구조상 '블랙 비디오'가 없음. 필요하면 오렌지 비디오를 재사용.
       videoBlack: `${BASE}black${lb}.mp4`,
     };
   }
@@ -71,11 +70,15 @@
   function mapForGallery(){
     const ICONS = {};
     for (const lb of LABELS) {
-      const vid = getLabelVideo(lb, { black:false });
-      ICONS[lb] = { orange: vid, black: vid };
+      ICONS[lb] = {
+        // 등록: 오렌지 비디오
+        orange: getLabelVideo(lb, { black:false }),
+        // 미등록: 블랙 이미지를 사용
+        black:  getLabelVideo(lb, { black:true }),
+      };
     }
     return ICONS;
-  }
+    }
 
   // mine는 오렌지=video, 블랙=image (createMedia가 둘 다 처리)
   function mapForMine(){
