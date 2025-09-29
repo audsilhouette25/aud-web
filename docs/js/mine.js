@@ -816,7 +816,7 @@
   }
 
   function renderAll() {
-    if (!__assetsReady) return;s
+    if (!__assetsReady) return;
     const root = $("#all-grid");
     if (!root) { try { renderTabsOnly(); } catch {} return; }
 
