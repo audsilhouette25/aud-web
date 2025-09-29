@@ -26,12 +26,16 @@
   const JIB_SYNC      = () => `jib:sync:${currentNS()}`;
   const BC_NAME       = () => `aud:sync:${currentNS()}`;
 
-  // ⚠️ WINDOW → window (버그픽스)
-  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || window.JIBS;
-  if (!Array.isArray(JIBS) || !JIBS.length) throw new Error("APP_CONFIG.JIBBITZ missing");
-  const isKind = (v) => typeof v === "string" && JIBS.includes(v);
-
   const NORM = (s) => String(s || "").trim().toLowerCase();
+
+  // ⚠️ 핵심 수정: 원본 목록을 소문자화하여 SSOT 일치 (admin과 동일 전략)
+  const JIBS_RAW =
+    (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) ||
+    window.ALL_JIBS || window.JIBS;
+  if (!Array.isArray(JIBS_RAW) || !JIBS_RAW.length) throw new Error("APP_CONFIG.JIBBITZ missing");
+  const JIBS = JIBS_RAW.map(NORM);
+  const isKind = (v) => typeof v === "string" && JIBS.includes(NORM(v));
+
   const readNSParam = () => {
     try {
       const sp = new URL(location.href).searchParams;
@@ -45,7 +49,7 @@
   function urlSelectedKind() {
     try {
       const q = new URLSearchParams(location.search).get("jib");
-      return (typeof q === "string" ? q.trim().toLowerCase() : "");
+      return (typeof q === "string" ? NORM(q) : "");
     } catch { return ""; }
   }
   function bootstrapSelectedFromURL() {
@@ -66,15 +70,16 @@
    * ========================= */
   (function migrateLegacyOnce() {
     try {
-      const legacySel = sessionStorage.getItem("jib:selected");
+      const legacySel = plane().getItem("jib:selected"); // same plane() to avoid cross-mode mismatch
       if (legacySel && !plane().getItem(JIB_SELECTED())) {
-        plane().setItem(JIB_SELECTED(), legacySel);
-        sessionStorage.removeItem("jib:selected");
+        plane().setItem(JIB_SELECTED(), NORM(legacySel));
+        plane().removeItem("jib:selected");
       }
-      const legacyCol = sessionStorage.getItem("jib:collected");
+      const legacyCol = plane().getItem("jib:collected");
       if (legacyCol && !plane().getItem(JIB_COLLECTED())) {
-        plane().setItem(JIB_COLLECTED(), legacyCol);
-        sessionStorage.removeItem("jib:collected");
+        const arr = JSON.parse(legacyCol || "[]").map(NORM).filter(isKind);
+        plane().setItem(JIB_COLLECTED(), JSON.stringify(arr));
+        plane().removeItem("jib:collected");
       }
     } catch {}
   })();
@@ -83,15 +88,25 @@
    * Store-like API
    * ========================= */
   function getSelected() {
-    try { const v = plane().getItem(JIB_SELECTED()); if (isKind(v)) return v; } catch {}
-    try { const q = new URLSearchParams(location.search).get("jib"); return isKind(q) ? q : null; } catch { return null; }
+    try {
+      const v = plane().getItem(JIB_SELECTED());
+      const k = v ? NORM(v) : "";
+      if (isKind(k)) return k;
+    } catch {}
+    try {
+      const q = urlSelectedKind();
+      return isKind(q) ? q : null;
+    } catch { return null; }
   }
   function setSelected(kind) {
+    const k = NORM(kind); // ⚠️ 핵심: 저장도 NORM
+    if (!isKind(k)) return;
     try {
-      plane().setItem(JIB_SELECTED(), kind);
+      plane().setItem(JIB_SELECTED(), k);
       window.dispatchEvent(new Event(EVT_SELECTED));
-      localStorage.setItem(JIB_SYNC(), JSON.stringify({ type: "select", k: kind, t: Date.now() }));
-      try { __bc?.postMessage({ kind: "jib:sync", payload: { type: "select", k: kind, t: Date.now() } }); } catch {}
+      const payload = { type: "select", k, t: Date.now() };
+      localStorage.setItem(JIB_SYNC(), JSON.stringify(payload));
+      try { __bc?.postMessage({ kind: "jib:sync", payload }); } catch {}
     } catch {}
   }
 
@@ -99,27 +114,26 @@
     try {
       const raw = plane().getItem(JIB_COLLECTED());
       const arr = raw ? JSON.parse(raw) : [];
-      return new Set(arr.filter(isKind));
+      return new Set(arr.map(NORM).filter(isKind));
     } catch { return new Set(); }
   }
   function writeCollectedSet(set) {
-    const arr = Array.from(set).filter(isKind);
-    const ns  = currentNS();
-    const key = `jib:collected:${ns}`;
+    const arr = Array.from(set).map(NORM).filter(isKind);
     const v   = JSON.stringify(arr);
-    try { plane().setItem(key, v); } catch {}
+    try { plane().setItem(JIB_COLLECTED(), v); } catch {}
     try { window.dispatchEvent(new Event(EVT_COLLECTED)); } catch {}
     if (isAuthed()) {
-      try { localStorage.setItem(JIB_SYNC(), JSON.stringify({ type: "set", arr, t: Date.now() })); } catch {}
-      try { __bc?.postMessage({ kind: "jib:sync", payload: { type: "set", arr, t: Date.now() } }); } catch {}
+      const payload = { type: "set", arr, t: Date.now() };
+      try { localStorage.setItem(JIB_SYNC(), JSON.stringify(payload)); } catch {}
+      try { __bc?.postMessage({ kind: "jib:sync", payload }); } catch {}
     }
   }
-  function add(k){ const s = readCollectedSet(); s.add(k); writeCollectedSet(s); return true; }
-  function remove(k){ const s = readCollectedSet(); s.delete(k); writeCollectedSet(s); return false; }
-  function toggle(k){ const s = readCollectedSet(); return s.has(k) ? remove(k) : add(k); }
+  function add(k){ const s = readCollectedSet(); s.add(NORM(k)); writeCollectedSet(s); return true; }
+  function remove(k){ const s = readCollectedSet(); s.delete(NORM(k)); writeCollectedSet(s); return false; }
+  function toggle(k){ const s = readCollectedSet(); const kk = NORM(k); return s.has(kk) ? remove(kk) : add(kk); }
   function clear(){ writeCollectedSet(new Set()); }
   function getCollected(){ return Array.from(readCollectedSet()); }
-  function isCollected(k){ return readCollectedSet().has(k); }
+  function isCollected(k){ return readCollectedSet().has(NORM(k)); }
 
   window.jib = Object.assign(window.jib || {}, {
     setSelected, getSelected, add, remove, toggle, clear, getCollected, isCollected
@@ -136,9 +150,9 @@
       if (!m || m.kind !== "jib:sync") return;
       const p = m.payload || {};
       if (p.type === "select" && isKind(p.k)) {
-        plane().setItem(JIB_SELECTED(), p.k); window.dispatchEvent(new Event(EVT_SELECTED));
+        plane().setItem(JIB_SELECTED(), NORM(p.k)); window.dispatchEvent(new Event(EVT_SELECTED));
       } else if (p.type === "set" && Array.isArray(p.arr)) {
-        plane().setItem(JIB_COLLECTED(), JSON.stringify(p.arr.filter(isKind)));
+        plane().setItem(JIB_COLLECTED(), JSON.stringify(p.arr.map(NORM).filter(isKind)));
         window.dispatchEvent(new Event(EVT_COLLECTED));
       }
     });
@@ -148,9 +162,9 @@
     try {
       const p = JSON.parse(e.newValue);
       if (p.type === "select" && isKind(p.k)) {
-        plane().setItem(JIB_SELECTED(), p.k); window.dispatchEvent(new Event(EVT_SELECTED));
+        plane().setItem(JIB_SELECTED(), NORM(p.k)); window.dispatchEvent(new Event(EVT_SELECTED));
       } else if (p.type === "set" && Array.isArray(p.arr)) {
-        plane().setItem(JIB_COLLECTED(), JSON.stringify(p.arr.filter(isKind)));
+        plane().setItem(JIB_COLLECTED(), JSON.stringify(p.arr.map(NORM).filter(isKind)));
         window.dispatchEvent(new Event(EVT_COLLECTED));
       }
     } catch {}
@@ -185,7 +199,7 @@
       if (!el) return;
       const k = getSelected();
       if (!k) return;
-      el.textContent = k.toUpperCase();
+      el.textContent = k.toUpperCase(); // why: UI 가독성만 대문자
     }
     function sync(){ renderPill(); renderTitle(); }
     onReady(() => sync());
@@ -210,7 +224,6 @@
       const img = document.createElement("img");
       img.alt = k;
 
-      // why: SSOT. attachJibImg가 있으면 안전 폴백 포함, 없으면 getJibImg 사용.
       if (window.ASSETS?.attachJibImg) {
         window.ASSETS.attachJibImg(img, k);
       } else {
@@ -222,9 +235,9 @@
     }
 
     onReady(render);
-    addEventListener(EVT_SELECTED, render);             // ⚠️ 함수 참조로 바인딩
+    addEventListener(EVT_SELECTED, render);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") render(); });
-    window.addEventListener("ASSETS:ready", render, { once:false }); // 에셋 준비 시 재렌더
+    window.addEventListener("ASSETS:ready", render, { once:false });
   })();
 
   /* =========================
@@ -337,8 +350,9 @@
       bc.addEventListener("message", (e) => {
         const m = e?.data || {};
         if (m.kind === "jib:story-updated" && m.jib && m.story != null) {
-          writeStoryCache(m.jib, String(m.story));
-          if (getSelected() === m.jib) renderJibStory();
+          const k = NORM(m.jib);
+          writeStoryCache(k, String(m.story));
+          if (getSelected() === k) renderJibStory();
         }
       });
     } catch {}
@@ -346,16 +360,18 @@
       if (window.SOCKET && typeof window.SOCKET.on === "function") {
         window.SOCKET.on("jib:story-updated", (m = {}) => {
           if (!m.jib) return;
-          writeStoryCache(m.jib, String(m.story || ""));
-          if (getSelected() === m.jib) renderJibStory();
+          const k = NORM(m.jib);
+          writeStoryCache(k, String(m.story || ""));
+          if (getSelected() === k) renderJibStory();
         });
       } else {
         window.addEventListener?.("socket:ready", () => {
           if (window.SOCKET && typeof window.SOCKET.on === "function") {
             window.SOCKET.on("jib:story-updated", (m = {}) => {
               if (!m.jib) return;
-              writeStoryCache(m.jib, String(m.story || ""));
-              if (getSelected() === m.jib) renderJibStory();
+              const k = NORM(m.jib);
+              writeStoryCache(k, String(m.story || ""));
+              if (getSelected() === k) renderJibStory();
             });
           }
         }, { once: true });
@@ -373,7 +389,7 @@
     function render() {
       const selected  = getSelected();
       const collected = readCollectedSet();
-      const isActive  = !!selected && collected.has(selected);
+      const isActive  = !!selected && collected.has(NORM(selected));
 
       mount.innerHTML = "";
       const btn = document.createElement("button");
