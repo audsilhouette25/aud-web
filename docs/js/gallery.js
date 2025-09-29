@@ -1,3 +1,4 @@
+// /js/gallery.js (수정본: 안전한 ASSETS 대기 + 아이콘 지연 로딩)
 (() => {
   // ====== 설정 ======
   const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
@@ -10,8 +11,20 @@
 
   const LABEL_COLLECTED_EVT = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";
 
-  // ====== assets ======
-  const ICONS = window.ASSETS.mapForGallery();
+  // ====== ASSETS 준비 대기/지연 로딩 ======
+  // why: ASSETS가 아직 로드/초기화 되지 않았을 수 있음
+  function waitForAssets(fn) {
+    if (window.ASSETS) return fn();
+    window.addEventListener("ASSETS:ready", fn, { once: true });
+  }
+  let ICONS = null;
+  function getIcons() {
+    if (!ICONS) {
+      if (!window.ASSETS || typeof window.ASSETS.mapForGallery !== "function") return {};
+      ICONS = window.ASSETS.mapForGallery();
+    }
+    return ICONS;
+  }
   
   // ====== 헬퍼 ======
   function setSelectedLabel(label){
@@ -27,15 +40,10 @@
     }catch{}
   }
 
-  // 공통 패치: label.js, gallery.js 모두 동일하게 고쳐주세요
   function gotoPage(label, isRegistered){
     const url = new URL(isRegistered ? ROUTE_ON_REGISTERED : ROUTE_ON_UNREGISTERED, location.href);
     url.searchParams.set("label", label);
-
-    // ⬇️ 내부 이동 표시 (이 줄이 핵심)
     try { window.auth?.markNavigate?.(); } catch {}
-
-    // ⬇️ assign을 쓰면 의미가 더 분명하고 일부 브라우저에서 setter가 막힌 케이스도 회피
     location.assign(url.toString());
   }
 
@@ -89,7 +97,8 @@
     const wrap = document.createElement("div");
     wrap.className = "tile__content";
 
-    const icon = ICONS[label];
+    const iconMap = getIcons();
+    const icon = iconMap[label];
     const src = icon ? (isOn ? icon.orange : icon.black) : "";
 
     if (src && src.endsWith(".mp4")) {
@@ -115,23 +124,23 @@
     if(!grid) return;
     grid.innerHTML = "";
 
-  // 1) 우선 store 우선
-  let collected = [];
-  if (typeof window.store?.getCollected === "function") {
-    collected = window.store.getCollected() || [];
-  } else if (Array.isArray(window.store?.registered)) {
-    collected = window.store.registered || [];
-  }
+    // 1) 우선 store 우선
+    let collected = [];
+    if (typeof window.store?.getCollected === "function") {
+      collected = window.store.getCollected() || [];
+    } else if (Array.isArray(window.store?.registered)) {
+      collected = window.store.registered || [];
+    }
 
-  // 2) 게스트 fallback: collectedLabels:<ns> (session + local) 병합
-  try {
-    const ns = (window.__STORE_NS || "default").toLowerCase();
-    const KEY_COL = `collectedLabels:${ns}`;
-    const gSess = JSON.parse(sessionStorage.getItem(KEY_COL) || "[]");
-    const gLoc  = JSON.parse(localStorage.getItem(KEY_COL)    || "[]");
-    const merged = Array.from(new Set([...(collected||[]), ...(Array.isArray(gSess)?gSess:[]), ...(Array.isArray(gLoc)?gLoc:[])]));
-    collected = merged;
-  } catch {}
+    // 2) 게스트 fallback: collectedLabels:<ns> (session + local) 병합
+    try {
+      const ns = (window.__STORE_NS || "default").toLowerCase();
+      const KEY_COL = `collectedLabels:${ns}`;
+      const gSess = JSON.parse(sessionStorage.getItem(KEY_COL) || "[]");
+      const gLoc  = JSON.parse(localStorage.getItem(KEY_COL)    || "[]");
+      const merged = Array.from(new Set([...(collected||[]), ...(Array.isArray(gSess)?gSess:[]), ...(Array.isArray(gLoc)?gLoc:[])]));
+      collected = merged;
+    } catch {}
 
     const regSet = new Set(collected);
     LABELS.forEach(label=> grid.appendChild(makeTile(label, regSet.has(label))));
@@ -171,26 +180,6 @@
       }
     });
   }
-
-  // ====== Socket.IO 연동 ======
-  function bindSocket(){
-    const sock = window.sock;
-    if(!sock || sock.__galleryBound) return;
-    sock.__galleryBound = true;
-
-    const UID_TO_LABEL = {
-      "045D830A751D90": "whee",
-      "044A840A751D90": "thump",
-    };
-
-    sock.on("nfc", (evt) => {
-      const label = UID_TO_LABEL[evt.id] || null;
-      if (!label) return;
-      setSelectedLabel(label);
-      console.log("[nfc]", evt, "⇒ label:", label);
-    });
-  }
-
   // ====== Hero 애니메이션 ======
   function heroIn() {
     const hero = document.querySelector(".gallery .hero");
@@ -216,9 +205,12 @@
       if (label && LABELS.includes(label)) setSelectedLabel(label);
     } catch {}
 
-    renderGrid();
-    bindStoreEvents();
-    bindSocket();
+    // ASSETS 준비 후에만 렌더/바인딩
+    waitForAssets(() => {
+      renderGrid();
+      bindStoreEvents();
+      bindSocket();
+    });
     heroIn();
 
     // socket 재시도
