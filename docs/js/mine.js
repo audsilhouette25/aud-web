@@ -726,14 +726,19 @@
 
   // admin이면 labeladmin.html?ns=, 아니면 labelmine.html?label=
   function toLabelHref(label){
-    const flag =
-      (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
+    const flag   = (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
     const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
-
     const isAdmin = (flag === true) || cached;
     const base  = isAdmin ? 'labeladmin.html' : 'labelmine.html';
-    const param = isAdmin ? 'ns' : 'label';
-    return `${safeHref(base)}?${param}=${encodeURIComponent(label)}`;
+
+    const qs = new URLSearchParams();
+    if (isAdmin) {
+      // 관리자는 어떤 계정 컨텍스트에서 관리하는지 전달
+      try { qs.set('ns', (typeof getNS === 'function' ? getNS() : 'default')); } catch {}
+    }
+    // ✅ 어떤 페이지든 라벨을 명시적으로 넘겨줌
+    if (label) qs.set('label', String(label));
+    return `${safeHref(base)}?${qs.toString()}`;
   }
 
   /* =========================================================
