@@ -60,7 +60,7 @@ const FALLBACK_URL = pageHref("mine.html");
 
 /* ---- app data (map, stars, assets) ---- */
 const MAX_STARS = 3;
-const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
@@ -433,7 +433,7 @@ function pageHref(rel = "") {
 /* ========================================================================== *
  * 1) SMALL UTILS (safe JSON, clamp, DPR, etc.)
  * ========================================================================== */
-const isLabel = (x) => OK.includes(String(x));
+const isLabel = (x) => LABELS.includes(String(x));
 
 function ensureReady(fn){
   if (document.readyState === "loading") {
@@ -477,7 +477,7 @@ if (typeof window !== "undefined") {
   window.SELECTED_KEY = SELECTED_KEY;               // "aud:selectedLabel"
   window.MIRROR_KEY   = MIRROR_KEY;                 // "aud:selectedLabel:mirror"
   window.EVT          = EVT;                        // "aud:selectedLabel-changed"
-  window.OK           = OK;                         // ["thump","miro",...]
+  window.LABELS           = LABELS;                         // ["thump","miro",...]
   window.readSelected = readSelected;               // 함수 포인터
 }
 
@@ -1238,7 +1238,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       let tbPos = null, collapsed = false, draggingTB = null;
       const DRAG_TOL = 6;
 
-      const OK = (window.OK || []);
+      const LABELS = (window.LABELS || []);
       const EVT = (window.EVT || "sdf:selected-change");
       const MIRROR_KEY = (window.MIRROR_KEY || "sdf:mirror");
       const SELECTED_KEY = (window.SELECTED_KEY || "sdf:selected");
@@ -1548,7 +1548,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         try {
           const sel = (typeof readSelected === "function" ? readSelected() : null) || currentLabel; if (sel && typeof sel === "string") return sel;
           const skey = (window.SELECTED_KEY || "sdf:selected"); const fromSS = sessionStorage.getItem(skey); if (fromSS) return fromSS;
-          if (Array.isArray(window.OK) && window.OK.length) return window.OK[0];
+          if (Array.isArray(window.LABELS) && window.LABELS.length) return window.LABELS[0];
         } catch {}
         return "default";
       }
@@ -1696,7 +1696,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
             if (!snap) throw new Error("No canvas to snapshot");
           }
           await window.store.addToGalleryFromCanvas(snap, label);
-          if (btnSave){ btnSave.textContent = ""; btnSave.append(Icons.check?.() || document.createTextNode("OK")); btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.textContent = "Save"; }, 900); }
+          if (btnSave){ btnSave.textContent = ""; btnSave.append(Icons.check?.() || document.createTextNode("LABELS")); btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.textContent = "Save"; }, 900); }
         } catch (err) {
           console.error("[Save] 실패:", err);
           if (btnSave){ btnSave.textContent = "Error"; btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.innerHTML = prevHTML || "Save"; }, 1200); }
@@ -1709,7 +1709,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
 
       async function openImport(){
         const ws = window.store; if (!ws || typeof ws.getGallery !== "function") { console.warn("[Import] store.getGallery가 없습니다."); return; }
-        const candidates = Array.from(new Set([ (typeof readSelected === "function" ? readSelected() : null) || null, currentLabel || null, (typeof resolveEffectiveLabel === "function" ? resolveEffectiveLabel() : null) || null, ...(Array.isArray(OK) ? OK : []), "default" ].filter(Boolean)));
+        const candidates = Array.from(new Set([ (typeof readSelected === "function" ? readSelected() : null) || null, currentLabel || null, (typeof resolveEffectiveLabel === "function" ? resolveEffectiveLabel() : null) || null, ...(Array.isArray(LABELS) ? LABELS : []), "default" ].filter(Boolean)));
         let picked = null; let items = [];
         for (const lb of candidates) { try { const list = ws.getGallery(lb) || []; if (Array.isArray(list) && list.length) { picked = lb; items = list; break; } } catch {} }
         if (!picked || !items.length) { console.warn("[Import] 불러올 갤러리 이미지가 없습니다. 후보=", candidates); return; }
@@ -1839,7 +1839,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
     if (!rail || !host) return;
 
     // ----- 외부에서 주입되는 키/이벤트 -----
-    const OK = Array.isArray(window.OK) ? window.OK : [];
+    const LABELS = Array.isArray(window.LABELS) ? window.LABELS : [];
     const SELECTED_KEY = window.SELECTED_KEY || "aud:selectedLabel";
     const GALLERY_EVENT =
       window.GALLERY_EVENT || (SDF && SDF.GALLERY_EVENT) || "sdf:gallery-changed";
@@ -1921,9 +1921,9 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         if (fromSS) return fromSS;
 
         const fixed = host.getAttribute("data-label");
-        if (fixed && (!OK.length || OK.includes(fixed))) return fixed;
+        if (fixed && (!LABELS.length || LABELS.includes(fixed))) return fixed;
 
-        if (OK.length) return OK[0];
+        if (LABELS.length) return LABELS[0];
       } catch {}
       return "default";
     };
@@ -2189,7 +2189,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         const v = window.readSelected();
         if (v && typeof v === "string") return v;
       }
-      if (Array.isArray(window.OK) && window.OK.length) return window.OK[0];
+      if (Array.isArray(window.LABELS) && window.LABELS.length) return window.LABELS[0];
     } catch {}
     return "aud";
   }

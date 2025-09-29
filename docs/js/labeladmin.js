@@ -4,7 +4,7 @@
 /* ======================= 기본 셋업 ======================= */
 const SELECTED_KEY = "aud:selectedLabel";
 const EVT          = "aud:selectedLabel-changed";
-const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
@@ -135,7 +135,7 @@ async function saveLabelStory(lb, story){
 }
 
 /* ======================= 상태/유틸 ======================= */
-const isLabel = (x) => OK.includes(String(x));
+const isLabel = (x) => LABELS.includes(String(x));
 const readSelected = () => {
   try {
     const v = sessionStorage.getItem(SELECTED_KEY);
@@ -496,7 +496,7 @@ ensureReady(()=>{
   function joinAll() {
     const s = getSocket();
     if (!s || joined) return;
-    s.emit("subscribe", { labels: OK });
+    s.emit("subscribe", { labels: LABELS });
     joined = true;
   }
   try { joinAll(); } catch {}

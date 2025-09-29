@@ -3,9 +3,9 @@
   "use strict";
 
   const DEST_URL = "./jibbitz.html";
-  const ALL  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
+  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.JIBS_JIBS;
   if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
-  const isKind = (v) => typeof v === "string" && ALL.includes(v);
+  const isKind = (v) => typeof v === "string" && JIBS.includes(v);
 
   function isAuthed() {
     try { return !!(window.auth?.isAuthed?.()) || sessionStorage.getItem("auth:flag") === "1"; }
@@ -55,7 +55,7 @@
     });
   }
 
-  // ★ 타일이 비어 있거나 1개만 있을 때 ALL을 기준으로 안전 주입
+  // ★ 타일이 비어 있거나 1개만 있을 때 JIBS을 기준으로 안전 주입
   function ensureTiles() {
     // 후보 컨테이너들(프로젝트마다 다를 수 있어 느슨하게 선택)
     const container =
@@ -68,7 +68,7 @@
     const existing = Array.from(container.querySelectorAll('.tile[aria-label], .tile[data-jib]'))
                           .map(el => (el.getAttribute('aria-label') || el.dataset.jib || '').trim().toLowerCase())
                           .filter(Boolean);
-    if (existing.length >= ALL.length) return;        // 이미 충분히 그려져 있음
+    if (existing.length >= JIBS.length) return;        // 이미 충분히 그려져 있음
     if (existing.length > 1) return;                  // 최소 2개 이상 있으면 주입 생략
 
     // 주입: 이미 있는 건 건너뛰고 없는 것만 추가
@@ -87,7 +87,7 @@
       }, { passive: true });
       return btn;
     };
-    ALL.forEach(k => { if (!existing.includes(k)) container.appendChild(mk(k)); });
+    JIBS.forEach(k => { if (!existing.includes(k)) container.appendChild(mk(k)); });
   }
 
   function heroIn() {

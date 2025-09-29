@@ -33,7 +33,7 @@ const FALLBACK_URL = "./gallery.html";
 const MAX_STARS    = 3;
 const BOOT_KEY     = "__boot.id";                    // guest reset on server reboot
 
-const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
@@ -133,7 +133,7 @@ function isAdmin() {
 
 
 /* ── utils ─────────────────────────────────────────────── */
-const isLabel = (x) => OK.includes(String(x));
+const isLabel = (x) => LABELS.includes(String(x));
 
 function readSelected() {
   try {
@@ -566,7 +566,7 @@ ensureReady(() => whenStoreReady(() => {
   function joinAll() {
     if (!window.SOCKET || typeof window.SOCKET.emit !== "function") return;
     if (__joined) return;
-    window.SOCKET.emit("subscribe", { labels: OK });
+    window.SOCKET.emit("subscribe", { labels: LABELS });
     __joined = true;
   }
   // 즉시 시도

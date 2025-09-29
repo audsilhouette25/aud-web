@@ -6,7 +6,7 @@ const MIRROR_KEY   = "aud:selectedLabel:mirror";
 const EVT          = "aud:selectedLabel-changed";
 const FALLBACK_URL = "./gallery.html";
 
-const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 // 우선 검은 버전 시도 → 실패하면 일반 png로 폴백
@@ -20,12 +20,12 @@ const IMG_SRC = {
 };
 
 /* ───────────── Helpers ───────────── */
-const isLabel = (x) => OK.includes(String(x));
+const isLabel = (x) => LABELS.includes(String(x));
 
 function readSelected() {
   try {
     const v = sessionStorage.getItem(SELECTED_KEY);
-    return (v && OK.includes(v)) ? v : null;
+    return (v && LABELS.includes(v)) ? v : null;
   } catch { return null; }
 }
 
@@ -165,7 +165,7 @@ ensureReady(() => {
   if (!readSelected()) {
     const q = new URLSearchParams(location.search).get("label");
     if (q && isLabel(q)) setSelectedLabel(q);
-    else setSelectedLabel(OK[0]); // e.g. "thump"
+    else setSelectedLabel(LABELS[0]); // e.g. "thump"
   }
 
   syncAll();
