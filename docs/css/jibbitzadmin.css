@@ -1,44 +1,109 @@
-/* /public/css/jibbitzadmin.css */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --accent: #FFA765; --text:#111; --muted:#666; --nav-h:64px;
+/* /css/jibbitzadmin.css */
+
+/* 1) 지비츠 기본 디자인 전부 상속 */
+@import url("./jibbitz.css");
+
+/* 2) Admin 페이지 스코프 공통 토큰 (필요 시 확장) */
+.labeladmin-body{
+  --accent:#FFA765; --nav-h:64px; --text:#111; --muted:#666;
+  color: var(--text);
+  background: #fff;
+  min-width: 400px;
+  font-family:'Inter', -apple-system, BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
 }
-body {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  color: var(--text); background: #fff; min-width: 400px;
+
+/* 3) 네비/히어로/카테고리 — jibbitz.css와 동일 느낌 유지 */
+.labeladmin-body header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background:#fff; }
+.labeladmin-body .nav-inner{ height:100%; display:flex; align-items:center; justify-content:space-between; padding:0 27px; }
+.labeladmin-body .menu{ list-style:none; display:flex; gap:20px; }
+.labeladmin-body .menu a{ color:#333; text-decoration:none; font-size:15px; font-weight:500; letter-spacing:-0.2px; opacity:.9; transition:opacity .2s,color .2s; }
+.labeladmin-body .menu a:hover{ opacity:1; color:#000; }
+.labeladmin-body .menu a.active{ font-weight:600; color:#000; }
+.labeladmin-body .logo-cta{ display:inline-flex; align-items:center; justify-content:center; width:27px; height:27px; }
+.labeladmin-body .logo-cta img{ width:100%; height:100%; object-fit:contain; display:block; }
+
+.labeladmin-body .hero{ max-width:960px; margin:0 auto; text-align:center; padding-top:60px; }
+.labeladmin-body .title{ margin:8px 0 0; font-size:40px; font-weight:600; color:#111; text-transform:uppercase; letter-spacing:-.04em; line-height:1.1; }
+.labeladmin-body .subtitle{ margin-top:5px; font-size:24px; font-weight:400; color:#888; }
+.labeladmin-body .stack{ max-width:960px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+.labeladmin-body .category-row{ display:inline-flex; align-items:center; justify-content:center; gap:10px; margin:8px 0 12px; }
+.labeladmin-body .pill{ display:inline-flex; align-items:center; justify-content:center; height:29px; padding:0 8px; border-radius:8px; background:#f4f4f4; }
+.labeladmin-body .pill__text{ font-size:18px; font-weight:400; color:#666; line-height:1.6em; letter-spacing:-.02em; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+
+/* 4) 컨테이너/갤러리 — jibbitz.css 매핑 (클래스명이 다르므로 동등 효과 부여) */
+.labeladmin-body .container{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:10px;
 }
-header.nav { position: sticky; top: 0; z-index: 100; height: var(--nav-h); background: #fff; }
-.nav-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 27px; }
-.menu { list-style: none; display: flex; gap: 20px; }
-.menu a { color: #333; text-decoration: none; font-size: 15px; font-weight: 500; opacity:.9; }
-.logo-cta { width: 27px; height: 27px; display: inline-flex; align-items:center; justify-content:center; }
-.logo-cta img { width:100%; height:100%; object-fit: contain; display:block; }
-
-.hero { max-width: 960px; margin: 0 auto; text-align: center; padding-top: 60px; }
-.title { margin: 8px 0 0; font-size: 40px; font-weight: 600; letter-spacing: -0.04em; text-transform: uppercase; }
-.category-row { display: inline-flex; gap: 10px; margin: 8px 0 12px; }
-.pill { height: 29px; padding: 0 8px; border-radius: 8px; background: #f4f4f4; display: inline-flex; align-items: center; }
-.pill__text { font-size: 18px; color:#666; }
-
-.container { max-width: 960px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
-
-.jibadmin-gallery-box {
-  width: 300px; height: 300px; border-radius: 16px; overflow: hidden;
-  display:flex; align-items:center; justify-content:center; border:1px dashed #e5e5e5;
+.labeladmin-body .labeladmin-gallery-box{
+  width:300px; height:300px; border-radius:16px; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
 }
-.jibadmin-gallery-box img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.05); }
-
-.jib-admin__container { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 10px; }
-.editor-head { display: flex; align-items: center; gap: 10px; }
-.editor-head .spacer { flex: 1; }
-
-.btn { height: 34px; padding: 0 14px; border-radius: 8px; font-weight: 600; border: 1px solid #ddd; background: #fff; cursor: pointer; }
-.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn.ghost { background: #fff; color: #333; }
-.btn:disabled { opacity:.6; cursor: default; }
-
-.story-input {
-  width: 100%; min-height: 220px; padding: 12px 14px; border-radius: 12px; border: 1px solid #e5e5e5;
-  font-size: 14px; line-height: 1.5; resize: vertical; white-space: pre-wrap;
+.labeladmin-body .labeladmin-gallery-box img{
+  width:100%; height:100%; object-fit:cover; transform:scale(1.05); transform-origin:center;
 }
-.hint { font-size: 12px; color: var(--muted); }
+.labeladmin-body .labeladmin-gallery-box.is-empty{ border:1px dashed #d9d9d9; }
+
+/* 5) 사용자 페이지의 Story 타이포와 톤이 필요하면 다음을 유지 (미리보기엔 별도 스타일 사용) */
+.labeladmin-body .jibbitz-story__container{
+  max-width:600px; margin:0 auto; padding:20px; text-align:center; display:flex; flex-direction:column; align-items:center;
+}
+.labeladmin-body .jibbitz-story__container p{
+  margin-bottom:10px; font-size:14px; font-weight:500; color:#818181; line-height:1.3em; white-space:pre-wrap;
+}
+
+/* 6) ───────────── Admin 전용: 스토리 작성란 (labeladmin.css와 1:1) ───────────── */
+
+/* 에디터 박스 */
+.labeladmin-body .label-admin__editor{
+  width: clamp(375px, 88vw, 636px);
+  margin:6px auto 48px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 6px 14px rgba(0,0,0,.06);
+  padding:16px;
+}
+.labeladmin-body .label-admin__editor .editor-head{
+  display:flex; align-items:center; gap:12px; justify-content:space-between; margin-bottom:10px;
+}
+.labeladmin-body .label-admin__editor .editor-title{
+  font-size:18px; font-weight:700; letter-spacing:.01em;
+}
+
+/* 상태 배지 */
+#storyStatus.story-status{ font-size:13px; color:#6b7280; }
+#storyStatus.ok{ color:#0e7a3e; }
+#storyStatus.warn{ color:#b46b00; }
+#storyStatus.error{ color:#c0392b; }
+
+/* 텍스트에디터 */
+#storyEditor.story-editor{
+  width:100%; min-height:220px; resize:vertical; padding:12px 12px;
+  border:1px solid #e5e7eb; border-radius:10px; background:#fff;
+  color:var(--text); font-size:14px; line-height:1.55; outline:none;
+}
+#storyEditor.story-editor::placeholder{ color:#9aa0a6; }
+#storyEditor.story-editor:focus{ border-color:#cfd8e3; box-shadow:0 0 0 3px rgba(39,89,153,.18); }
+
+/* 버튼 줄 */
+.labeladmin-body .editor-actions{ display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; }
+.labeladmin-body .btn{ border-radius:9999px; border:1px solid #cfd3d6; background:#fff; padding:9px 14px; font-weight:600; cursor:pointer; }
+.labeladmin-body .btn[disabled]{ opacity:.6; pointer-events:none; }
+.labeladmin-body .btn.primary{ background:#111; color:#fff; border-color:#111; }
+.labeladmin-body .btn.ghost{ background:#fff; color:#333; }
+.labeladmin-body .btn.primary:hover{ filter:brightness(1.05); }
+.labeladmin-body .btn.ghost:hover{ background:#fafafa; }
+
+/* 미리보기 */
+.labeladmin-body .preview-title{ margin-top:16px; margin-bottom:6px; font-weight:700; font-size:15px; color:#333; }
+#previewStory.labeladmin-story__container.preview{
+  border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc; padding:14px; min-height:120px;
+}
+#previewStory p{ margin:0 0 10px; color:#111; font-size:14px; line-height:1.55; }
+#previewStory p:last-child{ margin-bottom:0; }
+
+/* 8) Divider (필요 시) */
+.labeladmin-body .rule{
+  width:400px; height:1.8px; border-radius:1.8px;
+  background:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 12%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.10) 88%, rgba(0,0,0,0) 100%);
+}
