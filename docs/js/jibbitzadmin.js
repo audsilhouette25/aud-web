@@ -1,11 +1,17 @@
-// path: /js/jibbitzadmin.js — 독립형 Jibbitz Admin (jibbitz.js 의존 없음)
+// path: /js/jibbitzadmin.js — Jibbitz Admin (label 단어 없음)
 "use strict";
 
 /* ======================= 기본 셋업 ======================= */
 const SELECTED_KEY = "aud:selectedJib";
 const EVT          = "aud:selectedJib-changed";
-const JIBS = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || window.JIBS;
-if (!Array.isArray(JIBS) || !JIBS.length) throw new Error("APP_CONFIG.JIBBITZ missing");
+
+const JIBS_RAW = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || window.JIBS || [];
+if (!Array.isArray(JIBS_RAW) || !JIBS_RAW.length) throw new Error("APP_CONFIG.JIBBITZ missing");
+
+/* 정규화(대소문자/공백) */
+const NORM = (s) => String(s || "").trim().toLowerCase();
+const JIBS = JIBS_RAW.map(NORM);
+const isJib = (x) => JIBS.includes(NORM(x));
 
 let __bcJib = null;
 try { __bcJib = new BroadcastChannel("aud:sync:jib"); } catch {}
@@ -14,7 +20,6 @@ let __bcJibStory = null;
 try { __bcJibStory = new BroadcastChannel("aud:jib-story"); } catch {}
 
 function emitStorySocket(payload){
-  // why: 실서비스에서 실시간 반영(옵션)
   try {
     const s = (window.SOCKET && typeof window.SOCKET.emit === "function")
       ? window.SOCKET
@@ -23,20 +28,21 @@ function emitStorySocket(payload){
   } catch {}
 }
 
-// === optional: global setter ===============================
+/* 선택 저장 */
 function setSelectedJib(jib) {
-  if (!isJib(jib)) return;
+  const k = NORM(jib);
+  if (!isJib(k)) return;
   try {
     const prev = sessionStorage.getItem(SELECTED_KEY);
-    if (prev !== jib) {
-      sessionStorage.setItem(SELECTED_KEY, jib);
+    if (prev !== k) {
+      sessionStorage.setItem(SELECTED_KEY, k);
       window.dispatchEvent(new Event(EVT));
     }
   } catch {}
 }
 try { window.setSelectedJib = window.setSelectedJib || setSelectedJib; } catch {}
 
-/* ======================= API 헬퍼 (jibbitzadmin.js와 동일) ======================= */
+/* ======================= API 헬퍼 ======================= */
 const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
 const toAPI = (p) => {
   try {
@@ -60,7 +66,7 @@ async function api(path, opt = {}) {
     base.headers = { ...(base.headers || {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) };
   }
   const fn = window.auth?.apiFetch || fetch;
-  try { return await fn(url, base); } catch { return null; }
+  try { return await fn(url, base); } catch (e) { console.warn("[jibbitzadmin] api error", e); return null; }
 }
 function pickStoryFrom(obj){
   if (!obj || typeof obj !== "object") return "";
@@ -73,8 +79,8 @@ function pickStoryFrom(obj){
 }
 
 /* ======================= JIBBITZ 스토리 CRUD ======================= */
-async function fetchJibStory(jb){
-  const J = encodeURIComponent(jb);
+async function fetchJibStory(jib){
+  const J = encodeURIComponent(NORM(jib));
   const tryGet = async (path) => {
     const r = await api(path, { method:"GET" });
     if (!r || !r.ok) return "";
@@ -89,53 +95,49 @@ async function fetchJibStory(jb){
     ""
   );
 }
-async function saveJibStory(jb, story){
-  const J = encodeURIComponent(jb);
+async function saveJibStory(jib, story){
+  const K = NORM(jib);
+  const J = encodeURIComponent(K);
   const body = JSON.stringify({ story });
 
+  // 1) PUT /api/jibbitz/:jib/story
   const tryPut = await api(`/api/jibbitz/${J}/story`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body
+    method: "PUT", headers: { "Content-Type": "application/json" }, body
   });
   if (tryPut && tryPut.ok) return true;
+  if (tryPut && !tryPut.ok) console.warn("[jibbitzadmin] PUT failed", tryPut.status);
 
+  // 2) POST /api/jibbitz/:jib
   const tryPostA = await api(`/api/jibbitz/${J}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body
+    method: "POST", headers: { "Content-Type": "application/json" }, body
   });
   if (tryPostA && tryPostA.ok) return true;
+  if (tryPostA && !tryPostA.ok) console.warn("[jibbitzadmin] POST(A) failed", tryPostA.status);
 
+  // 3) POST /api/jib/story { jib, story }
   const tryPostB = await api(`/api/jib/story`, {
-    method:"POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jib: jb, story })
+    method:"POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jib: K, story })
   });
+  if (tryPostB && !tryPostB.ok) console.warn("[jibbitzadmin] POST(B) failed", tryPostB.status);
   return !!(tryPostB && tryPostB.ok);
 }
 
 /* ======================= 상태/유틸 ======================= */
-const isJib = (x) => JIBS.includes(String(x));
 const readSelected = () => {
   try {
     const v = sessionStorage.getItem(SELECTED_KEY);
-    return (v && isJib(v)) ? v : null;
+    return (v && isJib(v)) ? NORM(v) : null;
   } catch { return null; }
 };
 function ensureReady(fn){
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fn, { once: true });
-  } else { fn(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn, { once: true });
+  else fn();
 }
 let syncScheduled = false;
 function scheduleSync(){
   if (syncScheduled) return;
   syncScheduled = true;
-  requestAnimationFrame(() => {
-    syncScheduled = false;
-    syncAll();
-  });
+  requestAnimationFrame(() => { syncScheduled = false; syncAll(); });
 }
 
 /* ======================= 렌더러 ======================= */
@@ -150,47 +152,38 @@ function renderCategoryRow() {
   const row = document.getElementById("categoryRow");
   if (!row) return;
   row.innerHTML = "";
-
   const jib = readSelected();
   if (!jib) return;
-
   const pill = document.createElement("div");
   pill.className = "pill";
   const txt = document.createElement("span");
   txt.className = "pill__text";
   txt.textContent = "JIBBITZ";
   pill.appendChild(txt);
-
   row.appendChild(pill);
 }
 function renderJibGalleryBox() {
   const box = document.getElementById("jibadminGalleryBox");
   if (!box) return;
   box.innerHTML = "";
-
   const jib = readSelected();
   if (!jib) { box.classList.add("is-empty"); return; }
-
   box.classList.remove("is-empty");
   const img = document.createElement("img");
   img.alt = jib;
-  // SSOT
   if (window.ASSETS?.attachJibImg) window.ASSETS.attachJibImg(img, jib);
   else img.src = window.ASSETS?.getJibImg?.(jib) || "";
   box.appendChild(img);
 }
 
-/* ======================= 에디터 DOM (jibbitzadmin과 동일 포맷) ======================= */
-// why: jibbitzadmin.js와 동일 포맷/문구/버튼을 보장
+/* ======================= 에디터 DOM (jibbitz 전용 포맷/문구) ======================= */
 let __editorBooted = false;
 function renderEditorFrame() {
   if (__editorBooted) return;
-
   const host = document.getElementById("jibAdmin");
   if (!host) return;
-
   host.innerHTML = `
-    <section class="jibbitz-admin__editor" aria-jibbitz="Jibbitz story editor">
+    <section class="jibbitz-admin__editor" aria-label="Jibbitz story editor">
       <div class="editor-head">
         <div class="editor-title">Story</div>
         <div id="storyStatus" class="story-status" aria-live="polite"></div>
@@ -214,7 +207,7 @@ function renderEditorFrame() {
 
 /* ======================= 에디터 UI ======================= */
 const STORY_TTL = 5 * 60 * 1000;
-function storyCacheKey(jb){ return `jib:story:${jb}`; }
+function storyCacheKey(jb){ return `jib:story:${NORM(jb)}`; }
 function readStoryCache(jb){
   try{
     const raw = sessionStorage.getItem(storyCacheKey(jb));
@@ -227,10 +220,7 @@ function readStoryCache(jb){
 function writeStoryCache(jb, story){
   try{
     const clean = String(story || "").replace(/\r\n?/g, "\n");
-    sessionStorage.setItem(
-      storyCacheKey(jb),
-      JSON.stringify({ t: Date.now(), story: clean })
-    );
+    sessionStorage.setItem(storyCacheKey(jb), JSON.stringify({ t: Date.now(), story: clean }));
   } catch {}
 }
 function setStatus(msg, kind=""){
@@ -248,10 +238,7 @@ function renderPreview(text){
   text.replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).forEach(block=>{
     const p = document.createElement("p");
     const lines = block.split("\n");
-    lines.forEach((line, i) => {
-      p.appendChild(document.createTextNode(line));
-      if (i < lines.length - 1) p.appendChild(document.createElement("br"));
-    });
+    lines.forEach((line, i) => { p.appendChild(document.createTextNode(line)); if (i < lines.length - 1) p.appendChild(document.createElement("br")); });
     root.appendChild(p);
   });
 }
@@ -265,7 +252,7 @@ async function loadStoryToEditor(){
   setStatus("", "");
 
   if (!jib){
-    setStatus("NO JIBBITZ SELECTED.", "warn"); // jibbitzadmin과 문구/UX 통일
+    setStatus("NO JIBBITZ SELECTED.", "warn");
     return;
   }
 
@@ -275,8 +262,6 @@ async function loadStoryToEditor(){
     renderPreview(cached);
     currentLoadedStory = cached;
   } else {
-    textarea.value = "";
-    renderPreview("");
     currentLoadedStory = "";
   }
 
@@ -292,7 +277,7 @@ async function loadStoryToEditor(){
 }
 let __wired = false;
 function wireEditor(){
-  if (__wired) return; // 중복 방지
+  if (__wired) return;
   const ta = document.getElementById("storyEditor");
   const saveBtn = document.getElementById("saveStoryBtn");
   const discardBtn = document.getElementById("discardStoryBtn");
@@ -320,6 +305,7 @@ function wireEditor(){
     const ok = await saveJibStory(jib, ta.value);
     if (!ok){
       setStatus("SAVE FAILED", "error");
+      console.warn("[jibbitzadmin] save failed for", jib);
       saveBtn.disabled = false;
       saveBtn.removeAttribute("aria-busy");
       return;
@@ -329,20 +315,14 @@ function wireEditor(){
     currentLoadedStory = ta.value;
     setStatus("SAVED", "ok");
 
-    try { __bcJibStory?.postMessage({ kind:"jib:story-updated", jib, story: ta.value }); } catch {}
-    emitStorySocket({ jib, story: ta.value });
+    try { __bcJibStory?.postMessage({ kind:"jib:story-updated", jib: NORM(jib), story: ta.value }); } catch {}
+    emitStorySocket({ jib: NORM(jib), story: ta.value });
 
-    setTimeout(()=>{
-      saveBtn.disabled = false;
-      saveBtn.removeAttribute("aria-busy");
-    }, 250);
+    setTimeout(()=>{ saveBtn.disabled = false; saveBtn.removeAttribute("aria-busy"); }, 250);
   });
 
   window.addEventListener("beforeunload", (e)=>{
-    if (ta.value !== currentLoadedStory){
-      e.preventDefault();
-      e.returnValue = "";
-    }
+    if (ta.value !== currentLoadedStory){ e.preventDefault(); e.returnValue = ""; }
   });
 
   __wired = true;
@@ -354,21 +334,20 @@ function syncAll(){
   renderCategoryRow();
   renderLastJib();
   renderJibGalleryBox();
-  wireEditor();             // 바인딩
+  wireEditor();             // 이벤트 바인딩
   loadStoryToEditor();      // 데이터 로드
 }
 
-// === bootstrap from URL ?jib=… =============================
+/* URL ?jib= 부트스트랩 */
 (function bootstrapSelectedFromURL(){
   try {
     const sp = new URL(location.href).searchParams;
-    const q  = (sp.get("jib") || sp.get("j") || "").trim().toLowerCase();
+    const q  = NORM(sp.get("jib") || sp.get("j") || "");
     if (q && isJib(q)) setSelectedJib(q);
   } catch {}
 })();
 
 ensureReady(()=>{
-  // 초기 부트
   renderEditorFrame();
   wireEditor();
   syncAll();
@@ -377,7 +356,7 @@ ensureReady(()=>{
   window.addEventListener("popstate", () => {
     try{
       const u = new URL(location.href);
-      const q = (u.searchParams.get("jib") || "").trim().toLowerCase();
+      const q = NORM(u.searchParams.get("jib") || "");
       if (q && isJib(q)) {
         const prev = sessionStorage.getItem(SELECTED_KEY);
         if (prev !== q) {
@@ -395,7 +374,7 @@ ensureReady(()=>{
       __bcJib.addEventListener("message", (e)=>{
         const m = e?.data;
         if (m?.kind === "jib:selected" && m.jib && isJib(m.jib)) {
-          try { sessionStorage.setItem(SELECTED_KEY, m.jib); } catch {}
+          try { sessionStorage.setItem(SELECTED_KEY, NORM(m.jib)); } catch {}
           window.dispatchEvent(new Event(EVT));
         }
       });
@@ -408,7 +387,8 @@ ensureReady(()=>{
         const { jib } = JSON.parse(e.newValue);
         if (isJib(jib)){
           const prev = sessionStorage.getItem(SELECTED_KEY);
-          if (prev !== jib) sessionStorage.setItem(SELECTED_KEY, jib);
+          const k = NORM(jib);
+          if (prev !== k) sessionStorage.setItem(SELECTED_KEY, k);
           window.dispatchEvent(new Event(EVT));
         }
       } catch {}
@@ -416,7 +396,7 @@ ensureReady(()=>{
   });
 });
 
-// ── socket join (옵션)
+/* ── socket join (옵션) */
 (() => {
   let joined = false;
   function getSocket() {
