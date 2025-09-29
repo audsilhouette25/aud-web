@@ -395,11 +395,41 @@ function syncAll(){
 }
 
 ensureReady(()=>{
+  // ① 최초 진입: URL ?label=... -> sessionStorage 반영
+  (function adoptLabelFromURL(){
+    try{
+      const u = new URL(location.href);
+      const q = (u.searchParams.get("label") || "").trim();
+      if (q && isLabel(q)) {
+        const prev = sessionStorage.getItem(SELECTED_KEY);
+        if (prev !== q) {
+          sessionStorage.setItem(SELECTED_KEY, q);
+          window.dispatchEvent(new Event(EVT));
+        }
+      }
+    } catch {}
+  })();
   // 초기 렌더
   syncAll();
 
   // 라벨 선택 변경(같은 탭)
   window.addEventListener(EVT, scheduleSync);
+  // ② popstate: 히스토리 이동으로 URL이 바뀌면 다시 채택
+  window.addEventListener("popstate", () => {
+    try{
+      const u = new URL(location.href);
+      const q = (u.searchParams.get("label") || "").trim();
+      if (q && isLabel(q)) {
+        const prev = sessionStorage.getItem(SELECTED_KEY);
+        if (prev !== q) {
+          sessionStorage.setItem(SELECTED_KEY, q);
+          window.dispatchEvent(new Event(EVT));
+        } else {
+          scheduleSync();
+        }
+      }
+    } catch {}
+  });
 
   // 다른 탭/창에서 선택 라벨 동기화(게스트용 BroadcastChannel 수신)
   try{
