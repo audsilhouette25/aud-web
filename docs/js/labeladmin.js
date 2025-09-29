@@ -31,6 +31,23 @@ const IMG_SRC = {
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
 
+// ... (상단 선언부 아래에 추가)
+let __bcLabelStory = null;
+try { __bcLabelStory = new BroadcastChannel("aud:label-story"); } catch {}
+
+function emitStorySocket(payload){
+  try {
+    const s = (window.SOCKET && typeof window.SOCKET.emit === "function")
+      ? window.SOCKET
+      : (window.sock && typeof window.sock.emit === "function" ? window.sock : null);
+    s?.emit("label:update", payload, () => {});
+  } catch {}
+}
+// 저장 버튼 핸들러 내부는 이미 다음을 호출함:
+// __bcLabelStory?.postMessage({ kind:"label:story-updated", label, story });
+// emitStorySocket({ label, story });
+
+
 /* ======================= API 헬퍼 ======================= */
 const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
 const toAPI = (p) => {
@@ -41,12 +58,28 @@ const toAPI = (p) => {
       : u.toString();
   } catch { return p; }
 };
+function readSignedCookie(name){
+  try {
+    // 간단 파서(서명 무검증) — 서버가 쿠키를 헤더로만 확인하면 충분
+    const m = document.cookie.split(";").map(s=>s.trim()).find(s=>s.startsWith(name+"="));
+    return m ? decodeURIComponent(m.split("=").slice(1).join("=")) : null;
+  } catch { return null; }
+}
+
 async function api(path, opt = {}) {
   const url = toAPI(path);
   const base = { credentials: "include", cache: "no-store", ...opt };
+
+  // window.auth.apiFetch가 없다면 CSRF 헤더를 best-effort로 붙여줌
+  if (!window.auth?.apiFetch) {
+    const csrf = readSignedCookie((window.PROD ? "__Host-csrf" : "csrf"));
+    base.headers = { ...(base.headers || {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) };
+  }
+
   const fn = window.auth?.apiFetch || fetch;
   try { return await fn(url, base); } catch { return null; }
 }
+
 
 // 다양한 응답 스키마에서 story 텍스트만 추출
 function pickStoryFrom(obj){
@@ -209,12 +242,14 @@ function readStoryCache(lb){
 }
 function writeStoryCache(lb, story){
   try{
+    const clean = String(story || "").replace(/\r\n?/g, "\n");
     sessionStorage.setItem(
       storyCacheKey(lb),
-      JSON.stringify({ t: Date.now(), story: String(story||"") })
+      JSON.stringify({ t: Date.now(), story: clean })
     );
   } catch {}
 }
+
 
 function setStatus(msg, kind=""){
   const s = document.getElementById("storyStatus");
@@ -229,9 +264,14 @@ function renderPreview(text){
   if (!root) return;
   root.innerHTML = "";
   if (!text) return;
-  text.trim().split(/\n\s*\n/).forEach(block=>{
+  // \r\n, \r 정규화 후 빈 줄 기준 문단 분리, 줄바꿈은 <br>로 보존
+  text.replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).forEach(block=>{
     const p = document.createElement("p");
-    p.textContent = block.replace(/\n/g, " ");
+    const lines = block.split("\n");
+    lines.forEach((line, i) => {
+      p.appendChild(document.createTextNode(line));
+      if (i < lines.length - 1) p.appendChild(document.createElement("br"));
+    });
     root.appendChild(p);
   });
 }
@@ -304,20 +344,35 @@ function wireEditor(){
   if (saveBtn){
     saveBtn.addEventListener("click", async ()=>{
       const label = readSelected();
+      const ta = document.getElementById("storyEditor");
       if (!label){ setStatus("라벨이 선택되지 않았습니다.", "error"); return; }
 
+      saveBtn.disabled = true;
+      saveBtn.setAttribute("aria-busy","true");
       setStatus("저장 중…");
+
       const ok = await saveLabelStory(label, ta.value);
-      if (!ok){ setStatus("저장 실패", "error"); return; }
+      if (!ok){
+        setStatus("저장 실패", "error");
+        saveBtn.disabled = false;
+        saveBtn.removeAttribute("aria-busy");
+        return;
+      }
 
       // 캐시/상태 갱신
       writeStoryCache(label, ta.value);
       currentLoadedStory = ta.value;
       setStatus("저장 완료", "ok");
 
-      // 라벨 페이지로 실시간 반영 신호
+      // 실시간 반영
       try { __bcLabelStory?.postMessage({ kind:"label:story-updated", label, story: ta.value }); } catch {}
       emitStorySocket({ label, story: ta.value });
+
+      // 약간의 여유 후 버튼 복구
+      setTimeout(()=>{
+        saveBtn.disabled = false;
+        saveBtn.removeAttribute("aria-busy");
+      }, 250);
     });
   }
 
@@ -379,3 +434,20 @@ ensureReady(()=>{
   // 에디터 이벤트 바인딩
   wireEditor();
 });
+// ── socket join (window.SOCKET 우선, window.sock도 호환)
+(() => {
+  let joined = false;
+  function getSocket() {
+    return (window.SOCKET && typeof window.SOCKET.emit === "function")
+      ? window.SOCKET
+      : (window.sock && typeof window.sock.emit === "function" ? window.sock : null);
+  }
+  function joinAll() {
+    const s = getSocket();
+    if (!s || joined) return;
+    s.emit("subscribe", { labels: OK });
+    joined = true;
+  }
+  try { joinAll(); } catch {}
+  window.addEventListener?.("socket:ready", () => { try { joinAll(); } catch {} }, { once: true });
+})();

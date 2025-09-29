@@ -8,18 +8,6 @@
 
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
-function emitStorySocket(payload){
-  if (window.SOCKET && typeof window.SOCKET.emit === "function") {
-    window.SOCKET.emit("label:story-updated", payload);
-  } else {
-    window.addEventListener("socket:ready", () => {
-      if (window.SOCKET && typeof window.SOCKET.emit === "function") {
-        window.SOCKET.emit("label:story-updated", payload);
-      }
-    }, { once: true });
-  }
-}
-
 /* ── constants ─────────────────────────────────────────── */
 /* === API helpers (mine.js와 동일한 규칙) === */
 const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
@@ -290,6 +278,7 @@ function renderHeartButton() {
   btn.type = "button";
   btn.setAttribute("aria-label", label ? `Like ${label}` : "Like");
   btn.style.cursor = label ? "pointer" : "default";
+  btn.setAttribute("aria-pressed", "true");
 
   let icon = createHeartSVG({ filled: showFilled, color: showFilled ? heartColorFromCount(count) : "#777" });
   btn.appendChild(icon);
@@ -336,7 +325,10 @@ function readStoryCache(lb){
   } catch { return null; }
 }
 function writeStoryCache(lb, story){
-  try{ sessionStorage.setItem(storyCacheKey(lb), JSON.stringify({ t: Date.now(), story: String(story||"") })); } catch {}
+  try{
+    const clean = String(story || "").replace(/\r\n?/g, "\n");
+    sessionStorage.setItem(storyCacheKey(lb), JSON.stringify({ t: Date.now(), story: clean }));
+  } catch {}
 }
 
 // 다양한 응답 스키마를 흡수해 story 텍스트만 뽑기
@@ -387,12 +379,17 @@ async function renderLabelStory() {
 
   if (!story) return; // 글이 없으면 비워둠
 
-  // 문단 분리(빈 줄 기준), 줄바꿈 보존
-  story.trim().split(/\n\s*\n/).forEach(block => {
+  // \r\n, \r 정규화 후 빈 줄로 문단 분리
+  story.replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).forEach(block => {
     const p = document.createElement("p");
-    p.textContent = block.replace(/\n/g, " ");
+    const lines = block.split("\n");
+    lines.forEach((line, i) => {
+      p.appendChild(document.createTextNode(line));
+      if (i < lines.length - 1) p.appendChild(document.createElement("br"));
+    });
     root.appendChild(p);
   });
+
 }
 
 /* (선택) labeladmin에서 저장 직후 갱신 신호 받기 */
@@ -488,9 +485,26 @@ ensureReady(() => whenStoreReady(() => {
   // 로그아웃 시 선택 상태 정리 (유지)
   window.addEventListener("auth:logout", () => {
     try { sessionStorage.removeItem(SELECTED_KEY); } catch {}
+    try { localStorage.removeItem(MIRROR_KEY); } catch {}
     scheduleSync();
   });
+
 }));
+
+// 모든 라벨 룸 구독(중복 호출 안전)
+(() => {
+  let __joined = false;
+  function joinAll() {
+    if (!window.SOCKET || typeof window.SOCKET.emit !== "function") return;
+    if (__joined) return;
+    window.SOCKET.emit("subscribe", { labels: OK });
+    __joined = true;
+  }
+  // 즉시 시도
+  try { joinAll(); } catch {}
+  // 나중에 socket:ready가 뜨는 환경도 커버
+  window.addEventListener?.("socket:ready", () => { try { joinAll(); } catch {} }, { once: true });
+})();
 
 // URL ?label=... 처리 + 폴백 라우팅 (safe against same-URL loops)
 (() => {

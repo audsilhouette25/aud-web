@@ -690,7 +690,7 @@
           else sessionStorage.setItem(SELECTED_KEY, label);
         } catch { try { sessionStorage.setItem(SELECTED_KEY, label); } catch {} }
       });
-      location.assign(toLabelHref(lb));
+      location.assign(toLabelHref(label)); // ← label 사용
     });
 
     return btn;
@@ -3115,7 +3115,7 @@
               if (window.store?.setSelected) window.store.setSelected(lb);
               else sessionStorage.setItem(SELECTED_KEY, lb);
             } catch { try { sessionStorage.setItem(SELECTED_KEY, lb); } catch {} }
-            location.assign(toLabelHref(label));
+            location.assign(toLabelHref(lb)); // ← lb 사용
           }
           return;
         }
