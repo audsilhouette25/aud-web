@@ -488,16 +488,11 @@ header.nav{
 /* 링크 룩앤필 */
 .quick-list__link{
   text-decoration: none;
-  font-weight: 700; font-size: 14px;
+  font-weight: 500; font-size: 12px;
   color: #111;
 }
 .quick-list__link:hover{ text-decoration: underline; }
 
-/* 좁은 화면에서 줄바꿈되어도 간격 보기 좋게 */
-@media (max-width: 600px){
-  .quick-list__ul{ gap: 6px 8px; }
-  .quick-list__link{ font-size: 13px; }
-}
 
 /* =====================================================================
    11) PM Sheet
