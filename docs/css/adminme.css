@@ -386,7 +386,7 @@ header.nav{
 }
 
 /* 그리드 내용: 세로 가운데, 가로는 시작 정렬 */
-.quick .panel:first-child .grid-3{
+.quick .panel:first-child .grid-2{
   block-size: 100%;
   align-content: center;   /* vertical center */
   justify-content: start;  /* horizontal start */
@@ -412,9 +412,9 @@ header.nav{
 }
 
 /* 기본 그리드 / KPI (다른 패널 공통) */
-.grid-3{
+.grid-2{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 .kpi{
