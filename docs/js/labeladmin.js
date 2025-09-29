@@ -241,14 +241,14 @@ function renderEditorFrame() {
       </div>
 
       <textarea id="storyEditor" class="story-editor"
-        placeholder="라벨 스토리를 입력하세요. 빈 줄은 문단으로 인식됩니다."></textarea>
+        placeholder="ENTER THE LABEL STORY. BLANK LINES ARE TREATED AS PARAGRAPHS."></textarea>
 
       <div class="editor-actions">
-        <button id="discardStoryBtn" class="btn ghost" type="button">되돌리기</button>
-        <button id="saveStoryBtn" class="btn primary" type="button">저장</button>
+        <button id="discardStoryBtn" class="btn ghost" type="button">REVERT</button>
+        <button id="saveStoryBtn" class="btn primary" type="button">SAVE</button>
       </div>
 
-      <div class="preview-title">미리보기</div>
+      <div class="preview-title">PREVIEW</div>
       <div id="previewStory" class="labeladmin-story__container preview" aria-live="polite"></div>
     </section>
   `;
@@ -312,7 +312,7 @@ async function loadStoryToEditor(){
   setStatus("", "");
 
   if (!label){
-    setStatus("선택된 라벨이 없습니다.", "warn");
+    setStatus("NO LABEL SELECTED.", "warn");
     return;
   }
 
@@ -348,29 +348,29 @@ function wireEditor(){
 
   ta.addEventListener("input", ()=>{
     renderPreview(ta.value);
-    setStatus(ta.value !== currentLoadedStory ? "변경됨 (저장 필요)" : "", ta.value !== currentLoadedStory ? "warn" : "");
+    setStatus(ta.value !== currentLoadedStory ? "MODIFIED (SAVE REQUIRED)" : "", ta.value !== currentLoadedStory ? "warn" : "");
   });
 
   if (discardBtn){
     discardBtn.addEventListener("click", ()=>{
       ta.value = currentLoadedStory || "";
       renderPreview(ta.value);
-      setStatus("되돌렸습니다.", "ok");
+      setStatus("REVERTED.", "ok");
     });
   }
 
   if (saveBtn){
     saveBtn.addEventListener("click", async ()=>{
       const label = readSelected();
-      if (!label){ setStatus("라벨이 선택되지 않았습니다.", "error"); return; }
+      if (!label){ setStatus("NO LABEL SELECTED.", "error"); return; }
 
       saveBtn.disabled = true;
       saveBtn.setAttribute("aria-busy","true");
-      setStatus("저장 중…");
+      setStatus("SAVING…");
 
       const ok = await saveLabelStory(label, ta.value);
       if (!ok){
-        setStatus("저장 실패", "error");
+        setStatus("SAVE FAILED", "error");
         saveBtn.disabled = false;
         saveBtn.removeAttribute("aria-busy");
         return;
@@ -378,7 +378,7 @@ function wireEditor(){
 
       writeStoryCache(label, ta.value);
       currentLoadedStory = ta.value;
-      setStatus("저장 완료", "ok");
+      setStatus("SAVED", "ok");
 
       try { __bcLabelStory?.postMessage({ kind:"label:story-updated", label, story: ta.value }); } catch {}
       emitStorySocket({ label, story: ta.value });
