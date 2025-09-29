@@ -396,7 +396,7 @@ header.nav{
 /* KPI: 숫자 왼쪽, 라벨 오른쪽, 기준선(아래) 맞춤 */
 .quick .panel:first-child .kpi{
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: baseline;
   gap: 8px;
   text-align: left;
