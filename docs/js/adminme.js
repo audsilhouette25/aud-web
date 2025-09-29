@@ -1323,14 +1323,14 @@ async function loadLeaderboardsIntoInsights() {
 
   host.innerHTML = `
     ${tableHTML("Most Posts", P, "posts")}
-    ${tableHTML("Most Votes (received)", V, "votes")}
+    ${tableHTML("Most Votes", V, "votes")}
     ${tableHTML("Best Match Rate", R, "rate")}
   `;
   } catch (e) {
     console.error("[leaderboards] load failed:", e);
    host.innerHTML = `
      ${tableHTML("Most Posts", [], "posts")}
-     ${tableHTML("Most Votes (received)", [], "votes")}
+     ${tableHTML("Most Votes)", [], "votes")}
      ${tableHTML("Best Match Rate", [], "rate")}
    `;
   }
