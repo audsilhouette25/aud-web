@@ -455,6 +455,7 @@ try {
 } catch {}
 
 /* ── compose & wire ───────────────────────────────────── */
+// === [REPLACE] compose & wire ===============================
 function syncAll() {
   renderCategoryRow();
   renderLastLabel();
@@ -473,16 +474,18 @@ ensureReady(() => whenStoreReady(() => {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") scheduleSync();
   });
-  window.addEventListener("pageshow", scheduleSync); // BFCache 복귀 대비
+  window.addEventListener("pageshow", scheduleSync); // BFCache 복귀
 
-  // ✅ store.js에서 브로드캐스트하는 변경 이벤트 수신 (이미 존재하던 라인 유지)
+  // 🔁 역할/로그인 상태 변경되면 즉시 재렌더 (admin ↔ user)
+  window.addEventListener("auth:state", scheduleSync);
+
+  // store.js 브로드캐스트(기존 유지)
   window.addEventListener("label:timestamps-changed", scheduleSync);
   window.addEventListener("label:hearts-changed", scheduleSync);
 
-  // cross-tab (선택 라벨만) → 로그인 상태일 때만 반응 (기존 그대로)
+  // cross-tab (선택 라벨만) → 로그인 상태에서만 반응
   window.addEventListener("storage", (e) => {
-    if (!e) return;
-    if (!persistEnabled()) return;
+    if (!e || !persistEnabled()) return;
     if (e.key === MIRROR_KEY && e.newValue) {
       try {
         const { label } = JSON.parse(e.newValue);
@@ -495,27 +498,24 @@ ensureReady(() => whenStoreReady(() => {
     }
   });
 
-  // BroadcastChannel(게스트)의 선택 라벨 동기화 리스너 (이미 추가돼 있다면 유지)
+  // BroadcastChannel(게스트) — 선택 라벨 동기화
   try {
-    if (__bcLabel) {
-      __bcLabel.addEventListener("message", (e)=>{
-        const m = e?.data;
-        if (!m || m.kind !== "label:selected") return;
-        if (m.label && isLabel(m.label)) {
-          sessionStorage.setItem(SELECTED_KEY, m.label);
-          window.dispatchEvent(new Event(EVT));
-        }
-      });
-    }
+    __bcLabel?.addEventListener("message", (e) => {
+      const m = e?.data;
+      if (m?.kind !== "label:selected") return;
+      if (m.label && isLabel(m.label)) {
+        try { sessionStorage.setItem(SELECTED_KEY, m.label); } catch {}
+        window.dispatchEvent(new Event(EVT));
+      }
+    });
   } catch {}
 
-  // 로그아웃 시 선택 상태 정리 (유지)
+  // 로그아웃 시 선택 상태/미러 정리
   window.addEventListener("auth:logout", () => {
     try { sessionStorage.removeItem(SELECTED_KEY); } catch {}
     try { localStorage.removeItem(MIRROR_KEY); } catch {}
     scheduleSync();
   });
-
 }));
 
 // 모든 라벨 룸 구독(중복 호출 안전)
