@@ -87,6 +87,24 @@ window.addEventListener("auth:state", (ev)=>{
   }catch{}
 });
 
+/* ── admin detect (ADD) ─────────────────────────────────── */
+// why: 다양한 auth 구현을 호환해야 해서 후보를 모두 확인
+function isAdmin() {
+  try {
+    const a = window.auth || {};
+    if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
+    const u = typeof a.user === "function" ? a.user() : a.user;
+    if (!u) return false;
+
+    if (u.isAdmin === true) return true;
+    if (typeof u.role === "string" && u.role.toLowerCase() === "admin") return true;
+    if (Array.isArray(u.roles) && u.roles.map(s=>String(s).toLowerCase()).includes("admin")) return true;
+    if (u.claims && (u.claims.admin === true || u.claims.isAdmin === true)) return true;
+
+    return false;
+  } catch { return false; }
+}
+
 /* ── utils ─────────────────────────────────────────────── */
 const isLabel = (x) => OK.includes(String(x));
 
@@ -219,6 +237,10 @@ function renderTimestamp() {
   const root = document.getElementById("timestamp");
   if (!root) return;
 
+  // admin은 안보이게
+  if (isAdmin()) { root.style.display = "none"; return; }
+  root.style.display = ""; // 비관리자: 다시 보이게
+
   const dataLabel = root.dataset.label || null;
   const dataDate  = root.dataset.date  || null;
 
@@ -266,6 +288,11 @@ function createHeartSVG({ filled, color = "#777" }) {
 function renderHeartButton() {
   const root = document.getElementById("heartButton");
   if (!root) return;
+
+  // admin은 안보이게
+  if (isAdmin()) { root.style.display = "none"; root.innerHTML = ""; return; }
+  root.style.display = ""; // 비관리자: 다시 보이게
+
   root.innerHTML = "";
 
   const label = readSelected();
@@ -294,7 +321,7 @@ function renderHeartButton() {
     icon = createHeartSVG({ filled: true, color: clicked });
     btn.appendChild(icon);
 
-    incHeart(label);                 // store.js가 이벤트(label:hearts-changed) 브로드캐스트
+    incHeart(label);
     const n = getHeartCount(label);
     num.textContent = String(n);
 
@@ -432,8 +459,8 @@ function syncAll() {
   renderCategoryRow();
   renderLastLabel();
   renderLabelGalleryBox();
-  renderTimestamp();
-  renderHeartButton();
+  renderTimestamp();      // admin이면 내부에서 숨김/skip
+  renderHeartButton();    // admin이면 내부에서 숨김/skip
   renderLabelStory();
 }
 
