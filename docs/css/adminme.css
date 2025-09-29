@@ -310,13 +310,15 @@ header.nav{
   border-bottom: 1px solid rgba(0,0,0,.08);
   padding: 10px 12px;
   vertical-align: middle;
-  text-align: right;
+  text-align: center;
   font-size: 14px;
 }
 /* Rank, Account 좌정렬 */
 .lb-grid table.lb th:nth-child(1),
 .lb-grid table.lb td:nth-child(1),
-.lb-grid table.lb th:nth-child(2),
+.lb-grid table.lb th:nth-child(2){
+  text-align: center;
+}
 .lb-grid table.lb td:nth-child(2){
   text-align: left;
 }
