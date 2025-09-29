@@ -36,15 +36,6 @@ const BOOT_KEY     = "__boot.id";                    // guest reset on server re
 const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
-const MAP = {
-  miro:   { category: "play", stars: 3 },
-  whee:   { category: "asmr", stars: 1 },
-  thump:  { category: "asmr", stars: 1 },
-  track:  { category: "play", stars: 2 },
-  echo:   { category: "asmr", stars: 2 },
-  portal: { category: "play", stars: 2 },
-};
-
 // store.js API 사용 (단일 소스)
 const storeTsGet    = (lb) => window.store.getTimestamp(lb);
 const storeTsSet    = (lb, ymd) => window.store.setTimestamp(lb, ymd);
@@ -201,7 +192,7 @@ function renderCategoryRow() {
   const label = readSelected();
   if (!label) return;
 
-  const info = MAP[label] || { category: "play", stars: 0 };
+  const info = (window.LABEL_META && window.LABEL_META.get(label)) || { category: "play", stars: 0 };
 
   const pill = document.createElement("div");
   pill.className = "pill";

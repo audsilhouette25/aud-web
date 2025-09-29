@@ -7,16 +7,6 @@ const EVT          = "aud:selectedLabel-changed";
 const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
 if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
-const MAP = {
-  miro:   { category: "play", stars: 3 },
-  whee:   { category: "asmr", stars: 1 },
-  thump:  { category: "asmr", stars: 1 },
-  track:  { category: "play", stars: 2 },
-  echo:   { category: "asmr", stars: 2 },
-  portal: { category: "play", stars: 2 },
-};
-
-
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
 
