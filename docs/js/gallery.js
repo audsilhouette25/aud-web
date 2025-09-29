@@ -209,7 +209,6 @@
     waitForAssets(() => {
       renderGrid();
       bindStoreEvents();
-      bindSocket();
     });
     heroIn();
 
