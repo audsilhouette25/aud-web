@@ -51,9 +51,9 @@
   function getJibVideo(jib) { return JIB_MAP[jib]?.video || ""; }
 
   // why: <img>에 안전 폴백(검정/오렌지 이미지 자동 전환)
-  function attachLabelImg(imgEl, label, opt = { prefer: "blackImage" }) {
+  function attachLabelImg(imgEl, label, opt = { prefer: "colorImage" }) {
     if (!imgEl || !label) return;
-    const prefer = String(opt.prefer || "blackImage");
+    const prefer = String(opt.prefer || "colorImage");
     const first  = (prefer === "blackImage") ? getLabelImg(label, { black:true }) : getLabelImg(label, { black:false });
     const alt    = (prefer === "blackImage") ? getLabelImg(label, { black:false }) : getLabelImg(label, { black:true });
     imgEl.src = first;

@@ -543,7 +543,7 @@ function renderLabelGalleryBox(){
   box.classList.remove("is-empty");
   const img = document.createElement("img");
   img.alt = label;
-  window.ASSETS.attachLabelImg(img, label, { prefer: "blackImage" });
+  window.ASSETS.attachLabelImg(img, label, { prefer: "colorImage" });
   box.appendChild(img);
 }
 
