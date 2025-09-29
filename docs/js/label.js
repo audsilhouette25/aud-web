@@ -8,8 +8,36 @@
 
 let __bcLabel = null;
 try { __bcLabel = new BroadcastChannel("aud:sync:label"); } catch {}
+function emitStorySocket(payload){
+  if (window.SOCKET && typeof window.SOCKET.emit === "function") {
+    window.SOCKET.emit("label:story-updated", payload);
+  } else {
+    window.addEventListener("socket:ready", () => {
+      if (window.SOCKET && typeof window.SOCKET.emit === "function") {
+        window.SOCKET.emit("label:story-updated", payload);
+      }
+    }, { once: true });
+  }
+}
 
 /* ── constants ─────────────────────────────────────────── */
+/* === API helpers (mine.js와 동일한 규칙) === */
+const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
+const toAPI = (p) => {
+  try {
+    const u = new URL(p, location.href);
+    return (API_ORIGIN && /^\/(api|auth|uploads)\//.test(u.pathname))
+      ? new URL(u.pathname + u.search + u.hash, API_ORIGIN).toString()
+      : u.toString();
+  } catch { return p; }
+};
+async function api(path, opt = {}) {
+  const url = toAPI(path);
+  const base = { credentials: "include", cache: "no-store", ...opt };
+  const fn = window.auth?.apiFetch || fetch;
+  try { return await fn(url, base); } catch { return null; }
+}
+
 const SELECTED_KEY = "aud:selectedLabel";            // sessionStorage
 const MIRROR_KEY   = "aud:selectedLabel:mirror";     // localStorage broadcast (cross-tab, authed only)
 const EVT          = "aud:selectedLabel-changed";
@@ -294,100 +322,113 @@ function renderHeartButton() {
 }
 
 /* --- label story block --- */
-const STORIES = {
-  miro: `처음 종이 울리면서, 첫 번째 문이 열렸다.
+/* --- label story (server-backed) --- */
+// 캐시 (세션 탭 한정) — 5분 TTL
+const STORY_TTL = 5 * 60 * 1000;
+function storyCacheKey(lb){ return `label:story:${lb}`; }
+function readStoryCache(lb){
+  try{
+    const raw = sessionStorage.getItem(storyCacheKey(lb));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.t || (Date.now() - obj.t) > STORY_TTL) return null;
+    return obj.story || "";
+  } catch { return null; }
+}
+function writeStoryCache(lb, story){
+  try{ sessionStorage.setItem(storyCacheKey(lb), JSON.stringify({ t: Date.now(), story: String(story||"") })); } catch {}
+}
 
-길을 모르겠지만 찾아 나섰다.
+// 다양한 응답 스키마를 흡수해 story 텍스트만 뽑기
+function pickStoryFrom(obj){
+  if (!obj || typeof obj !== "object") return "";
+  const cands = [
+    obj.story, obj.text, obj.body, obj.content, obj.description,
+    obj?.data?.story, obj?.data?.text, obj?.data?.content,
+    obj?.item?.story, obj?.item?.text
+  ];
+  return String(cands.find(v => typeof v === "string") || "").trim();
+}
 
-두 번째 종은 더 깊은 차원의 문턱을 알려주었다.
+// 서버에서 스토리 가져오기 (여러 엔드포인트 시도)
+async function fetchLabelStory(lb){
+  const L = encodeURIComponent(lb);
+  const tryGet = async (path) => {
+    const r = await api(path, { credentials: "include", cache: "no-store" });
+    if (!r || !r.ok) return "";
+    let j = {};
+    try { j = await r.json(); } catch {}
+    return pickStoryFrom(j);
+  };
 
-마지막 종이 울릴 땐 알게 되었다.
+  // 우선순위: /api/labels/:label → /api/labels/:label/story → /api/label/story?label=...
+  return (
+    await tryGet(`/api/labels/${L}`) ||
+    await tryGet(`/api/labels/${L}/story`) ||
+    await tryGet(`/api/label/story?label=${L}`) ||
+    ""
+  );
+}
 
-찾아 헤맨 건 단지 출구가 아니라,
-
-이 미로가 들려주고 싶었던 이야기라는 걸.
-
-미로는 언제나 어딘가에 있고,
-
-그 끝에서 새로운 차원을 맞이한다.`,
-  whee: `딱, 하고 입구에 들어섰다.
-
-정신없이 벽을 따라 내려갔다.
-
-곡선은 길게 이어지고, 속도가 점점 붙었다.
-
-코너를 돌 때마다 “휘잉—” 하고 소리가 났다.
-
-방향은 정해져 있고, 멈출 틈은 없었다.
-
-그저 지나가는 순간들일 뿐이었다.
-
-그리고, 갑작스레 멈춤이 찾아왔다.
-
-아무런 예고도 없이.
-
-짧았지만, 분명히 하나의 여정이었다.`,
-  thump: `구멍을 통과하자마자 두 갈래 길 앞에 놓였다.
-
-방향을 선택할 수 없고, 자연스럽게 한쪽으로 떨어졌다.
-
-통로는 단단하고 좁았다.
-
-“우당탕탕”
-
-소리를 내며 부딪히고, 벽에 닿고, 다시 튕겼다.
-
-도착은 예고 없이 나타났다.
-
-눈 앞에 또다른 통로가 보였다.
-
-저 통로는 어디에서부터 이어진 것일까?`,
-  track: `가느다란 선로 위를 덜컹덜컹 미끄러져 내려갔다.
-
-프레임 안을 오르내리며 속도를 더했다가 줄였다가.
-
-리듬을 타듯이 흔들린다.
-
-순식간에 시야가 바뀌었다.
-
-눈앞에는 새로운 여정으로 향하는 빛이 보였다.`,
-  echo: `차가운 금속 파이프를 가볍게 두드리며 내려갔다.
-
-울리는 소리가 공간을 가득채웠다.
-
-잔향이 손끝에서 진동으로 전해졌다.
-
-“둥… 둥… 둥…”
-
-반복되는 메아리가 주변의 공간을 비집고 스며든다.
-
-공명 속을 통과하는 낯선 느낌이 기분 좋다.`,
-  portal: `문을 향해 정신없이 달렸다.
-
-찬 바람이 휙― 하고 흘러들어와 눈을 감았다.
-
-다시 눈을 떴을 때는 이미 낯선 공간 한가운데였다.
-
-알 수 없는 빛이 들어오면서 몸이 순식간에 앞으로 끌려갔다.
-
-도착은 예고 없이, 순식간에 이루어졌다.
-
-저 문은 도대체 어느 차원으로 향하는 걸까?`,
-};
-
-function renderLabelStory() {
+// 렌더러 (하드코딩 제거, 서버 데이터 사용)
+async function renderLabelStory() {
   const root = document.getElementById("labelStory");
   if (!root) return;
   const label = readSelected();
-  if (!label) { root.innerHTML = ""; return; }
-  const text = STORIES[label] || "";
   root.innerHTML = "";
-  text.split("\n").forEach(line => {
+  if (!label) return;
+
+  // 캐시 → 서버 순
+  let story = readStoryCache(label);
+  if (!story) {
+    story = await fetchLabelStory(label);
+    writeStoryCache(label, story);
+  }
+
+  if (!story) return; // 글이 없으면 비워둠
+
+  // 문단 분리(빈 줄 기준), 줄바꿈 보존
+  story.trim().split(/\n\s*\n/).forEach(block => {
     const p = document.createElement("p");
-    p.textContent = line;
+    p.textContent = block.replace(/\n/g, " ");
     root.appendChild(p);
   });
 }
+
+/* (선택) labeladmin에서 저장 직후 갱신 신호 받기 */
+try {
+  const bc = new BroadcastChannel("aud:label-story");
+  bc.addEventListener("message", (e) => {
+    const m = e?.data || {};
+    if (m.kind === "label:story-updated" && m.label && m.story != null) {
+      // 캐시 갱신 후 현재 선택이 같으면 리렌더
+      writeStoryCache(m.label, String(m.story));
+      if (readSelected() === m.label) renderLabelStory();
+    }
+  });
+} catch {}
+
+// (중요) 서버 푸시(socket.io)로도 실시간 반영 — 다른 기기/브라우저까지 커버
+try {
+  if (window.SOCKET && typeof window.SOCKET.on === "function") {
+    window.SOCKET.on("label:story-updated", (m = {}) => {
+      if (!m.label) return;
+      writeStoryCache(m.label, String(m.story || ""));
+      if (readSelected() === m.label) renderLabelStory();
+    });
+  } else {
+    // socket이 나중에 준비되는 환경 대비: 준비 신호를 받을 수 있으면 연결 후 핸들러 장착
+    window.addEventListener?.("socket:ready", () => {
+      if (window.SOCKET && typeof window.SOCKET.on === "function") {
+        window.SOCKET.on("label:story-updated", (m = {}) => {
+          if (!m.label) return;
+          writeStoryCache(m.label, String(m.story || ""));
+          if (readSelected() === m.label) renderLabelStory();
+        });
+      }
+    }, { once: true });
+  }
+} catch {}
 
 /* ── compose & wire ───────────────────────────────────── */
 function syncAll() {

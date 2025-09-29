@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="./js/config.js"></script>
+  <meta charset="UTF-8" />
+  <title>Label Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- 공용 스타일 (프리뷰 영역 재사용) -->
+  <link rel="stylesheet" href="./css/label.css" />
+  <!-- 관리자 전용 스타일 -->
+  <link rel="stylesheet" href="./css/labeladmin.css" />
+</head>
+<body>
+  <!-- ===== Navigation ===== -->
+  <header class="nav">
+    <div class="nav-inner">
+      <ul class="menu">
+        <li><a href="./home.html">HOME</a></li>
+        <li><a href="./collect.html">Collect</a></li>
+        <li><a href="./gallery.html">Gallery</a></li>
+        <li><a href="./custom.html">Custom</a></li>
+      </ul>
+      <div class="logo-cta">
+        <a href="./mine.html">
+          <img src="./asset/logo2.png" alt="logo">
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Hero (프리뷰 헤더) ===== -->
+  <section class="label-page">
+    <div class="hero">
+      <!-- 카테고리 + 별 -->
+      <div id="categoryRow" class="category-row"></div>
+      <!-- 선택된 라벨명 -->
+      <h1 id="lastLabel" class="title"></h1>
+    </div>
+  </section>
+
+  <!-- ===== Body1 (프리뷰 메타) ===== -->
+  <section class="label-sub">
+    <div class="stack">
+      <div id="timestamp" class="timestamp" aria-live="polite"></div>
+      <div id="heartButton" class="heart"></div>
+    </div>
+  </section>
+
+  <!-- ===== Body2 (프리뷰 + 관리자 에디터) ===== -->
+  <section class="label-body">
+    <div class="container">
+      <!-- 라벨 이미지 프리뷰 -->
+      <div id="labelGalleryBox" class="label-gallery-box"></div>
+
+      <!-- 스토리 프리뷰 -->
+      <div id="labelStory" class="label-story__container" aria-live="polite"></div>
+
+      <!-- 관리자: 스토리 작성/수정용 에디터 컨테이너 (labeladmin.js가 렌더/권한 제어) -->
+      <div id="labelAdmin" class="label-admin__container" hidden></div>
+    </div>
+  </section>
+
+  <!-- 필요 시 소켓 -->
+  <script src="https://aud-api-dtd1.onrender.com/socket.io/socket.io.js"></script>
+
+  <script src="./js/socket-init.js"></script>
+  <script src="./js/fetch-sanitizer.js"></script>
+
+  <!-- 1) 전역 인증 부팅 -->
+  <script src="./js/auth-boot.js" defer></script>
+
+  <!-- 4) 세션 keepalive -->
+  <script src="./js/auth-keepalive.js" defer></script>
+
+  <!-- 2) Store (module) - hearts/timestamps 공유 스토어 -->
+  <script type="module" src="./js/store.js"></script>
+
+  <!-- 3) UI 라우팅 가드/로고 -->
+  <script src="./js/logo-guard.js" defer></script>
+
+  <!-- (페이지별 앱 스크립트: 관리자 전용, label.js 의존 없음) -->
+  <script type="module" src="./js/labeladmin.js"></script>
+</body>
+</html>

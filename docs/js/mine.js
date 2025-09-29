@@ -690,7 +690,7 @@
           else sessionStorage.setItem(SELECTED_KEY, label);
         } catch { try { sessionStorage.setItem(SELECTED_KEY, label); } catch {} }
       });
-      location.assign(`${safeHref('labelmine.html')}?label=${encodeURIComponent(label)}`);
+      location.assign(toLabelHref(lb));
     });
 
     return btn;
@@ -722,6 +722,18 @@
     });
 
     return btn;
+  }
+
+  // admin이면 labeladmin.html?ns=, 아니면 labelmine.html?label=
+  function toLabelHref(label){
+    const flag =
+      (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
+    const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
+
+    const isAdmin = (flag === true) || cached;
+    const base  = isAdmin ? 'labeladmin.html' : 'labelmine.html';
+    const param = isAdmin ? 'ns' : 'label';
+    return `${safeHref(base)}?${param}=${encodeURIComponent(label)}`;
   }
 
   /* =========================================================
@@ -3103,7 +3115,7 @@
               if (window.store?.setSelected) window.store.setSelected(lb);
               else sessionStorage.setItem(SELECTED_KEY, lb);
             } catch { try { sessionStorage.setItem(SELECTED_KEY, lb); } catch {} }
-            location.assign(`${safeHref('labelmine.html')}?label=${encodeURIComponent(lb)}`);
+            location.assign(toLabelHref(label));
           }
           return;
         }
