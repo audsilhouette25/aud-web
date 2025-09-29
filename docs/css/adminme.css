@@ -387,19 +387,20 @@ header.nav{
 
 /* 그리드 내용: 세로 가운데, 가로는 시작 정렬 */
 .quick .panel:first-child .grid-2{
-  block-size: 100%;
-  align-content: center;   /* vertical center */
-  justify-content: start;  /* horizontal start */
-  justify-items: start;    /* each cell start */
+  display: grid;
+  grid-template-columns: 1fr;  /* ← 한 컬럼 고정 */
+  row-gap: 16px;
+  column-gap: 0;
+  align-content: start;        /* 카드 상단부터 배치 */
+  justify-items: start;        /* 각 아이템 왼쪽 정렬 */
 }
 
 /* KPI: 숫자 왼쪽, 라벨 오른쪽, 기준선(아래) 맞춤 */
 .quick .panel:first-child .kpi{
   display: flex;
-  flex-direction: column;
-  align-items: baseline;
-  gap: 8px;
-  text-align: left;
+  flex-direction: column;  /* 숫자 위, 라벨 아래 */
+  align-items: flex-start;
+  gap: 6px;
 }
 .quick .panel:first-child .kpi b{
   font-size: 20px;
