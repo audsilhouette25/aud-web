@@ -1,35 +1,152 @@
-/* /css/jibbitzadmin.css */
-
-/* 1) 지비츠 기본 디자인 전부 상속 */
-@import url("./jibbitz.css");
-
-/* 2) Admin 페이지 스코프 공통 토큰 (필요 시 확장) */
-.jibbitzadmin-body{
-  --accent:#FFA765; --nav-h:64px; --text:#111; --muted:#666;
-  color: var(--text);
-  background: #fff;
-  min-width: 400px;
-  font-family:'Inter', -apple-system, BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+/* =====================================================================
+   0) Base
+===================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-/* 3) 네비/히어로/카테고리 — jibbitz.css와 동일 느낌 유지 */
-.jibbitzadmin-body header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background:#fff; }
-.jibbitzadmin-body .nav-inner{ height:100%; display:flex; align-items:center; justify-content:space-between; padding:0 27px; }
-.jibbitzadmin-body .menu{ list-style:none; display:flex; gap:20px; }
-.jibbitzadmin-body .menu a{ color:#333; text-decoration:none; font-size:15px; font-weight:500; letter-spacing:-0.2px; opacity:.9; transition:opacity .2s,color .2s; }
-.jibbitzadmin-body .menu a:hover{ opacity:1; color:#000; }
-.jibbitzadmin-body .menu a.active{ font-weight:600; color:#000; }
-.jibbitzadmin-body .logo-cta{ display:inline-flex; align-items:center; justify-content:center; width:27px; height:27px; }
-.jibbitzadmin-body .logo-cta img{ width:100%; height:100%; object-fit:contain; display:block; }
+:root {
+  --accent: #FFA765;
+  --nav-h: 64px;
+  --text: #111;
+  --muted: #666;
+}
 
-.jibbitzadmin-body .hero{ max-width:960px; margin:0 auto; text-align:center; padding-top:60px; }
-.jibbitzadmin-body .title{ margin:8px 0 0; font-size:40px; font-weight:600; color:#111; text-transform:uppercase; letter-spacing:-.04em; line-height:1.1; }
-.jibbitzadmin-body .subtitle{ margin-top:5px; font-size:24px; font-weight:400; color:#888; }
-.jibbitzadmin-body .stack{ max-width:960px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
-.jibbitzadmin-body .category-row{ display:inline-flex; align-items:center; justify-content:center; gap:10px; margin:8px 0 12px; }
-.jibbitzadmin-body .pill{ display:inline-flex; align-items:center; justify-content:center; height:29px; padding:0 8px; border-radius:8px; background:#f4f4f4; }
-.jibbitzadmin-body .pill__text{ font-size:18px; font-weight:400; color:#666; line-height:1.6em; letter-spacing:-.02em; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+html, body {
+  margin-bottom: 50px;
+}
 
+body {
+  min-width: 400px; /* 450px 이하 강제 가로 스크롤 */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--text);
+  background: #fff;
+}
+
+/* =====================================================================
+   1) Navigation
+===================================================================== */
+header.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--nav-h);
+  background: #FFFFFF;
+  border-bottom: none;
+}
+
+.nav-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 27px;
+}
+
+.menu {
+  list-style: none;
+  display: flex;
+  gap: 20px;
+}
+
+.menu a {
+  color: #333;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  opacity: 0.9;
+  transition: opacity 0.2s, color 0.2s;
+}
+.menu a:hover { opacity: 1; color: #000; }
+.menu a.active { font-weight: 600; color: #000; }
+
+.logo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+}
+.logo-cta img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* =====================================================================
+   2) Hero
+===================================================================== */
+.hero {
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 60px;
+}
+
+.title {
+  margin: 8px 0 0;
+  font-size: 40px;
+  font-weight: 600;
+  color: #111;
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin-top: 5px;
+  font-size: 24px;
+  font-weight: 400;
+  color: #888;
+}
+
+/* =====================================================================
+   3) Layout Helpers
+===================================================================== */
+.stack {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.category-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+
+/* =====================================================================
+   4) Category / Pill
+===================================================================== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 29px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: #f4f4f4;
+}
+
+.pill__text {
+  font-size: 18px;
+  font-weight: 400;
+  color: #666;
+  line-height: 1.6em;
+  letter-spacing: -0.02em;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
 /* 4) 컨테이너/갤러리 — jibbitz.css 매핑 (클래스명이 다르므로 동등 효과 부여) */
 .jibbitzadmin-body .container{
   display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:10px;
