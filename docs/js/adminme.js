@@ -1078,10 +1078,9 @@
     }
   }
 
-  function renderQuick({ labels = 0, jibs = 0, posts = 0 /* authed unused */ }) {
+  function renderQuick({ labels = 0, jibs = 0 /* authed unused */ }) {
     $("#k-labels") && ($("#k-labels").textContent = fmtInt(labels));
     $("#k-jibs")   && ($("#k-jibs").textContent   = fmtInt(jibs));
-    $("#k-posts")  && ($("#k-posts").textContent  = fmtInt(posts));
   }
 
   window.addEventListener("user:updated", (ev) => {
@@ -1176,32 +1175,12 @@
     if (__countsBusy) return;
     __countsBusy = true;
     try {
-      // “posts” 숫자를 정말 표시하는 경우에만 계산 (요소가 없으면 스킵)
-      const wantsPosts = !!$("#k-posts");
-
-      let postsNow = 0;
-      if (wantsPosts) {
-        // 1) 현재 DOM 값(있으면 유지)
-        postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
-
-        // 2) 서버에서 가볍게 추정 (로그인 & 헬퍼 존재 시)
-        if (!postsNow && sessionAuthed() && typeof fetchAllMyItems === "function") {
-          try {
-            // 페이지 4 * 60 = 최대 240개만 확인 (기존과 동일)
-            const mine = await fetchAllMyItems(4, 60);
-            if (Array.isArray(mine)) postsNow = mine.length;
-          } catch { /* 네트워크 실패 시 0 유지 */ }
-        }
-      }
-
       // 라벨/지비츠는 서버-우선 병합 로직 그대로 사용
       const counts = await getQuickCounts();
 
       renderQuick({
         labels: counts.labels || 0,
         jibs:   counts.jibs   || 0,
-        // posts는 요소가 없어도 renderQuick 내부에서 안전하게 무시됨
-        posts:  Number.isFinite(postsNow) ? postsNow : 0,
         authed: sessionAuthed()
       });
     } finally {
@@ -1816,7 +1795,7 @@ async function loadLeaderboardsIntoInsights() {
   async function boot() {
     if (window.__PURGING) return;
     let me    = { displayName: "member", email: "", avatarUrl: "" };
-    let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
+    let quick = { labels: 0, jibs: 0, authed: false };
 
     // 0) Warm from cache (빠른 초기 렌더)
     const cached = readProfileCache();
