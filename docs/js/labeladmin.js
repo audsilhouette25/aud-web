@@ -210,7 +210,7 @@ function renderCategoryRow() {
 }
 
 function renderLabelGalleryBox() {
-  const box = document.getElementById("labelGalleryBox");
+  const box = document.getElementById("labeladminGalleryBox");
   if (!box) return;
   box.innerHTML = "";
 
@@ -249,7 +249,7 @@ function renderEditorFrame() {
       </div>
 
       <div class="preview-title">미리보기</div>
-      <div id="previewStory" class="label-story__container preview" aria-live="polite"></div>
+      <div id="previewStory" class="labeladmin-story__container preview" aria-live="polite"></div>
     </section>
   `;
   host.hidden = false; // 숨김 해제

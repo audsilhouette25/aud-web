@@ -665,7 +665,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .labeladmin-body .btn.ghost:hover{ background:#fafafa; }
 
 .labeladmin-body .preview-title{ margin-top:16px; margin-bottom:6px; font-weight:700; font-size:15px; color:#333; }
-#previewStory.label-story__container.preview{
+#previewStory.labeladmin-story__container.preview{
   border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc; padding:14px; min-height:120px;
 }
 #previewStory p{ margin:0 0 10px; color:#111; font-size:14px; line-height:1.55; }
