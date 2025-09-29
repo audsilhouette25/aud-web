@@ -310,23 +310,23 @@ header.nav{
   border-bottom: 1px solid rgba(0,0,0,.08);
   padding: 10px 12px;
   vertical-align: middle;
-  text-align: right;
+  text-align: center; /* ← 기본을 가운데로 */
   font-size: 14px;
 }
-/* Rank, Account 좌정렬 */
-.lb-grid table.lb th:nth-child(1),
-.lb-grid table.lb td:nth-child(1),
-.lb-grid table.lb th:nth-child(2),
-.lb-grid table.lb td:nth-child(2){
-  text-align: left;
-}
-/* Rank 고정폭 + 숫자 정렬 */
+
+/* Rank(1열): 고정폭 + 숫자 탭 + 가운데 */
 .lb-grid table.lb th:nth-child(1),
 .lb-grid table.lb td:nth-child(1){
   width: 64px;
   font-variant-numeric: tabular-nums;
+  text-align: center;
 }
-/* 숫자 열: 자간 고정 */
+
+/* Account(2열): 헤더만 가운데, 셀은 좌측 */
+.lb-grid table.lb th:nth-child(2){ text-align: center; }
+.lb-grid table.lb td:nth-child(2){ text-align: left; }
+
+/* 숫자 열(3+): 자간 고정(정렬은 기본 center 유지) */
 .lb-grid table.lb td:nth-child(3),
 .lb-grid table.lb td:nth-child(4),
 .lb-grid table.lb td:nth-child(5),
@@ -334,6 +334,7 @@ header.nav{
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
 .lb-grid table.lb tbody tr:last-child td{ border-bottom: 0; }
 
 /* 계정 셀(아바타 + 텍스트) */
