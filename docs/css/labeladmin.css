@@ -87,11 +87,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 /* =====================================================================
    4) BODY BLOCKS
 ===================================================================== */
-.labeladmin-body .timestamp{ height:26px; width:100%; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:16px; padding:0 8px; font-weight:400; }
-.labeladmin-body .heart{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; color:#777; font-size:16px; user-select:none; }
-.labeladmin-body .heart button{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; background:none; border:0; padding:0; cursor:pointer; }
-.labeladmin-body .heart svg{ width:24px; height:24px; display:block; }
-.labeladmin-body .heart.is-disabled{ cursor:default; opacity:.7; }
 .labeladmin-body .container{ display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:30px; }
 .labeladmin-body .labeladmin-gallery-box{ width:300px; height:300px; background:transparent; border-radius:var(--radius-lg); overflow:hidden; display:flex; align-items:center; justify-content:center; }
 .labeladmin-body .labeladmin-gallery-box img{ width:100%; height:100%; display:block; object-fit:cover; transform:scale(2.1); transform-origin:center; }
@@ -144,9 +139,3 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 }
 #previewStory p{ margin:0 0 10px; color:#111; font-size:14px; line-height:1.55; }
 #previewStory p:last-child{ margin-bottom:0; }
-
-@media (max-width:640px){
-  .labeladmin-body .title{ font-size:28px; }
-  .labeladmin-body .label-admin__editor{ padding:14px; }
-  #storyEditor.story-editor{ min-height:180px; }
-}
