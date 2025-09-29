@@ -407,7 +407,7 @@ header.nav{
 }
 
 .quick .panel:first-child .grid-2 > *{ width: 100%; }
-.quick .panel:first-child .quick-list{ padding-inline: 15px; }
+.quick .panel:first-child .quick-list{ padding-inline: 10px; }
 .quick .panel:first-child .quick-list__ul{ margin: 0; padding: 0; }
 
 /* KPI: 숫자 왼쪽, 라벨 오른쪽, 기준선(아래) 맞춤 */
