@@ -13,6 +13,7 @@
   // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE    = "https://aud-api-dtd1.onrender.com/";
   window.STATIC_BASE = location.origin + "/";
+  window.LB_REPAIR = true;
 
   // [ADD] admin allowlist
   const ADMIN_EMAILS = ["audsilhouette@gmail.com"]; // 운영자 이메일
@@ -1270,37 +1271,149 @@
 
     return `<article class="panel"><h3>${esc(title)}</h3><table class="lb">${thead}<tbody>${rows.map(tr).join("")}</tbody></table></article>`;
   }
-
-async function loadLeaderboardsIntoInsights() {
-  const host = ensureLeaderboardHost();
-  if (!host) return;
-
-  host.innerHTML = `<article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>`;
-
-  try {
-    const r = await fetch(toAPI2("/api/admin/leaderboards"), { credentials: "include", cache: "no-store" });
+  async function __json(url, opt = {}) {
+    const r = await fetch(url, { credentials: "include", cache: "no-store", ...opt });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-
-    const P = Array.isArray(j.postsTop10) ? j.postsTop10 : [];
-    const V = Array.isArray(j.votesTop10) ? j.votesTop10 : [];
-    const R = Array.isArray(j.rateTop10)  ? j.rateTop10  : [];
-
-  host.innerHTML = `
-    ${tableHTML("Most Posts", P, "posts")}
-    ${tableHTML("Most Votes", V, "votes")}
-    ${tableHTML("Best Match Rate", R, "rate")}
-  `;
-  } catch (e) {
-    console.error("[leaderboards] load failed:", e);
-   host.innerHTML = `
-     ${tableHTML("Most Posts", [], "posts")}
-     ${tableHTML("Most Votes)", [], "votes")}
-     ${tableHTML("Best Match Rate", [], "rate")}
-   `;
+    return r.json();
   }
-}
+  const __sleep = (ms)=> new Promise(r=> setTimeout(r, ms));
 
+  async function buildLeaderboardsFallback(onlyNs = "") {
+    // 1) gallery(public) 수집 (페이지네이션)
+    const galleryItems = [];
+    let cursor="", rounds=0;
+    while (rounds < 6) {
+      const q = new URLSearchParams({ limit: "60" });
+      if (cursor) q.set("after", cursor);
+      const j = await __json(toAPI2(`/api/gallery/public?${q}`)).catch(()=>({}));
+      if (!j?.ok) break;
+      for (const it of (j.items||[])) {
+        const ns = String(it.ns||"").toLowerCase();
+        if (onlyNs && ns !== onlyNs.toLowerCase()) continue;
+        galleryItems.push({ id: it.id, ns, src: "gallery" });
+      }
+      if (!j.nextCursor) break;
+      cursor = j.nextCursor; rounds++;
+      await __sleep(30);
+    }
+    const galleryMap = new Map(galleryItems.map(it => [it.id, it]));
+
+    // 2) audlab(all) 수집(관리자)
+    let audlabItems = [];
+    try {
+      const all = await __json(toAPI2(`/api/admin/audlab/all`));
+      if (all?.ok) {
+        audlabItems = (all.items||[])
+          .map(it => ({ id: it.id, ns: String((it.ns||it.owner?.ns||"")).toLowerCase(), src: "audlab" }))
+          .filter(v => v.ns && (!onlyNs || v.ns === onlyNs.toLowerCase()));
+      }
+    } catch {}
+    const audlabMap = new Map(audlabItems.map(it => [it.id, it]));
+
+    // 3) 아이템 집합
+    const ids = [...new Set([...galleryMap.keys(), ...audlabMap.keys()])];
+
+    // 4) 각 아이템 득표 조회
+    const voteRows = [];
+    for (const id of ids) {
+      try {
+        const r = await __json(toAPI2(`/api/items/${encodeURIComponent(id)}/votes`)).catch(()=>null);
+        if (r?.ok) {
+          const total = Object.values(r.counts||{}).reduce((s,n)=>s+Number(n||0),0);
+          if (total > 0) {
+            const src = galleryMap.has(id) ? "gallery" : audlabMap.has(id) ? "audlab" : "unknown";
+            const ns  = (galleryMap.get(id)?.ns) || (audlabMap.get(id)?.ns) || "(unknown)";
+            voteRows.push({ id, ns, src, total });
+          }
+        }
+      } catch {}
+      await __sleep(12);
+    }
+
+    // 5) NS별 집계
+    const by = new Map();
+    // posts: 양쪽 목록의 아이템 수(중복 제거)로 계산
+    const postsBy = new Map();
+    for (const it of [...galleryItems, ...audlabItems]) {
+      const key = it.ns;
+      const set = postsBy.get(key) || new Set();
+      set.add(it.id);
+      postsBy.set(key, set);
+    }
+    // votes: voteRows 합
+    for (const v of voteRows) {
+      const k = v.ns;
+      const row = by.get(k) || { ns:k, votes:0, votes_gallery:0, votes_audlab:0 };
+      row.votes += v.total;
+      if (v.src === "gallery") row.votes_gallery += v.total;
+      if (v.src === "audlab")  row.votes_audlab  += v.total;
+      by.set(k, row);
+    }
+
+    const postsTop10 = [...postsBy.entries()]
+      .map(([ns,set]) => ({ ns, posts: set.size }))
+      .sort((a,b)=> b.posts - a.posts)
+      .slice(0,10);
+
+    const votesTop10 = [...by.values()]
+      .sort((a,b)=> b.votes - a.votes)
+      .slice(0,10);
+
+    // match rate 정의가 서버와 다르면 “득표 있는 아이템 중 비율” 등으로 달라질 수 있으므로,
+    // 일단 표 수 대비 gallery 비율(참고치)로 구성. 필요하면 서버 정의에 맞게 바꾸세요.
+    const rateTop10 = [...by.values()]
+      .map(r => {
+        const posts = postsBy.get(r.ns)?.size || 0;
+        const rate = posts ? (100 * r.votes_gallery / r.votes) : 0;
+        return { ns: r.ns, rate };
+      })
+      .sort((a,b)=> b.rate - a.rate)
+      .slice(0,10);
+
+    return { postsTop10, votesTop10, rateTop10 };
+  }
+  async function loadLeaderboardsIntoInsights() {
+    const host = ensureLeaderboardHost();
+    if (!host) return;
+
+    host.innerHTML = `<article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>`;
+
+    try {
+      // 1차: 서버 리더보드 시도
+      const r = await fetch(toAPI2("/api/admin/leaderboards"), { credentials: "include", cache: "no-store" });
+      let P=[], V=[], R=[];
+      if (r.ok) {
+        const j = await r.json().catch(()=> ({}));
+        P = Array.isArray(j.postsTop10) ? j.postsTop10 : [];
+        V = Array.isArray(j.votesTop10) ? j.votesTop10 : [];
+        R = Array.isArray(j.rateTop10)  ? j.rateTop10  : [];
+      }
+
+      // ✅ 보정 모드: 관리자이면서(또는 플래그) 서버 값이 비면 우리가 재계산
+      const needRepair = (window.LB_REPAIR === true) && ((!V?.length) || V.every(x => (x.votes||0) === 0));
+      if (needRepair && (await isAdmin())) {
+        const fb = await buildLeaderboardsFallback(""); // onlyNs 원하면 이메일 넣기
+        // 서버 스키마에 맞춰 키 정리
+        P = fb.postsTop10.map(x => ({ ns:x.ns, posts:x.posts }));
+        V = fb.votesTop10.map(x => ({ ns:x.ns, votes:x.votes }));
+        R = fb.rateTop10 .map(x => ({ ns:x.ns, rate:x.rate }));
+        console.info("[leaderboards] fallback(repair) applied.");
+      }
+
+      host.innerHTML = `
+        ${tableHTML("Most Posts", P, "posts")}
+        ${tableHTML("Most Votes", V, "votes")}
+        ${tableHTML("Best Match Rate", R, "rate")}
+      `;
+    } catch (e) {
+      console.error("[leaderboards] load failed:", e);
+      host.innerHTML = `
+        ${tableHTML("Most Posts", [], "posts")}
+        ${tableHTML("Most Votes", [], "votes")}
+        ${tableHTML("Best Match Rate", [], "rate")}
+      `;
+    }
+  }
   /* ─────────────────────────────────────────────────────────────────────────────
    * 6) Profile & Password update
    * ──────────────────────────────────────────────────────────────────────────── */
