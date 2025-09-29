@@ -39,7 +39,7 @@
   --ico-arrow-left:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 12h14M5 12l4-4m-4 4 4 4'/%3E%3C/svg%3E");
 
   padding-bottom:50px;
-  color:var(--text); background:var(--bg); min-width:400px;
+  color:var(--text); background:var(--bg); min-width: 400px;
   font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
 }
 /* 변수 전파(모달이 body 아래로 붙는 경우 대비) */
