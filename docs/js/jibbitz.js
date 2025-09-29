@@ -1,4 +1,4 @@
-// /js/jibbitz.js
+// /js/jibbitz.js  — server-backed story + fallback endpoints (admin과 동일 전략)
 (() => {
   "use strict";
 
@@ -10,9 +10,7 @@
     catch { return false; }
   }
   function currentNS() {
-    // store.js가 이미 계산해 둔 값을 최우선으로 사용
     try { const ns = (window.__STORE_NS || "").trim().toLowerCase(); if (ns) return ns; } catch {}
-    // 폴백(아주 초기 부팅 타이밍)
     if (!isAuthed()) return "default";
     try {
       const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
@@ -28,9 +26,18 @@
   const JIB_SYNC      = () => `jib:sync:${currentNS()}`;
   const BC_NAME       = () => `aud:sync:${currentNS()}`;
 
-  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || WINDOW.JIBS;
-  if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
+  // ⚠️ BUGFIX: WINDOW → window
+  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || window.JIBS;
+  if (!Array.isArray(JIBS) || !JIBS.length) throw new Error("APP_CONFIG.JIBBITZ missing");
   const isKind = (v) => typeof v === "string" && JIBS.includes(v);
+
+  const NORM = (s) => String(s || "").trim().toLowerCase();
+  const readNSParam = () => {
+    try {
+      const sp = new URL(location.href).searchParams;
+      return NORM(sp.get("ns") || "");
+    } catch { return ""; }
+  };
 
   /* =========================
   * URL → 선택 부트스트랩 (SSOT: URL)
@@ -41,26 +48,18 @@
       return (typeof q === "string" ? q.trim().toLowerCase() : "");
     } catch { return ""; }
   }
-
   function bootstrapSelectedFromURL() {
     const q = urlSelectedKind();
     if (q && isKind(q)) {
-      // URL이 있으면 그것을 '사실'로 저장 → 이후 전체 UI/스토리지/브로드캐스트가 일치
       if (typeof setSelected === "function") setSelected(q);
-      else {
-        // (아주 드문 경우) setSelected가 아직 바인딩 전이면 직접 평면에 기록
-        try { plane().setItem(JIB_SELECTED(), q); dispatchEvent(new Event(EVT_SELECTED)); } catch {}
-      }
+      else { try { plane().setItem(JIB_SELECTED(), q); dispatchEvent(new Event(EVT_SELECTED)); } catch {} }
     }
   }
-
-  // DOM 준비되면 1회만 실행 (type="module" defer 환경 포함)
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootstrapSelectedFromURL, { once: true });
   } else {
     bootstrapSelectedFromURL();
   }
-
 
   /* =========================
    * 1회 레거시 → NS 마이그레이션
@@ -84,14 +83,8 @@
    * Store-like API
    * ========================= */
   function getSelected() {
-    try {
-      const v = plane().getItem(JIB_SELECTED());
-      if (isKind(v)) return v;
-    } catch {}
-    try {
-      const q = new URLSearchParams(location.search).get("jib");
-      return isKind(q) ? q : null;
-    } catch { return null; }
+    try { const v = plane().getItem(JIB_SELECTED()); if (isKind(v)) return v; } catch {}
+    try { const q = new URLSearchParams(location.search).get("jib"); return isKind(q) ? q : null; } catch { return null; }
   }
   function setSelected(kind) {
     try {
@@ -103,36 +96,25 @@
   }
 
   // ⬇️ jibbitz.js의 readCollectedSet / writeCollectedSet 교체
-
   function readCollectedSet() {
     try {
-      const raw = plane().getItem(JIB_COLLECTED()); // ← NS 전용 키만
+      const raw = plane().getItem(JIB_COLLECTED());
       const arr = raw ? JSON.parse(raw) : [];
       return new Set(arr.filter(isKind));
-    } catch { 
-      return new Set();
-    }
+    } catch { return new Set(); }
   }
-
   function writeCollectedSet(set) {
     const arr = Array.from(set).filter(isKind);
     const ns  = currentNS();
     const key = `jib:collected:${ns}`;
     const v   = JSON.stringify(arr);
-
-    // 1) NS 평면에만 기록 (authed=localStorage, guest=sessionStorage)
     try { plane().setItem(key, v); } catch {}
-
-    // 2) UI 알림
     try { window.dispatchEvent(new Event(EVT_COLLECTED)); } catch {}
-
-    // 3) 로그인 상태면 탭 간 동기화(로컬스토리지 이벤트/BC)
     if (isAuthed()) {
       try { localStorage.setItem(JIB_SYNC(), JSON.stringify({ type: "set", arr, t: Date.now() })); } catch {}
       try { __bc?.postMessage({ kind: "jib:sync", payload: { type: "set", arr, t: Date.now() } }); } catch {}
     }
   }
-
   function add(k){ const s = readCollectedSet(); s.add(k); writeCollectedSet(s); return true; }
   function remove(k){ const s = readCollectedSet(); s.delete(k); writeCollectedSet(s); return false; }
   function toggle(k){ const s = readCollectedSet(); return s.has(k) ? remove(k) : add(k); }
@@ -140,7 +122,6 @@
   function getCollected(){ return Array.from(readCollectedSet()); }
   function isCollected(k){ return readCollectedSet().has(k); }
 
-  // 전역 노출
   window.jib = Object.assign(window.jib || {}, {
     setSelected, getSelected, add, remove, toggle, clear, getCollected, isCollected
   });
@@ -240,17 +221,16 @@
       box.appendChild(img);
     }
     onReady(() => render());
-    addEventListener(EVT_SELECTED, render);
+    addEventListener(EVT_SELECTED, render());
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") render(); });
   })();
 
   /* =========================
-   * UI: Story (server-backed, label.js와 동일 포맷)
+   * UI: Story (server-backed, admin과 동일 폴백)
    * ========================= */
   (function story() {
     const ROOT_ID = "jibStory";
 
-    // API helper (label.js와 동일 규칙)
     const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
     const toAPI = (p) => {
       try {
@@ -266,10 +246,14 @@
       const fn = window.auth?.apiFetch || fetch;
       try { return await fn(url, base); } catch { return null; }
     }
+    function pickStoryFrom(obj){
+      if (!obj || typeof obj !== "object") return "";
+      const cands = [obj.story, obj.text, obj.body, obj.content, obj.description, obj?.data?.story, obj?.data?.text, obj?.data?.content, obj?.item?.story, obj?.item?.text];
+      return String(cands.find(v => typeof v === "string") || "").trim();
+    }
 
-    // 캐시 (세션 탭 한정) — 5분 TTL
     const STORY_TTL = 5 * 60 * 1000;
-    const storyCacheKey = (jb) => `jib:story:${jb}`;
+    const storyCacheKey = (jb) => `jib:story:${NORM(jb)}`;
     function readStoryCache(jb){
       try{
         const raw = sessionStorage.getItem(storyCacheKey(jb));
@@ -286,37 +270,35 @@
       } catch {}
     }
 
-    // 다양한 응답 스키마를 흡수해 story 텍스트만 추출
-    function pickStoryFrom(obj){
-      if (!obj || typeof obj !== "object") return "";
-      const cands = [
-        obj.story, obj.text, obj.body, obj.content, obj.description,
-        obj?.data?.story, obj?.data?.text, obj?.data?.content,
-        obj?.item?.story, obj?.item?.text
-      ];
-      return String(cands.find(v => typeof v === "string") || "").trim();
-    }
-
-    // 서버에서 스토리 가져오기 (여러 엔드포인트 시도)
     async function fetchJibStory(jb){
-      const J = encodeURIComponent(jb);
-      const tryGet = async (path) => {
-        const r = await api(path, { credentials: "include", cache: "no-store" });
-        if (!r || !r.ok) return "";
-        let j = {};
-        try { j = await r.json(); } catch {}
-        return pickStoryFrom(j);
+      const k = NORM(jb);
+      const J = encodeURIComponent(k);
+      const ns = readNSParam();
+      const qs = ns ? `?ns=${encodeURIComponent(ns)}` : "";
+
+      const tryGet = async (paths) => {
+        for (const p of paths) {
+          const r = await api(p, { method:"GET" });
+          if (!r) continue;
+          if (r.ok) { try { return pickStoryFrom(await r.json()); } catch { return ""; } }
+        }
+        return "";
       };
-      // 우선순위: /api/jibbitz/:jib → /api/jibbitz/:jib/story → /api/jib/story?jib=...
-      return (
-        await tryGet(`/api/jibbitz/${J}`) ||
-        await tryGet(`/api/jibbitz/${J}/story`) ||
-        await tryGet(`/api/jib/story?jib=${J}`) ||
-        ""
-      );
+
+      return await tryGet([
+        `/api/jibbitz/${J}${qs}`,
+        `/api/jibbitz/${J}/story${qs}`,
+        `/api/jibbitz/${J}/stories${qs}`,
+        `/api/jibbitzes/${J}${qs}`,
+        `/api/jibbitzes/${J}/story${qs}`,
+        `/api/jib/${J}${qs}`,
+        `/api/jib/${J}/story${qs}`,
+        `/api/jibbitz/story?jib=${J}${ns ? `&ns=${encodeURIComponent(ns)}` : ""}`,
+        `/api/jib/story?jib=${J}${ns ? `&ns=${encodeURIComponent(ns)}` : ""}`,
+        `/api/story/jibbitz/${J}${qs}`,
+      ]);
     }
 
-    // 렌더러 (하드코딩 제거, 서버 데이터 사용)
     async function renderJibStory() {
       const root = document.getElementById(ROOT_ID);
       if (!root) return;
@@ -324,7 +306,6 @@
       root.innerHTML = "";
       if (!jb) return;
 
-      // 캐시 → 서버 순
       let story = readStoryCache(jb);
       if (!story) {
         story = await fetchJibStory(jb);
@@ -332,7 +313,6 @@
       }
       if (!story) return;
 
-      // \r\n 정규화 후 빈 줄 문단 분리 + 줄바꿈 유지 (label.js 동일)
       story.replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).forEach(block => {
         const p = document.createElement("p");
         const lines = block.split("\n");
@@ -344,14 +324,12 @@
       });
     }
 
-    // 초기 및 이벤트 바인딩
     onReady(() => renderJibStory());
     addEventListener(EVT_SELECTED, renderJibStory);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") renderJibStory();
     });
 
-    // admin 저장 직후 브로드캐스트 수신 → 캐시 갱신 + 조건부 리렌더
     try {
       const bc = new BroadcastChannel("aud:jib-story");
       bc.addEventListener("message", (e) => {
@@ -362,8 +340,6 @@
         }
       });
     } catch {}
-
-    // 서버 푸시(socket.io) 실시간 반영 (타 기기까지)
     try {
       if (window.SOCKET && typeof window.SOCKET.on === "function") {
         window.SOCKET.on("jib:story-updated", (m = {}) => {
@@ -408,7 +384,7 @@
         btn.addEventListener("click", () => {
           const k = getSelected(); if (!k) return;
           toggle(k);
-          render(); // 즉시 UI
+          render();
           try { (window.mineRenderAll?.() || window.renderAll?.()); } catch {}
         }, { passive: true });
       }
