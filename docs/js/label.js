@@ -72,6 +72,8 @@ window.addEventListener("auth:state", (ev)=>{
 
 /* ===== [ADD] admin 캐시 & 바디 클래스 동기화 헬퍼 ===== */
 let __authUser = null;
+// [ADD] 페이지 로드 직후 이미 auth가 준비돼 있는 경우를 위해 초기 캐시
+try { __authUser = (typeof window.auth?.user === "function" ? window.auth.user() : window.auth?.user) ?? window.auth?.state?.user ?? null; } catch {}
 
 function syncAdminClass() {
   try { document.body.classList.toggle("is-admin", isAdmin()); } catch {}
@@ -94,7 +96,10 @@ function isAdmin() {
   try {
     const a = window.auth || {};
     // 이벤트로 캐싱된 사용자(가장 신뢰)
-    const u = __authUser ?? (typeof a.user === "function" ? a.user() : a.user);
+    const u = __authUser
+          ?? (typeof a.user === "function" ? a.user() : a.user)
+          ?? a.state?.user
+          ?? null;
 
     // 함수형 헬퍼 우선
     if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
@@ -286,7 +291,7 @@ function createHeartSVG({ filled, color = "#777" }) {
   const svg  = document.createElementNS("http://www.w3.org/2000/svg","svg");
   svg.setAttribute("viewBox","0 0 24 24"); svg.setAttribute("aria-hidden","true"); svg.style.display="block";
   const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-  path.setAttribute("d","M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6 4 4 6.5 4c1.74 0 3.41 1 4.22 2.44C11.09 5 12.76 4 14.5 4 17 4 19 6 19 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z");
+  path.setAttribute("d","M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z");
   path.setAttribute("fill", filled ? color : "none");
   path.setAttribute("stroke", filled ? color : "#777");
   path.setAttribute("stroke-width", filled ? "0" : "1.5");
@@ -475,12 +480,12 @@ function syncAll() {
   renderLabelStory();
 }
 
-
-ensureReady(() => whenStoreReady(() => {
-  // auth 준비 직후 한 번 바디 클래스/표시 상태 동기화
+ensureReady(() => {
   syncAdminClass();
   hideAdminOnlyWidgetsIfNeeded();
+});
 
+ensureReady(() => whenStoreReady(() => {
   // 첫 렌더
   syncAll();
 
