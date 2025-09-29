@@ -28,7 +28,7 @@
   const JIB_SYNC      = () => `jib:sync:${currentNS()}`;
   const BC_NAME       = () => `aud:sync:${currentNS()}`;
 
-  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.JIBS_JIBS;
+  const JIBS  = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS || WINDOW.JIBS;
   if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
   const isKind = (v) => typeof v === "string" && JIBS.includes(v);
 
