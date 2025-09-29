@@ -4,7 +4,8 @@
 /* ======================= 기본 셋업 ======================= */
 const SELECTED_KEY = "aud:selectedLabel";
 const EVT          = "aud:selectedLabel-changed";
-const OK = ["thump","miro","whee","track","echo","portal"];
+const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
   miro:   { category: "play", stars: 3 },

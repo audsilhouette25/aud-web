@@ -60,7 +60,8 @@ const FALLBACK_URL = pageHref("mine.html");
 
 /* ---- app data (map, stars, assets) ---- */
 const MAX_STARS = 3;
-const OK = ["thump", "miro", "whee", "track", "echo", "portal"];
+const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
   miro:   { category: "play", stars: 3 },

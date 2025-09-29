@@ -2276,8 +2276,10 @@
   (function QuickPanelLinks(){
     "use strict";
 
-    const LABELS = ["thump","miro","whee","track","echo","portal"];
-    const JIBS   = ["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"];
+    const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+    if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
+    const JIBS   = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
+    if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
 
     const SELECTED_LABEL_KEY = "aud:selectedLabel"; // sessionStorage
     const LABEL_COL_EVT      = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";

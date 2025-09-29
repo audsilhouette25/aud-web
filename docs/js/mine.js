@@ -3691,7 +3691,8 @@
   (() => {
     const $ = (s, r=document) => r.querySelector(s);
     const INSIGHTS_TTL = 10 * 60 * 1000; // 10분
-    const OPTIONS = ["thump","miro","whee","track","echo","portal"];
+    const OPTIONS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+  if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
     const getNS = (window.getNS) ? window.getNS : () => {
       try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
       catch { return "default"; }

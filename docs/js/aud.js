@@ -6,7 +6,8 @@ const MIRROR_KEY   = "aud:selectedLabel:mirror";
 const EVT          = "aud:selectedLabel-changed";
 const FALLBACK_URL = "./gallery.html";
 
-const OK = ["thump","miro","whee","track","echo","portal"];
+const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 // 우선 검은 버전 시도 → 실패하면 일반 png로 폴백
 const IMG_SRC = {

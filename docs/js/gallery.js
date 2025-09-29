@@ -1,6 +1,7 @@
 (() => {
   // ====== 설정 ======
-  const LABELS = ["thump","miro","whee","track","echo","portal"];
+  const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+  if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
   const SELECTED_KEY = "aud:selectedLabel";
   const MIRROR_KEY   = "aud:selectedLabel:mirror"; 
   const LABEL_SYNC_KEY = (window.LABEL_SYNC_KEY || "label:sync"); 

@@ -33,7 +33,8 @@ const FALLBACK_URL = "./gallery.html";
 const MAX_STARS    = 3;
 const BOOT_KEY     = "__boot.id";                    // guest reset on server reboot
 
-const OK = ["thump","miro","whee","track","echo","portal"];
+const OK = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
+if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
 
 const MAP = {
   miro:   { category: "play", stars: 3 },

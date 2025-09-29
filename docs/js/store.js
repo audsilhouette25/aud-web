@@ -6,10 +6,15 @@
    공통: 상수/유틸
 ──────────────────────────────────────────────────────────── */
 const isEmailNS = (s) => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim());
-const ALL_LABELS = /** @type {const} */ (["thump","miro","whee","track","echo","portal"]);
+const ALL_LABELS = (window.APP_CONFIG && Array.isArray(window.APP_CONFIG.LABELS))
+  ? window.APP_CONFIG.LABELS
+  : (window.ALL_LABELS || ["thump","miro","whee","track","echo","portal"]); // 최후 fallback
 const isLabel = (x) => typeof x === "string" && ALL_LABELS.includes(x);
 
-const ALL_JIBS = /** @type {const} */ (["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"]);
+
+const ALL_JIBS = (window.APP_CONFIG && Array.isArray(window.APP_CONFIG.JIBBITZ))
+  ? window.APP_CONFIG.JIBBITZ
+  : (window.ALL_JIBS || ["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"]); // 최후 fallback
 const isJibKind = (v)=> typeof v==="string" && ALL_JIBS.includes(v);
 
 const VERSION_KEY = "storeVersion";
