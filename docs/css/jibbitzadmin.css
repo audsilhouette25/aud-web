@@ -218,9 +218,3 @@ header.nav {
 }
 #previewStory p{ margin:0 0 10px; color:#111; font-size:14px; line-height:1.55; }
 #previewStory p:last-child{ margin-bottom:0; }
-
-/* 8) Divider (필요 시) */
-.jibbitzadmin-body .rule{
-  width:400px; height:1.8px; border-radius:1.8px;
-  background:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 12%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.10) 88%, rgba(0,0,0,0) 100%);
-}
