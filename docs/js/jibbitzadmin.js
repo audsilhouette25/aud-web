@@ -36,7 +36,7 @@ function setSelectedJib(jib) {
 }
 try { window.setSelectedJib = window.setSelectedJib || setSelectedJib; } catch {}
 
-/* ======================= API 헬퍼 (labeladmin.js와 동일) ======================= */
+/* ======================= API 헬퍼 (jibbitzadmin.js와 동일) ======================= */
 const API_ORIGIN = window.PROD_BACKEND || window.API_BASE || window.API_ORIGIN || null;
 const toAPI = (p) => {
   try {
@@ -180,8 +180,8 @@ function renderJibGalleryBox() {
   box.appendChild(img);
 }
 
-/* ======================= 에디터 DOM (labeladmin과 동일 포맷) ======================= */
-// why: labeladmin.js와 동일 포맷/문구/버튼을 보장
+/* ======================= 에디터 DOM (jibbitzadmin과 동일 포맷) ======================= */
+// why: jibbitzadmin.js와 동일 포맷/문구/버튼을 보장
 let __editorBooted = false;
 function renderEditorFrame() {
   if (__editorBooted) return;
@@ -205,7 +205,7 @@ function renderEditorFrame() {
       </div>
 
       <div class="preview-title">PREVIEW</div>
-      <div id="previewStory" class="labeladmin-story__container preview" aria-live="polite"></div>
+      <div id="previewStory" class="jibbitzadmin-story__container preview" aria-live="polite"></div>
     </section>
   `;
   host.hidden = false;
@@ -265,7 +265,7 @@ async function loadStoryToEditor(){
   setStatus("", "");
 
   if (!jib){
-    setStatus("NO LABEL SELECTED.", "warn"); // labeladmin과 문구/UX 통일
+    setStatus("NO LABEL SELECTED.", "warn"); // jibbitzadmin과 문구/UX 통일
     return;
   }
 
