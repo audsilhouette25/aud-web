@@ -389,7 +389,7 @@ header.nav{
 .quick .panel:first-child .grid-2{
   display: grid;
   grid-template-columns: 1fr;  /* ← 한 컬럼 고정 */
-  row-gap: 16px;
+  row-gap: 5px;
   column-gap: 0;
   align-content: start;        /* 카드 상단부터 배치 */
   justify-items: start;        /* 각 아이템 왼쪽 정렬 */
