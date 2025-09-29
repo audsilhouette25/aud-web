@@ -2414,9 +2414,6 @@
 
     function renderList(host, headerText, items){
       host.innerHTML = "";
-      const h = document.createElement("h4");
-      h.className = "quick-list__title";
-      h.textContent = headerText;
 
       const ul = document.createElement("ul");
       ul.className = "quick-list__ul";
@@ -2428,12 +2425,12 @@
         const a = document.createElement("a");
         a.className = "quick-list__link";
         a.textContent = it.text;
-        a.href = it.href;             // 새 탭/복사 등 기본 기능 유지
+        a.href = it.href;
         a.setAttribute("role","link");
         a.dataset.kind = it.kind;
-        a.dataset.type = it.type;     // "label" | "jib"
+        a.dataset.type = it.type; // "label" | "jib"
         a.addEventListener("click", (e)=>{
-          e.preventDefault(); // why: 먼저 선택 상태를 저장해야 대상 페이지가 즉시 렌더
+          e.preventDefault();
           if (it.type === "label") selectLabel(it.kind);
           else if (it.type === "jib") selectJib(it.kind);
           goto(it.href);
@@ -2441,7 +2438,7 @@
         li.appendChild(a);
         ul.appendChild(li);
       }
-      host.appendChild(h);
+
       host.appendChild(ul);
     }
 
