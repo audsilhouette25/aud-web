@@ -1221,12 +1221,33 @@
     }[c]));
   }
   function who(row) {
-    // 백엔드가 author를 주면 최우선, 없으면 user/owner, 그래도 없으면 row 자체에서 추출
+    // 1) 우선순위: author → user → owner → row
     const a = row?.author || row?.user || row?.owner || row || {};
-    const name  = a.displayName || a.username || row.displayName || row.username || "";
-    const email = a.email || row.email || "";
-    const ns    = a.ns || row.ns || email || "";
+
+    // 2) ns/email 추출 (어느 쪽이든 있으면 사용)
+    const rawNs   = a.ns || row.ns || "";
+    const rawMail = a.email || row.email || "";
+    const nsOrMail = String(rawMail || rawNs || "").toLowerCase();
+
+    // 3) 이름 후보: displayName → username → (이메일/NS의 로컬파트) → ns/email 원본
+    const emailLocal = (e) => String(e||"").split("@")[0] || "";
+    const fromLocal  = nsOrMail.includes("@") ? emailLocal(nsOrMail) : emailLocal(rawMail);
+
+    const name =
+      a.displayName || a.username ||
+      row.displayName || row.username ||
+      fromLocal ||                 // ← 최소한 ＠앞이라도 이름으로
+      (rawNs || rawMail || "member");
+
+    // 4) 이메일: 있으면 그대로, 없으면 ns가 이메일이면 그걸로
+    const email = rawMail || (nsOrMail.includes("@") ? nsOrMail : "");
+
+    // 5) ns: 우선 주어진 ns, 없으면 이메일/로컬을 대체로
+    const ns = rawNs || nsOrMail || email || fromLocal;
+
+    // 6) 아바타
     const avatar = a.avatarUrl || row.avatarUrl || "";
+
     return { name, email, ns, avatar };
   }
   function tableHTML(title, rows, mode = "posts") {
