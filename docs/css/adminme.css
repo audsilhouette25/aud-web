@@ -359,32 +359,6 @@ header.nav{
 .lb-grid .kpi-lg{ display: grid; place-items: center; min-height: 56px; font-weight: 700; }
 .lb-grid .err{ color: #ff6b6b; }
 
-/* 모바일에서 덜 중요한 열 숨김 예시: Rate */
-@media (max-width: 520px){
-  .lb-grid table.lb th:nth-child(6),
-  .lb-grid table.lb td:nth-child(6){ display: none; }
-}
-
-/* === Leaderboard: text-align only (high-specificity) === */
-
-/* 1) 모든 헤더/셀 기본 가운데 */
-#lb-root .lb-grid table.lb thead th,
-#lb-root .lb-grid table.lb tbody td{
-  text-align: center;
-}
-
-/* 2) Account 헤더(2열)만 가운데(명시) */
-#lb-root .lb-grid table.lb thead th:nth-child(2){
-  text-align: center;
-}
-
-/* 3) Account 내용(2열)만 좌측 */
-#lb-root .lb-grid table.lb tbody td:nth-child(2){
-  text-align: left;
-  /* 만약 Tailwind `text-right/center` 같은 유틸 클래스가 마크업에 붙어 있으면 아래 주석 해제 */
-  /* text-align: left !important;  */
-}
-
 /* =====================================================================
    9) Quick Panels (컬렉션 요약 등)
 ===================================================================== */

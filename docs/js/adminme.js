@@ -1205,24 +1205,6 @@
         <article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article>
       </div>
     `.trim();
-    if (!document.querySelector('#lb-leadstyle')) {
-      const css = document.createElement('style');
-      css.id = 'lb-leadstyle';
-      css.textContent = `
-        .lb-grid { display:grid; gap:16px; }
-        @media (min-width: 960px){ .lb-grid { grid-template-columns: 1fr 1fr; } }
-        .lb-grid .panel h3 { margin: 0 0 8px; font-size: 16px; }
-        .lb-grid table.lb { width:100%; border-collapse: collapse; }
-        .lb-grid table.lb th, .lb-grid table.lb td { border-bottom: 1px solid var(--line, rgba(0,0,0,.1)); padding:8px 10px; text-align:right; }
-        .lb-grid table.lb th:nth-child(1), .lb-grid table.lb td:nth-child(1) { text-align:left; width:64px; }
-        .lb-grid table.lb th:nth-child(2), .lb-grid table.lb td:nth-child(2) { text-align:left; }
-        .lb-grid .acc { display:flex; align-items:center; gap:8px; }
-        .lb-grid .lb-avatar { width:22px; height:22px; border-radius:50%; object-fit:cover; display:block; }
-        .lb-grid .muted { opacity: .65; font-size: 12px; }
-        .lb-grid .err { color: #ff7b7b; }
-      `;
-      document.head.appendChild(css);
-    }
     return document.getElementById('lb-root');
   }
 
