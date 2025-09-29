@@ -171,7 +171,7 @@ header.nav {
 /* 6) ───────────── Admin 전용: 스토리 작성란 (jibbitzadmin.css와 1:1) ───────────── */
 
 /* 에디터 박스 */
-.jibbitzadmin-body .label-admin__editor{
+.jibbitzadmin-body .jibbitz-admin__editor{
   width: clamp(375px, 88vw, 636px);
   margin:6px auto 48px;
   border:1px solid #e5e7eb;
@@ -180,10 +180,10 @@ header.nav {
   box-shadow:0 6px 14px rgba(0,0,0,.06);
   padding:16px;
 }
-.jibbitzadmin-body .label-admin__editor .editor-head{
+.jibbitzadmin-body .jibbitz-admin__editor .editor-head{
   display:flex; align-items:center; gap:12px; justify-content:space-between; margin-bottom:10px;
 }
-.jibbitzadmin-body .label-admin__editor .editor-title{
+.jibbitzadmin-body .jibbitz-admin__editor .editor-title{
   font-size:18px; font-weight:700; letter-spacing:.01em;
 }
 
