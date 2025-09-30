@@ -1045,7 +1045,11 @@
     let wrap = document.querySelector("#admin-lab");
     if (!wrap) {
       wrap = document.createElement("div");
-      wrap.id = "admin-lab"; wrap.className = "modal"; wrap.setAttribute("role","dialog"); wrap.setAttribute("aria-modal","true");
+      wrap.id = "admin-lab";
+      wrap.className = "modal";
+      wrap.setAttribute("role", "dialog");
+      wrap.setAttribute("aria-hidden", "true");
+      wrap.setAttribute("inert", "");
       wrap.innerHTML = `
         <button type="button" class="overlay" aria-label="Close"></button>
         <div class="sheet" role="document" aria-labelledby="admin-lab-title">
@@ -1053,8 +1057,8 @@
           <div class="admin-toolbar">
             <div class="spacer"></div>
             <input id="admin-lab-q" placeholder="Search by ns / id" aria-label="search" />
-            <button class="btn" id="admin-lab-refresh">Refresh</button>
-            <button class="btn" id="admin-lab-close">Close</button>
+            <button class="btn" id="admin-lab-refresh" type="button">Refresh</button>
+            <button class="btn" id="admin-lab-close" type="button">Close</button>
           </div>
           <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
           <p class="msg" id="admin-lab-msg" aria-live="polite"></p>
@@ -1062,29 +1066,80 @@
       document.body.appendChild(wrap);
     }
     if (!wrap.__bound) {
+      // 닫기/열기 관련
       wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
       wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
       wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", () => loadAdminLab());
       wrap.querySelector("#admin-lab-q")?.addEventListener("input", (e) => {
-        const v = (e.target.value||"").trim().toLowerCase();
+        const v = (e.target.value || "").trim().toLowerCase();
         filterAdminCards(v);
       });
+      // Esc
       wrap.__onEsc = (e) => { if (e.key === "Escape") closeAdminLabModal(); };
-      wrap.__bound = true;
+
+      /* ---------- (핵심) 단일 전역 클릭 위임: [data-act] ---------- */
+      wrap.addEventListener("click", async (e) => {
+        const btn = /** @type {HTMLElement|null} */ (e.target.closest?.("[data-act]") || null);
+        if (!btn) return;
+        if (wrap.hasAttribute("inert")) return; // 닫혀있으면 무시
+
+        const card = btn.closest?.(".card");
+        const act  = btn.dataset.act;
+        if (!act || !card) return;
+
+        const id = card.dataset.id;
+        const ns = card.dataset.ns;
+
+        try {
+          if (act === "hear") {
+            btn.setAttribute("disabled", "true");
+            await hearSubmission({ id, ns, card });
+          } else if (act === "accept") {
+            btn.setAttribute("disabled", "true");
+            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
+            const headers = { "Content-Type": "application/json", ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {}) };
+            const r = await fetch(new URL("/api/admin/audlab/accept", base), { method: "POST", credentials: "include", headers, body: JSON.stringify({ ns, id }) });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
+            btn.textContent = "Accepted ✓";
+            btn.classList.remove("primary");
+            btn.classList.add("ghost");
+            card.setAttribute("data-accepted", "1");
+          } else if (act === "copy-owner") {
+            const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
+            if (!owner) { alert("owner id가 없습니다."); return; }
+            try {
+              await navigator.clipboard.writeText(owner);
+              const prev = btn.textContent || "Copy";
+              btn.textContent = "Copied!";
+              btn.setAttribute("disabled", "true");
+              setTimeout(() => { btn.textContent = prev; btn.removeAttribute("disabled"); }, 900);
+            } catch {
+              prompt("Copy this owner id:", owner); // 브라우저 권한 이슈 대비
+            }
+          }
+        } finally {
+          // hear/accept 등은 위에서 disable 처리했지만, 실패시 복구
+          if (btn.dataset.act !== "copy-owner") btn.removeAttribute("disabled");
+        }
+      }, { capture: false });
+
+      wrap.__bound = true; // WHY: 중복 바인딩 방지
     }
     return wrap;
   }
   function openAdminLabModal(){
     const m = ensureAdminLabModal();
-    m.__prevFocus = document.activeElement && document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    m.removeAttribute('inert');
+    m.__prevFocus = (document.activeElement instanceof HTMLElement) ? document.activeElement : null;
+    m.removeAttribute("inert");                 // <- 클릭 막힘 방지(중요)
     m.classList.add("open");
-    m.setAttribute("aria-hidden","false");
+    m.setAttribute("aria-hidden", "false");
     document.body.classList.add("modal-open");
     const first = m.querySelector("#admin-lab-q") || m.querySelector("#admin-lab-close") || m.querySelector(".sheet");
     if (first && first instanceof HTMLElement) first.focus({ preventScroll: true });
     if (m.__onEsc && !m.__escAttached) { document.addEventListener("keydown", m.__onEsc); m.__escAttached = true; }
-    loadAdminLab().catch(()=>{});
   }
   function closeAdminLabModal(){
     const m = document.querySelector("#admin-lab"); if (!m) return;
@@ -1094,7 +1149,10 @@
       if (target && target instanceof HTMLElement) target.focus({ preventScroll: true });
       if (active instanceof HTMLElement) active.blur();
     }
-    m.classList.remove("open"); m.setAttribute("aria-hidden","true"); m.setAttribute("inert", ""); document.body.classList.remove("modal-open");
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden","true");
+    m.setAttribute("inert","");                // <- 닫힌 동안 포인터 이벤트 차단
+    document.body.classList.remove("modal-open");
     if (m.__onEsc && m.__escAttached) { document.removeEventListener("keydown", m.__onEsc); m.__escAttached = false; }
   }
 
@@ -1106,7 +1164,7 @@
     const ownerId   = String(it.ownerId || it.ns || "").trim();
     const ns        = String(it.ns || "").toLowerCase();
     const ownerName = String(it.ownerName || ownerId || "—");
-    const escX = (s) => String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    const escX = (s) => String(s || "").replace(/[&<>"']/g, (c)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     return `
       <div class="card" data-id="${escX(it.id)}" data-ns="${escX(ns)}" data-owner="${escX(ownerId)}" ${accepted ? 'data-accepted="1"' : ''}>
         <img alt="" src="${escX(thumb)}" />
@@ -1116,7 +1174,7 @@
           <span class="time">${escX(when)}</span>
         </div>
         <div class="row row--spaced">
-          <button class="btn" data-act="hear">Hear</button>
+          <button class="btn" type="button" data-act="hear">Hear</button>
         </div>
       </div>`.trim();
   }
@@ -1222,43 +1280,37 @@
   }
 
   async function loadAdminLab() {
-    const msg  = document.querySelector("#admin-lab-msg");
-    const grid = document.querySelector("#admin-lab-grid");
-    if (msg)  msg.textContent = "Loading…";
+    const m    = ensureAdminLabModal();
+    const grid = m.querySelector("#admin-lab-grid");
+    const msg  = m.querySelector("#admin-lab-msg");
     if (grid) grid.innerHTML = "";
-    const nameFrom = (snap) => {
-      if (!snap || typeof snap !== "object") return "";
-      const username    = (snap.username    ?? snap.user?.username    ?? "").toString().trim();
-      const displayName = (snap.displayName ?? snap.user?.displayName ?? snap.name ?? snap.user?.name ?? "").toString().trim();
-      return username || displayName;
-    };
+    if (msg)  msg.textContent = "Loading…";
     try {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      const url  = new URL("/api/admin/audlab/all", base).toString();
-      const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json().catch(() => ({}));
-      const items = Array.isArray(j?.items) ? j.items.map(src => {
-        const ns       = src.ns || src.owner?.ns || "";
-        const ownerId  = (src.user?.id ?? src.owner?.id ?? ns ?? "");
-        const email    = (src.user?.email ?? src.owner?.email ?? "").toString();
-        const emailLocalX = email.includes("@") ? email.split("@")[0] : email;
-        const ownerName =
-          nameFrom(src.user) || nameFrom(src.owner) || emailLocalX || ownerId || "—";
-        const preview = (typeof window.__toAPI === "function") ? window.__toAPI(src.image || src.preview || src.png || "") : (src.image || src.preview || src.png || "");
-        return { id: src.id, ns, ownerId: String(ownerId || ""), ownerName: String(ownerName || ""), preview, createdAt: src.createdAt ?? src.created_at ?? null, accepted: !!src.accepted };
-      }) : [];
-      if (!items.length) { if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`; if (msg)  msg.textContent = ""; return; }
+      const u = new URL("/api/admin/audlab/all", base);
+      const res = await fetch(u, { credentials: "include", cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      const items = Array.isArray(j?.items)
+        ? j.items.map((src) => {
+            const ns = String(src.ns || src.namespace || "").toLowerCase();
+            const ownerId = String(src.ownerId || src.ns || "").trim();
+            return { id: src.id, ns, ownerId, ownerName: src.ownerName || ownerId, preview: src.preview || src.thumbnail || src.image || src.png || "", createdAt: src.createdAt ?? src.created_at ?? null, accepted: !!src.accepted };
+          })
+        : [];
+      if (!items.length) { if (grid) grid.innerHTML = `<div class="empty">No submissions.</div>`; if (msg) msg.textContent = ""; return; }
       if (grid) {
         grid.innerHTML = items.map(cardHTML).join("");
-        wireCardActions(grid);
+        // 관리자일 때 Accept 버튼 주입 (type="button" 보장)
         try {
           const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
           if (admin) {
             grid.querySelectorAll(".card .row--spaced").forEach((row) => {
               if (!row.querySelector('[data-act="accept"]')) {
                 const b = document.createElement("button");
-                b.className = "btn primary"; b.setAttribute("data-act", "accept"); b.textContent = "Accept";
+                b.className = "btn primary";
+                b.setAttribute("data-act", "accept");
+                b.setAttribute("type", "button"); // <- 중요
+                b.textContent = "Accept";
                 row.appendChild(b);
               }
             });
