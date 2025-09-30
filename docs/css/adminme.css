@@ -817,8 +817,13 @@ header.nav{
   background:#f5f6f8; cursor:pointer; font-size:13px; font-weight:600;
 }
 #admin-lab .nsbar .pill.active { background:#111; color:#fff; border-color:#111; }
-#admin-lab .admin-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; }
-#admin-lab .card { border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:10px; background:#fff; }
+#admin-lab .admin-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(260px,1fr));
+  gap:12px;
+  justify-items:center;
+}
+#admin-lab .card { border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:10px; background:#fff; width:260px; }
 #admin-lab .card img { width:100%; height:auto; border-radius:12px; display:block; background:#f3f4f6; }
 #admin-lab .card .meta { margin-top:6px; font-size:12px; color:#6b7280; display:flex; justify-content:space-between; gap:8px; }
 #admin-lab .empty { color:#9ca3af; padding:24px; text-align:center; border:1px dashed #e5e7eb; border-radius:12px; }
@@ -859,12 +864,12 @@ header.nav{
 #admin-lab .card .row--spaced {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
   margin-top: 10px;
   min-height: 48px;
   padding-inline: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 #admin-lab .card .btn {
