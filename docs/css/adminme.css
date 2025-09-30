@@ -810,3 +810,13 @@ header.nav{
   border-radius: 12px;
   background-color: #111;        /* 이미지 로드 전 배경 */
 }
+
+/* file: /public/css/me.css (또는 공용 CSS) */
+/* [5] ADD — 영구 규칙: 모달 컨트롤은 항상 인터랙션 가능 */
+#admin-lab.modal .sheet,
+#admin-lab.modal .admin-toolbar,
+#admin-lab.modal .btn,
+#admin-lab.modal button,
+#admin-lab.modal [role="button"] {
+  pointer-events: auto !important; /* why: 전역 reset/오버레이 규칙으로 none 되는 것 차단 */
+}

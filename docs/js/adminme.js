@@ -106,6 +106,55 @@ async function fetchJsonStrict(jsonUrl) {
     catch { return String(n ?? 0); }
   };
 
+  function fixAdminLabPointerEvents(root) {
+    if (!root) return;
+    // 1) pointer-events:auto 강제 (왜: 상위/전역 CSS가 none으로 막음)
+    const targets = root.querySelectorAll('button, .btn, [role="button"], .admin-toolbar, .sheet');
+    targets.forEach(el => {
+      const pe = getComputedStyle(el).pointerEvents;
+      if (pe === 'none') el.style.pointerEvents = 'auto';
+    });
+
+    // 2) z-index 안전값(겹침으로 클릭 가로채기 방지)
+    const overlay = root.querySelector('.overlay');
+    const sheet   = root.querySelector('.sheet');
+    if (root.style.zIndex !== '9999') root.style.zIndex = '9999';
+    if (overlay && overlay.style.zIndex !== '1') overlay.style.zIndex = '1';
+    if (sheet   && sheet.style.zIndex   !== '2') sheet.style.zIndex   = '2';
+
+    // 3) 캡처 단계로 확실한 클릭 바인딩 (겹침/버블 이슈 무력화)
+    const onCap = (el, fn) => el && el.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation(); fn && fn(e);
+    }, { capture: true });
+
+    onCap(root.querySelector('#admin-lab-refresh'), () => {
+      // 두 구현 중 사용 중인 로더 호출
+      if (typeof loadAdminLab === 'function') loadAdminLab();
+      else if (typeof loadAdminList === 'function') loadAdminList();
+    });
+    onCap(root.querySelector('#admin-lab-close'), () => {
+      root.classList.remove('open');
+      root.setAttribute('aria-hidden','true');
+      root.setAttribute('inert','');
+      document.body.classList.remove('modal-open');
+    });
+    onCap(overlay, () => {
+      root.classList.remove('open');
+      root.setAttribute('aria-hidden','true');
+      root.setAttribute('inert','');
+      document.body.classList.remove('modal-open');
+    });
+
+    // 4) 동적 DOM 변화에도 자동 재적용
+    if (!root.__peMo) {
+      const mo = new MutationObserver(() => {
+        fixAdminLabPointerEvents(root);
+      });
+      mo.observe(root, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
+      root.__peMo = mo;
+    }
+}
+
   /* [A] helpers (file-scope) */
   function isEmailNS(s) {
     return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim());
@@ -729,6 +778,7 @@ async function fetchJsonStrict(jsonUrl) {
         </div>
       `.trim();
       document.body.appendChild(wrap);
+      try { fixAdminLabPointerEvents(wrap); } catch {}
     }
 
     // 이미 있어도 바인딩은 한 번 보장
@@ -775,6 +825,7 @@ async function fetchJsonStrict(jsonUrl) {
       m.__escAttached = true;
     }
     loadAdminLab().catch(()=>{});
+    try { fixAdminLabPointerEvents(m); } catch {}
   }
 
   // 모달 닫기: 포커스 밖으로 이동 → aria-hidden/inert 적용
@@ -2874,6 +2925,7 @@ async function fetchJsonStrict(jsonUrl) {
         </div>
       `.trim();
       document.body.appendChild(modal);
+      try { fixAdminLabPointerEvents(modal); } catch {}
       modal.querySelector(".overlay")?.addEventListener("click", ()=> modal.classList.remove("open"));
       modal.querySelector("#admin-lab-close")?.addEventListener("click", ()=> modal.classList.remove("open"));
       modal.querySelector("#admin-lab-refresh")?.addEventListener("click", loadAdminList);
@@ -2927,6 +2979,7 @@ async function fetchJsonStrict(jsonUrl) {
     function openAdminModal() {
       const m = ensureAdminModal();
       m.classList.add("open");
+      try { fixAdminLabPointerEvents(m); } catch {}
       loadAdminList();
     }
 
