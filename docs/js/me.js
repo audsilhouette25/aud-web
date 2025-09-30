@@ -1973,602 +1973,207 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     bindDeleteButtonForMe();
   }
 
-  /* ==== PATCH: append to bottom of public/js/me.js ==== */
-  /* aud laboratory inlined into me.js (isolated via IIFE). 
-    Why: keep single-file page JS without polluting globals. */
+  // ================================
+  // File: public/js/me.js  (aud laboratory block ONLY)
+  // Replace the whole "aud laboratory" IIFE with this one
+  // ================================
   (() => {
-    // --- fast exit if lab UI is not on this page ---
     const $ = (s, r = document) => r.querySelector(s);
     const cvs = $("#aud-canvas");
-    if (!cvs) return; // lab not present → do nothing
+    if (!cvs) return;
 
-    // --- DOM refs ---
-    const btnPlay = $("#lab-play");
-    const btnUndo = $("#lab-undo");
-    const btnClear = $("#lab-clear");
+    // DOM
+    const btnPlay   = $("#lab-play");
+    const btnUndo   = $("#lab-undo");
+    const btnClear  = $("#lab-clear");
     const btnSubmit = $("#lab-submit");
-    const spanStrokes = $("#lab-strokes");
-    const spanPoints = $("#lab-points");
+    const spanStk   = $("#lab-strokes");
+    const spanPts   = $("#lab-points");
 
-    // --- API base (reuse existing globals if present) ---
+    // API helper
     const API = (path) => {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      const u = new URL(String(path).replace(/^\/+/, ""), base);
-      return u.toString();
+      return new URL(String(path).replace(/^\/+/, ""), base).toString();
     };
 
-    // CSRF 헬퍼(존재하면 사용)
-    const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
-    const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
-
-    // --- Canvas & drawing state ---
+    // Canvas
     const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     let W = 900, H = 500;
-    const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
+    const ctx = cvs.getContext("2d", { desynchronized: true, alpha: false });
 
     /** @typedef {{x:number,y:number,t:number}} Point */
     /** @typedef {{points: Point[]}} Stroke */
     const strokes = [];
-    let curStroke = null;
-    let isDrawing = false;
+    let cur = null;
+    let drawing = false;
 
-    // --- Audio state ---
+    // Audio (preview)
     let AC = null, master = null, osc = null;
     let playing = false;
     let lastNoteAt = 0;
 
-    /* === Recorder (NEW) === */
+    // Recorder (optional)
     let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
-    // ======== [NEW] Canvas+Audio Recording glue (inside the Lab IIFE) ========
-    let __rec = { mr: null, chunks: [], meta: null, stream: null };
 
-    // MIME 후보 고르기
-    function pickVideoMime() {
-      const cand = [
-        "video/webm;codecs=vp9,opus",
-        "video/webm;codecs=vp8,opus",
-        "video/webm"
-      ];
-      for (const m of cand) {
-        try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m; } catch {}
-      }
-      return "video/webm";
-    }
-
-    // WebAudio(master) 출력을 MediaStream으로
-    function getWebAudioStream() {
-      try {
-        if (!AC || !master) return null;
-        if (!__rec._dest) __rec._dest = AC.createMediaStreamDestination();
-        if (!master.__tap) { master.connect(__rec._dest); master.__tap = true; }
-        return __rec._dest.stream;
-      } catch { return null; }
-    }
-
-    // 선택적 마이크 스트림(권한 거절 시 null)
-    async function getMicStreamOptional() {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        return s;
-      } catch { return null; }
-    }
-
-    // 비디오(captureStream) + 오디오 트랙 결합
-    function buildMixedStreamFrom(canvas, ...audioStreams) {
-      const fps = 60;
-      const v = canvas.captureStream?.(fps);
-      if (!v) return null;
-      const out = new MediaStream();
-      v.getTracks().forEach(t => out.addTrack(t));
-      for (const a of audioStreams) {
-        if (!a) continue;
-        a.getAudioTracks().forEach(t => out.addTrack(t));
-      }
-      return { stream: out, fps };
-    }
-
-    async function startCanvasRecording() {
-      if (!cvs || !window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-        throw new Error("capture_not_supported");
-      }
-
-      // 오디오: WebAudio 우선, 마이크는 옵션
-      const webAudio = getWebAudioStream();
-      const mic = await getMicStreamOptional().catch(() => null);
-      const mix = buildMixedStreamFrom(cvs, webAudio, mic);
-      if (!mix) throw new Error("capture_not_supported");
-
-      __rec.stream = mix.stream;
-      __rec.chunks = [];
-      __rec.meta = {
-        id: (crypto?.randomUUID && crypto.randomUUID()) || String(Date.now()),
-        width: cvs.width, height: cvs.height,
-        fps: mix.fps, startedAt: Date.now()
-      };
-
-      const mime = pickVideoMime();
-      __rec.mime = mime;
-      __rec.mr = new MediaRecorder(__rec.stream, {
-        mimeType: mime,
-        videoBitsPerSecond: 4_000_000
-      });
-      __rec.mr.ondataavailable = (e) => { if (e.data && e.data.size) __rec.chunks.push(e.data); };
-      __rec.mr.start(250);
-    }
-
-    function stopRecorderAsync() {
-      return new Promise((resolve) => {
-        const mr = __rec.mr;
-        if (!mr) return resolve();
-        __rec.mr = null;
-        const done = () => resolve();
-        mr.addEventListener("stop", done, { once: true });
-        try { mr.stop(); } catch { resolve(); }
-      });
-    }
-
-    // File: public/js/me.js  (aud laboratory IIFE 안) 
-    // === REPLACE the whole function: stopAndUploadRecording ===
-    async function stopAndUploadRecording(note = null) {
-      // 녹화 메타 없으면 업로드 시도하지 않음
-      if (!__rec.meta) return null;
-
-      // 1) MediaRecorder 종료 및 스트림 정리
-      await stopRecorderAsync().catch(() => {});
-      const blob = new Blob(__rec.chunks || [], { type: __rec.mime || "video/webm" });
-      __rec.chunks = [];
-      try { __rec.stream?.getTracks?.().forEach(t => t.stop()); } catch {}
-      __rec.stream = null;
-
-      // 2) 타이밍 계산 (지역에서 보장)
-      //    - 캔버스 녹화 시작 시 넣은 __rec.meta.startedAt 우선
-      //    - strokes 배열에 t가 있으면 더 정확한 범위 사용
-      const nowTs = Date.now();
-      let startedAt = Number(__rec.meta?.startedAt) || nowTs;
-      let endedAt   = nowTs;
-
-      try {
-        // strokes: [{ points:[{t,x,y}, ...] }, ...]
-        const ts = [];
-        if (Array.isArray(strokes)) {
-          for (const st of strokes) {
-            const pts = Array.isArray(st?.points) ? st.points : [];
-            for (const p of pts) {
-              const t = Number(p?.t);
-              if (Number.isFinite(t)) ts.push(t);
-            }
-          }
-        }
-        if (ts.length) {
-          ts.sort((a,b)=>a-b);
-          // 녹화 시작 메타와 strokes 타임이 모두 있을 때, 더 이른 것을 시작 시각으로 사용
-          startedAt = Math.min(startedAt, ts[0] || startedAt);
-          endedAt   = Math.max(endedAt,   ts[ts.length - 1] || endedAt);
-        }
-      } catch { /* 안전 폴백: nowTs 사용 */ }
-
-      const durationMs = Math.max(0, endedAt - startedAt);
-
-      // 3) 이메일 NS 검증
-      const ns = (typeof getNS === "function" ? getNS() : "").trim().toLowerCase();
-      if (typeof isEmailNS === "function" ? !isEmailNS(ns) : !/^[^@]+@[^@]+\.[^@]+$/.test(ns)) {
-        throw new Error("ns_required");
-      }
-
-      // 4) 업로드(form-data)
-      const fd = new FormData();
-      fd.append("ns", ns);
-      fd.append("meta", JSON.stringify({
-        ...(__rec.meta || {}),
-        startedAt,
-        endedAt,
-        durationMs,
-        note
-      }));
-      if (blob && blob.size) fd.append("record", blob, `${(__rec.meta?.id || Date.now())}.webm`);
-
-      const url = (typeof window.__toAPI === "function")
-        ? window.__toAPI("/api/audlab/record")
-        : new URL("/api/audlab/record", location.origin).toString();
-
-      await ensureCSRF();
-      const resp = await fetch(url, await withCSRF({ method: "POST", credentials: "include", body: fd }));
-
-      if (!resp.ok) {
-        let j = null; try { j = await resp.json(); } catch {}
-        throw new Error(`upload_failed:${j?.error || resp.status}`);
-      }
-      const j = await resp.json().catch(() => ({}));
-      return j; // { ok, id, ns, webm, meta }
-    }
-    // ======== [/NEW] ========
-
-    function startRecorder(){
-      if (!AC) return;
-      if (!recDest) recDest = AC.createMediaStreamDestination();
-      if (master && recDest && !master.__recWired){
-        master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
-        master.__recWired = true;
-      }
-      if (!mediaRecorder) {
-        const mtype =
-          MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
-          MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
-          "audio/webm";
-        mediaRecorder = new MediaRecorder(recDest.stream, {
-          mimeType: mtype,
-          audioBitsPerSecond: 256000
-        });
-        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
-        mediaRecorder.onstop = ()=>{
-          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
-          catch { lastRecording = null; }
-          recChunks = [];
-        };
-      }
-      if (mediaRecorder.state !== "recording") mediaRecorder.start();
-    }
-
-    function stopRecorder(){
-      if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-      }
-    }
-
-    // --- Helpers ---
-    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-    function now(){ return performance.now(); }
-
-    function resizeCanvas() {
-      const rect = cvs.getBoundingClientRect();
-      W = Math.max(320, Math.floor(rect.width * DPR));
-      H = Math.max(180, Math.floor(rect.height * DPR));
-      cvs.width = W; cvs.height = H;
+    // ---------- draw helpers ----------
+    function resizeCanvas(){
+      const r = cvs.getBoundingClientRect();
+      W = Math.max(16, Math.floor(r.width));
+      H = Math.max(16, Math.floor(r.height));
+      cvs.width  = Math.floor(W * DPR);
+      cvs.height = Math.floor(H * DPR);
+      ctx.setTransform(DPR,0,0,DPR,0,0);
       drawAll();
     }
-
+    function bg(){ ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H); }
+    function drawAll(){
+      bg();
+      ctx.lineJoin = "round"; ctx.lineCap="round"; ctx.lineWidth = 2.5; ctx.strokeStyle = "#222";
+      for (const s of strokes){
+        const pts = s.points||[];
+        if (pts.length<2) continue;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x*W, pts[0].y*H);
+        for (let i=1;i<pts.length;i++){ const p=pts[i]; ctx.lineTo(p.x*W, p.y*H); }
+        ctx.stroke();
+      }
+    }
     function updateCounters(){
-      const p = strokes.reduce((s, st)=>s + st.points.length, 0);
-      if (spanStrokes) spanStrokes.textContent = String(strokes.length);
-      if (spanPoints)  spanPoints.textContent  = String(p);
-      if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
-      if (btnClear) btnClear.disabled = strokes.length === 0;
-      const hasRecording = !!(__rec?.meta || (__rec?.chunks?.length||0) > 0);
-      if (btnSubmit) btnSubmit.disabled = (strokes.length === 0) && !hasRecording;
+      const pc = strokes.reduce((a,s)=>a+(s.points?.length||0),0);
+      if (spanStk) spanStk.textContent = String(strokes.length);
+      if (spanPts) spanPts.textContent = String(pc);
+      if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+      if (btnUndo)   btnUndo.disabled   = strokes.length===0;
+      if (btnClear)  btnClear.disabled  = strokes.length===0;
     }
 
-    function drawAll() {
-      // background bands
-      ctx2d.fillStyle = "#eef2f7";
-      ctx2d.fillRect(0,0,W,H);
-      const bands = 8;
-      for (let i=0;i<bands;i++){
-        const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
-        ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
-        ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
-        if (i%2) {
-          ctx2d.fillStyle = "rgba(0,0,0,.03)";
-          ctx2d.fillRect(0, y0, W, 1);
-        }
-      }
-      // strokes
-      ctx2d.lineJoin = "round";
-      ctx2d.lineCap = "round";
-      for (const st of strokes) {
-        if (st.points.length < 2) continue;
-        ctx2d.strokeStyle = "#111";
-        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-        ctx2d.beginPath();
-        ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
-        for (let i=1;i<st.points.length;i++){
-          const p = st.points[i];
-          ctx2d.lineTo(p.x*W, p.y*H);
-        }
-        ctx2d.stroke();
-      }
-    }
-
+    // ---------- audio helpers ----------
     function startAudio(){
-      if (AC) return;
-      AC = new (window.AudioContext || window.webkitAudioContext)();
-      master = AC.createGain();
-      master.gain.value = 0.0;
-      master.connect(AC.destination);   // 스피커
-
-      osc = AC.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = 440;
-      osc.connect(master);
-      osc.start();
-
-      // (NEW) 녹음 경로도 준비
-      startRecorder();
-      startCanvasRecording().catch(()=>{ /* fallback to old flow */ });
+      if (!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+      if (!master){ master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination); }
+      if (!osc){ osc = AC.createOscillator(); osc.type="sine"; osc.connect(master); osc.start(); }
     }
-
-    function freqFromY(yNorm){
-      // y=0(top) -> high, y=1(bottom) -> low
-      const fMin = 110;  // A2
-      const fMax = 1760; // A6
-      const inv = 1 - clamp(yNorm, 0, 1);
-      return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
+    function noteOn(y){
+      const fMin=110,fMax=1760; // A2~A6
+      const fq = fMin * Math.pow(fMax/fMin, 1 - Math.max(0,Math.min(1,y)));
+      const now = AC.currentTime;
+      osc.frequency.cancelScheduledValues(now);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, fq), now + 0.04);
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(0.0, now);
+      master.gain.linearRampToValueAtTime(0.85, now + 0.012);
+      master.gain.linearRampToValueAtTime(0.0, now + 0.1);
+      lastNoteAt = now;
     }
+    function noteOff(){ try { master && (master.gain.value = 0); } catch {} }
 
-    function applySoundForPoint(pxNorm, pyNorm){
-      if (!AC) startAudio();
-      if (AC.state === "suspended") AC.resume();
-
-      const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
-      const f = freqFromY(pyNorm);
-
-      const t = AC.currentTime;
-      const portamento = 0.02 + 0.18 * legato; // smoother to the right
-      osc.frequency.cancelScheduledValues(t);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
-
-      const nowMs = now();
-      const staccato = 1 - legato;
-      const retriggerGap = 18 + 120 * staccato; // ms
-      const a = 0.003 + 0.020 * legato; // attack
-      const r = 0.030 + 0.250 * (1 - legato); // release
-
-      // Left: chopped via retrigger; Right: sustained
-      if (staccato > 0.12) {
-        if (nowMs - lastNoteAt > retriggerGap) {
-          lastNoteAt = nowMs;
-          master.gain.cancelScheduledValues(t);
-          master.gain.setValueAtTime(0.0, t);
-          master.gain.linearRampToValueAtTime(0.9, t + a);
-          master.gain.linearRampToValueAtTime(0.0, t + a + r);
-        }
-      } else {
-        master.gain.cancelScheduledValues(t);
-        const g = 0.15 + 0.75 * legato;
-        master.gain.linearRampToValueAtTime(g, t + a);
-      }
+    // ---------- pointer drawing ----------
+    function norm(e){
+      const r = cvs.getBoundingClientRect();
+      return { x: (e.clientX - r.left)/r.width, y: (e.clientY - r.top)/r.height };
     }
-
-    function noteOff(){
-      if (!AC || !master) return;
-      const t = AC.currentTime;
-      master.gain.cancelScheduledValues(t);
-      master.gain.linearRampToValueAtTime(0.0, t + 0.08);
-    }
-
-    // --- Pointer handlers ---
-    function getXY(e){
-      const rect = cvs.getBoundingClientRect();
-      const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
-      const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
-      return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
-    }
-    function toNorm({x,y}){
-      const rect = cvs.getBoundingClientRect();
-      return { x: x/rect.width, y: y/rect.height };
-    }
-
-    function beginStroke(e){
-      if (!playing) return; // only when play ON
-      isDrawing = true;
-      curStroke = { points: [] };
-      const p = toNorm(getXY(e));
-      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-      strokes.push(curStroke);
-      applySoundForPoint(p.x, p.y);
+    function begin(e){
+      drawing = true;
+      cur = { points: [] };
+      const t = performance.now();
+      const {x,y} = norm(e);
+      cur.points.push({ x, y, t });
+      strokes.push(cur);
+      startAudio();
+      noteOn(y);
       updateCounters();
+    }
+    function move(e){
+      if (!drawing || !cur) return;
+      const {x,y} = norm(e);
+      cur.points.push({ x, y, t: performance.now() });
       drawAll();
+      noteOn(y);
+      updateCounters();
     }
-
-    function moveStroke(e){
-      if (!isDrawing || !curStroke) return;
-      const p = toNorm(getXY(e));
-      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
-      applySoundForPoint(p.x, p.y);
-      // incremental draw
-      const lastTwo = curStroke.points.slice(-2);
-      if (lastTwo.length === 2){
-        ctx2d.strokeStyle = "#111";
-        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
-        ctx2d.beginPath();
-        ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
-        ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
-        ctx2d.stroke();
-      }
-      if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
-    }
-
-    function endStroke(){
-      if (!isDrawing) return;
-      isDrawing = false;
-      curStroke = null;
+    function end(){
+      if (!drawing) return;
+      drawing = false;
+      cur = null;
       if (!playing) noteOff();
       updateCounters();
     }
 
-    function undoStroke(){
-      if (!strokes.length) return;
-      strokes.pop();
-      drawAll();
-      updateCounters();
+    // ---------- transport ----------
+    function startRecorder(){
+      if (!AC) return;
+      if (!recDest) recDest = AC.createMediaStreamDestination();
+      if (master && recDest && !master.__recWired){
+        master.connect(recDest); master.__recWired = true; // why: capture preview audio only
+      }
+      if (!mediaRecorder){
+        const mt = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
+              : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus"
+              : "audio/webm";
+        mediaRecorder = new MediaRecorder(recDest.stream, { mimeType: mt, audioBitsPerSecond: 128000 });
+        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
+        mediaRecorder.onstop = ()=>{
+          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); } catch { lastRecording=null; }
+          recChunks = [];
+        };
+      }
+      if (mediaRecorder.state!=="recording") mediaRecorder.start(1000);
     }
-
-    function clearAll(){
-      strokes.length = 0;
-      drawAll();
-      updateCounters();
-    }
+    function stopRecorder(){ if (mediaRecorder?.state==="recording") mediaRecorder.stop(); }
 
     function togglePlay(){
       playing = !playing;
-      if (btnPlay) {
-        btnPlay.setAttribute("aria-pressed", String(playing));
-        btnPlay.textContent = playing ? "Pause" : "Play";
-      }
-      if (playing) {
-        startAudio();
-      } else {
-        noteOff();
-        stopRecorder();
-      }
+      if (btnPlay){ btnPlay.setAttribute("aria-pressed", String(playing)); btnPlay.textContent = playing?"Pause":"Play"; }
+      if (playing){ startAudio(); startRecorder(); } else { noteOff(); stopRecorder(); }
     }
 
-    // --- Submit ---
-    function blobToDataURL(blob){
-      return new Promise((resolve,reject)=>{
-        const fr = new FileReader();
-        fr.onload = ()=> resolve(fr.result);
-        fr.onerror = reject;
-        fr.readAsDataURL(blob);
-      });
-    }
-
-    // === REPLACE: submitLab (me.js) ===
+    // ---------- submit ----------
+    function blobToDataURL(blob){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); }); }
     async function submitLab(){
       if (btnSubmit) btnSubmit.disabled = true;
-
-      // 0) 방어: strokes 비었으면 거절
-      const totalPts = strokes.reduce((n,s)=> n + (Array.isArray(s.points) ? s.points.length : 0), 0);
-      if (totalPts === 0) {
-        alert("그림이 없습니다. 먼저 캔버스에 그려주세요.");
-        if (btnSubmit) btnSubmit.disabled = false;
-        return;
-      }
-
-      // 1) 이메일 NS 검증
-      const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
-        .toString().trim().toLowerCase();
-      const isEmail = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(nsEmail);
-      if (!isEmail) {
-        alert("로그인이 필요합니다(이메일 계정).");
-        if (btnSubmit) btnSubmit.disabled = false;
-        return;
-      }
-
-      // 2) 타이밍 메타(재생 용도)
-      const ts = [];
-      for (const st of strokes) {
-        for (const p of (st.points || [])) {
-          const t = +p.t; if (Number.isFinite(t)) ts.push(t);
-        }
-      }
-      ts.sort((a,b)=>a-b);
-      const startedAt = ts.length ? ts[0] : Date.now();
-      const endedAt   = ts.length ? ts[ts.length-1] : startedAt;
-      const durationMs = Math.max(0, endedAt - startedAt);
-
-      // 3) 미리보기 PNG (옵션)
-      const previewDataURL = cvs.toDataURL("image/png", 0.92);
-
-      // 4) 전송
-      const payload = {
-        ns: nsEmail,
-        width: W,
-        height: H,
-        strokes,              // ← path만 저장
-        previewDataURL,       // ← 썸네일
-        startedAt, endedAt, durationMs,
-        createdAt: Date.now(),
-        v: 2
-      };
-
       try {
-        await ensureCSRF();
-        const res = await fetch(API("/api/audlab/submit"), await withCSRF({
-          method: "POST",
-          headers: { "Content-Type":"application/json","Accept":"application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload)
-        }));
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        const j = await res.json().catch(()=>null);
-        if (!j?.ok) throw new Error(j?.error || "submit_failed");
+        const dataURL = cvs.toDataURL("image/png", 0.92);
+        if (playing) togglePlay();
+        await new Promise(r=>setTimeout(r,260));
 
-        btnSubmit && (btnSubmit.textContent = "Submitted ✓");
-        setTimeout(() => { btnSubmit.textContent = "Submit"; btnSubmit.disabled = false; }, 1000);
+        // Path 중심으로 제출(오디오/프리뷰는 선택)
+        const nsEmail = (typeof window.getNS==="function" ? window.getNS() : "").toString().trim().toLowerCase();
+        if (!(nsEmail && /\S+@\S+/.test(nsEmail))) { alert("로그인이 필요합니다."); if (btnSubmit) btnSubmit.disabled=false; return; }
+
+        const payload = { ns: nsEmail, width: W, height: H, strokes, previewDataURL: dataURL };
+        const res = await fetch(API("/api/audlab/submit"), {
+          method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" }, credentials:"include", body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`submit_api_${res.status}`);
+        const j = await res.json().catch(()=>null);
+        if (!j?.ok) throw new Error("submit_failed");
+
+        if (btnSubmit){ btnSubmit.textContent = "Submitted ✓"; setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200); }
       } catch (e) {
         alert("제출 실패: " + (e?.message || e));
-        if (btnSubmit) btnSubmit.disabled = false;
+      } finally {
+        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
       }
     }
 
-    // --- WAV fallback: OfflineAudioContext로 합성 후 PCM16 WAV 인코딩
-    async function renderWavFromStrokes(strokes, W, H, { sampleRate=44100 }={}){
-      if (!Array.isArray(strokes) || !strokes.length) return null;
-      // 길이 추정: 마지막 포인트 시간 + 여유 150ms
-      const tMax = Math.max(...strokes.map(st => (st.points?.at(-1)?.t ?? 0)));
-      const durSec = Math.max(0.2, (tMax / 1000) + 0.15);
-      const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(sampleRate*durSec), sampleRate);
-      const master = ctx.createGain(); master.gain.value = 0.0; master.connect(ctx.destination);
-      const osc = ctx.createOscillator(); osc.type = "sine"; osc.connect(master);
-      const startAt = 0.05; const port = 0.012;
-      const pts = strokes.flatMap(st => st.points||[]);
-      if (!pts.length) return null;
-      const t0 = pts[0].t ?? 0;
-      const freqFromY = (y)=>{ const yy = Math.min(1, Math.max(0, y)); const f0=120, f1=1000; return f0*Math.pow(f1/f0, 1-yy); };
-      let lastGainEnd = startAt;
-      for (const p of pts){
-        const at = startAt + Math.max(0, ((p.t??t0)-t0)/1000);
-        const fq = Math.max(40, freqFromY(p.y));
-        osc.frequency.cancelScheduledValues(at);
-        osc.frequency.exponentialRampToValueAtTime(fq, at + port);
-        const a=0.01, r=0.08;
-        master.gain.cancelScheduledValues(at);
-        master.gain.setValueAtTime(0.0, at);
-        master.gain.linearRampToValueAtTime(0.8, at + a);
-        master.gain.linearRampToValueAtTime(0.0, at + a + r);
-        lastGainEnd = at + a + r;
-      }
-      osc.start(0); osc.stop(Math.min(durSec, lastGainEnd + 0.1));
-      const buf = await ctx.startRendering();
-      // PCM16 WAV 인코딩
-      const ch = 1, frames = buf.length, sr = buf.sampleRate;
-      const wavBytes = 44 + frames * ch * 2;
-      const out = new DataView(new ArrayBuffer(wavBytes));
-      // RIFF header
-      writeASCII(out, 0, "RIFF"); out.setUint32(4, wavBytes - 8, true);
-      writeASCII(out, 8, "WAVE"); writeASCII(out, 12, "fmt "); out.setUint32(16, 16, true);
-      out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, sr, true);
-      out.setUint32(28, sr * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
-      writeASCII(out, 36, "data"); out.setUint32(40, frames * ch * 2, true);
-      const chData = buf.getChannelData(0);
-      let off = 44;
-      for (let i=0;i<frames;i++){
-        const s = Math.max(-1, Math.min(1, chData[i])) * 0.95; // headroom
-        out.setInt16(off, (s < 0 ? s * 0x8000 : s * 0x7FFF) | 0, true); off += 2;
-      }
-      return new Blob([out.buffer], { type:"audio/wav" });
-      function writeASCII(vw, o, s){ for(let i=0;i<s.length;i++) vw.setUint8(o+i, s.charCodeAt(i)); }
-    }
-
-    document.addEventListener("visibilitychange", () => {
-      try {
-        if (document.hidden && AC && master && AC.state !== "closed") {
-          master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
-        }
-      } catch {}
-    });
-
-    // --- Wire up ---
+    // ---------- wire ----------
     window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-    updateCounters();
+    resizeCanvas(); updateCounters();
 
-    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
-    cvs.addEventListener("pointermove", moveStroke);
-    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
-    cvs.addEventListener("pointercancel", endStroke);
+    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId);}catch{} begin(e); });
+    cvs.addEventListener("pointermove", move);
+    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId);}catch{} end(); });
+    cvs.addEventListener("pointercancel", end);
     cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
 
-    if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
-    if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
-    if (btnClear) btnClear.addEventListener("click", clearAll);
-    if (btnSubmit)btnSubmit.addEventListener("click", submitLab);
+    btnPlay?.addEventListener("click", togglePlay);
+    btnUndo?.addEventListener("click", ()=>{ if (!strokes.length) return; strokes.pop(); drawAll(); updateCounters(); });
+    btnClear?.addEventListener("click", ()=>{ strokes.length=0; drawAll(); updateCounters(); });
+    btnSubmit?.addEventListener("click", submitLab);
 
     // a11y: space toggles play when canvas focused
     cvs.tabIndex = 0;
-    cvs.addEventListener("keydown", (e)=>{
-      if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
-    });
-  })(); 
-
+    cvs.addEventListener("keydown", (e)=>{ if (e.code==="Space"){ e.preventDefault(); togglePlay(); } });
+  })();
 })();

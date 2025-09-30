@@ -2453,204 +2453,289 @@ function wireCardActions(root){
     }
   })();
 
-  // ─────────────────────────────────────────────────────────────
-  // File: public/js/adminme.js
-  // “View submissions → 썸네일 모달 → 항목 선택 → 캔버스 준비 → Play로 합성 재생”
-  // ─────────────────────────────────────────────────────────────
+  // =================================
+  // File: public/js/adminme.js  (aud laboratory block ONLY)
+  // Replace the whole "aud laboratory" IIFE with this one
+  // =================================
   (() => {
-    "use strict";
-    const $  = (s, r=document) => r.querySelector(s);
-    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+    const $ = (s, r = document) => r.querySelector(s);
+    const cvs = $("#aud-canvas");
+    if (!cvs) return;
 
-    const UI = {
-      canvas: $("#aud-canvas"),
-      btnPlay: $("#lab-play"),
-      btnAccept: $("#lab-accept"),
-      btnOpenList: $("#lab-view-list"),
-      modal: $("#admin-lab"),
-      grid: $("#admin-lab-grid"),
+    // DOM
+    const btnPlay  = $("#lab-play");
+    const btnUndo  = $("#lab-undo");
+    const btnClear = $("#lab-clear");
+    const btnView  = $("#lab-view-list");
+    const spanStk  = $("#lab-strokes");
+    const spanPts  = $("#lab-points");
+
+    // Hide Undo/Clear; inject Accept
+    if (btnUndo)  btnUndo.style.display  = "none";
+    if (btnClear) btnClear.style.display = "none";
+    let btnAccept = $("#lab-accept");
+    if (!btnAccept) {
+      btnAccept = document.createElement("button");
+      btnAccept.id = "lab-accept";
+      btnAccept.className = "btn";
+      btnAccept.type = "button";
+      btnAccept.textContent = "Accept";
+      btnAccept.disabled = true;
+      btnView?.insertAdjacentElement("beforebegin", btnAccept);
+    }
+
+    // API helper
+    const API = (path) => {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      return new URL(String(path).replace(/^\/+/, ""), base).toString();
     };
-    if (!UI.canvas || !UI.canvas.getContext) return;
 
-    const API_BASE = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const toAPI = (p) => (typeof window.__toAPI === "function") ? window.__toAPI(p) : String(p || "");
-    const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
-    const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
+    // Canvas (readonly)
+    const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    let W = 900, H = 500;
+    const ctx = cvs.getContext("2d", { desynchronized: true, alpha:false });
 
-    // ── Data access (strokes-only)
-    async function listAll(limit=100){
-      const u = new URL("/api/admin/audlab/all", API_BASE);
-      u.searchParams.set("limit", String(limit));
-      const r = await fetch(u, { credentials:"include", cache:"no-store" });
-      if (!r.ok) throw new Error("list_failed");
-      const j = await r.json().catch(()=>({items:[]}));
-      return Array.isArray(j.items) ? j.items : [];
+    /** @typedef {{x:number,y:number,t:number}} Point */
+    /** @typedef {{points: Point[]}} Stroke */
+    let loaded = { ns:null, id:null, strokes:[], width:W, height:H };
+    let playing = false;
+
+    // ---------- draw helpers ----------
+    function resizeCanvas(){
+      const r = cvs.getBoundingClientRect();
+      W = Math.max(16, Math.floor(r.width));
+      H = Math.max(16, Math.floor(r.height));
+      cvs.width  = Math.floor(W * DPR);
+      cvs.height = Math.floor(H * DPR);
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      drawAll(loaded.strokes);
     }
-    async function getItem(ns, id){
-      const u = new URL("/api/admin/audlab/item", API_BASE);
-      u.searchParams.set("ns", ns);
-      u.searchParams.set("id", id);
-      const r = await fetch(u, { credentials:"include", cache:"no-store" });
-      if (!r.ok) throw new Error("item_failed");
-      const j = await r.json().catch(()=>null);
-      if (!j?.ok) throw new Error("item_invalid");
-      return { jsonUrl: j.jsonUrl, previewUrl: j.previewUrl || "", createdAt: j.createdAt || 0, ns, id };
-    }
-
-    // ── Replay (draw + synth)
-    class Replay {
-      constructor(canvas){
-        this.cvs = canvas;
-        this.ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
-        this.pts = [];
-        this.t0 = 0; this.T = 0;
-        this.playing = false; this.raf = 0; this.startedAt = 0;
-        this.AC = null; this.osc = null; this.gain = null;
-        document.addEventListener("visibilitychange", ()=>{ if (document.hidden) this.pause(); });
-        this.paintBg();
-      }
-      async loadFromJSON(url){
-        this.stop();
-        const r = await fetch(toAPI(url), { credentials:"include", cache:"no-store" });
-        const j = await r.json();
-        const strokes = Array.isArray(j?.strokes) ? j.strokes : [];
-        const pts = [];
-        for (const st of strokes) for (const p of (st.points||[])) {
-          const t=+p.t,x=+p.x,y=+p.y; if (Number.isFinite(t)) pts.push({t,x,y});
-        }
-        pts.sort((a,b)=>a.t-b.t);
-        if (!pts.length) throw new Error("no_points");
-        this.pts = pts;
-        this.t0  = pts[0].t;
-        this.T   = pts[pts.length-1].t - this.t0;
-        this.paintBg(); this.drawUntil(0);
-      }
-      paintBg(){
-        const W=this.cvs.width=this.cvs.clientWidth||720;
-        const H=this.cvs.height=this.cvs.clientHeight||480;
-        const ctx=this.ctx;
-        ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); // admin 디자인 유지(스크린샷 기준)
-      }
-      drawUntil(ms){
-        const W=this.cvs.width,H=this.cvs.height,ctx=this.ctx;
-        this.paintBg();
-        ctx.lineJoin="round"; ctx.lineCap="round"; ctx.strokeStyle="#fff";
-        ctx.lineWidth=Math.max(2,Math.min(6,H*0.006));
-        ctx.beginPath(); let started=false;
-        const cutoff=this.t0+ms;
-        for (const p of this.pts){
-          if (p.t>cutoff) break;
-          const x=Math.max(0,Math.min(1,p.x))*W;
-          const y=Math.max(0,Math.min(1,p.y))*H;
-          if (!started){ ctx.moveTo(x,y); started=true; } else { ctx.lineTo(x,y); }
-        }
+    function bg(){ ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H); }
+    function drawAll(sts){
+      bg();
+      const sArr = Array.isArray(sts)?sts:[];
+      ctx.lineJoin="round"; ctx.lineCap="round"; ctx.lineWidth=2.5; ctx.strokeStyle="#222";
+      for (const s of sArr){
+        const pts = s.points||[];
+        if (pts.length<2) continue;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x*W, pts[0].y*H);
+        for (let i=1;i<pts.length;i++){ const p=pts[i]; ctx.lineTo(p.x*W, p.y*H); }
         ctx.stroke();
       }
-      startAudio(){
-        if (this.AC) return;
-        const AC = new (window.AudioContext||window.webkitAudioContext)();
-        const g  = AC.createGain(); g.gain.value=0.0; g.connect(AC.destination);
-        const o  = AC.createOscillator(); o.type="sine"; o.connect(g); o.start();
-        this.AC=AC; this.osc=o; this.gain=g;
-      }
-      tick = () => {
-        if (!this.playing) return;
-        const elapsed = performance.now()-this.startedAt;
-        this.drawUntil(elapsed);
-        this.scheduleAudio(elapsed);
-        if (elapsed >= this.T+80) { this.stop(); return; }
-        this.raf = requestAnimationFrame(this.tick);
-      }
-      scheduleAudio(ms){
-        this.startAudio();
-        const AC=this.AC, osc=this.osc, gain=this.gain;
-        const cut=this.t0+ms; let t=AC.currentTime;
-        // 다음 45ms 안의 포인트만 스케줄(간단)
-        const windowEnd = cut + 45;
-        const fMin=110,fMax=1760, fY=(y)=>fMin*Math.pow(fMax/fMin,1-Math.max(0,Math.min(1,y)));
-        for (const p of this.pts){
-          if (p.__done) continue;
-          if (p.t>windowEnd) break;
-          if (p.t<=cut) { p.__done=true; }
-          const at = t + Math.max(0,(p.t-(cut-ms))/1000);
-          const leg = Math.max(0,Math.min(1,p.x));
-          const fq  = Math.max(40,fY(p.y));
-          osc.frequency.cancelScheduledValues(at);
-          osc.frequency.exponentialRampToValueAtTime(fq, at + 0.02 + 0.18*leg);
-          gain.gain.cancelScheduledValues(at);
-          const a=0.003+0.020*leg, r=0.030+0.250*(1-leg);
-          gain.gain.linearRampToValueAtTime(0.15+0.75*leg, at + a);
-          gain.gain.linearRampToValueAtTime(0.0, at + a + r);
+      const pc = sArr.reduce((a,s)=>a+(s.points?.length||0),0);
+      if (spanStk) spanStk.textContent = String(sArr.length);
+      if (spanPts) spanPts.textContent = String(pc);
+      btnPlay && (btnPlay.disabled = sArr.length===0);
+      btnAccept && (btnAccept.disabled = !(loaded.ns && loaded.id));
+    }
+
+    // ---------- audio synth (same mapping as me) ----------
+    async function synthPlayFromStrokes(strokes){
+      const AC = new (window.AudioContext || window.webkitAudioContext)();
+      const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
+      const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
+
+      const fMin=110,fMax=1760;
+      const freqFromY = (y)=> fMin * Math.pow(fMax/fMin, 1 - Math.max(0,Math.min(1,y)));
+
+      const pts = [];
+      for (const st of (strokes||[])){
+        for (const p of (st.points||[])){
+          const t=+p.t, x=+p.x, y=+p.y;
+          if (Number.isFinite(t)) pts.push({t,x,y});
         }
       }
-      play(){
-        if (!this.pts.length || this.playing) return;
-        this.playing=true;
-        this.startedAt=performance.now();
-        this.tick();
+      if (!pts.length){ AC.close(); return; }
+      pts.sort((a,b)=>a.t-b.t);
+      const t0 = pts[0].t;
+      const port = 0.04;
+
+      const startAt = AC.currentTime + 0.05;
+      let lastGainEnd = startAt;
+      for (const p of pts){
+        const at = startAt + Math.max(0,(p.t - t0)/1000);
+        const fq = Math.max(40, freqFromY(p.y));
+        osc.frequency.cancelScheduledValues(at);
+        osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+
+        const a=0.01, r=0.08;
+        master.gain.cancelScheduledValues(at);
+        master.gain.setValueAtTime(0.0, at);
+        master.gain.linearRampToValueAtTime(0.8, at + a);
+        master.gain.linearRampToValueAtTime(0.0, at + a + r);
+        lastGainEnd = at + a + r;
       }
-      pause(){ if (!this.playing) return; this.playing=false; cancelAnimationFrame(this.raf); }
-      stop(){
-        this.playing=false; cancelAnimationFrame(this.raf); this.raf=0;
-        this.pts.forEach(p=>delete p.__done);
-        if (this.gain) try{ this.gain.gain.value=0; }catch{}
+      await new Promise(res=>setTimeout(res, Math.max(0,(lastGainEnd-AC.currentTime)*1000 + 80)));
+      try{ AC.close(); }catch{}
+    }
+
+    // ---------- stroke animation on canvas ----------
+    function animateStrokes(sts){
+      drawAll([]); // clear
+      const pts = sts.flatMap(s=>s.points||[]);
+      if (!pts.length) return;
+      const t0 = pts[0].t;
+      let i=0;
+      const path = []; // progressive
+      const start = performance.now();
+      function step(){
+        const now = performance.now();
+        const elapsed = now - start;
+        // include all points with (t - t0) <= elapsed
+        const until = t0 + elapsed;
+        while (i < pts.length && pts[i].t <= until){
+          const p = pts[i++];
+          // append into last stroke or create new when gap big
+          if (!path.length || (path.at(-1).points?.length||0)===0) path.push({ points: [] });
+          path.at(-1).points.push(p);
+        }
+        drawAll(path);
+        if (i < pts.length) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ---------- admin modal: images only, click to select ----------
+    function cardHTML(it){
+      const id = String(it.id||"").trim();
+      const ns = String(it.ns||"").toLowerCase();
+      const thumb = (typeof window.__toAPI==="function") ? window.__toAPI(it.preview||it.image||"") : (it.preview||it.image||"");
+      const when = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
+      const esc = (s)=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+      return `
+        <div class="card" data-id="${esc(id)}" data-ns="${esc(ns)}" title="${esc(ns)} / ${esc(id)}">
+          <img alt="" src="${esc(thumb)}" />
+          <div class="meta"><span class="time">${esc(when)}</span></div>
+        </div>
+      `.trim();
+    }
+    async function loadAdminLab(){
+      const msg  = document.querySelector("#admin-lab-msg");
+      const grid = document.querySelector("#admin-lab-grid");
+      msg && (msg.textContent = "Loading…");
+      grid && (grid.innerHTML = "");
+      const url = API("/api/admin/audlab/all");
+      const r = await fetch(url, { credentials:"include" });
+      const j = await r.json().catch(()=>({}));
+      const items = Array.isArray(j?.items) ? j.items : [];
+      if (grid){ grid.innerHTML = items.map(cardHTML).join(""); wireCardSelect(grid); }
+      msg && (msg.textContent = items.length ? "" : "No submissions.");
+    }
+    function ensureAdminLabModal(){
+      let wrap = document.querySelector("#admin-lab");
+      if (!wrap){
+        wrap = document.createElement("div");
+        wrap.id="admin-lab"; wrap.className="modal"; wrap.setAttribute("role","dialog"); wrap.setAttribute("aria-modal","true");
+        wrap.innerHTML = `
+          <button type="button" class="overlay" aria-label="Close"></button>
+          <div class="sheet" role="document">
+            <h2 id="admin-lab-title" class="title">aud laboratory — admin</h2>
+            <div class="admin-toolbar">
+              <div class="spacer"></div>
+              <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
+              <button id="admin-lab-close" class="btn" type="button">Close</button>
+            </div>
+            <div id="admin-lab-grid" class="admin-grid" aria-live="polite"></div>
+            <p id="admin-lab-msg" class="hint"></p>
+          </div>
+        `.trim();
+        document.body.appendChild(wrap);
+        wrap.querySelector(".overlay")?.addEventListener("click", closeAdminLabModal);
+        wrap.querySelector("#admin-lab-close")?.addEventListener("click", closeAdminLabModal);
+        wrap.querySelector("#admin-lab-refresh")?.addEventListener("click", ()=>loadAdminLab());
+        wrap.__onEsc = (e)=>{ if (e.key==="Escape") closeAdminLabModal(); };
+      }
+      return wrap;
+    }
+    function openAdminLabModal(){
+      const m = ensureAdminLabModal();
+      m.removeAttribute("inert");
+      m.classList.add("open");
+      m.setAttribute("aria-hidden","false");
+      document.body.classList.add("modal-open");
+      document.addEventListener("keydown", m.__onEsc, { once:false });
+      loadAdminLab();
+    }
+    function closeAdminLabModal(){
+      const m = document.querySelector("#admin-lab");
+      if (!m) return;
+      m.classList.remove("open");
+      m.setAttribute("aria-hidden","true");
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", m.__onEsc||(()=>{}));
+    }
+    function wireCardSelect(root){
+      root.querySelectorAll(".card").forEach(card=>{
+        card.addEventListener("click", async ()=>{
+          const id = card.dataset.id, ns = card.dataset.ns;
+          // fetch item → jsonUrl (strokes)
+          const r = await fetch(API(`/api/admin/audlab/item?ns=${encodeURIComponent(ns)}&id=${encodeURIComponent(id)}`), { credentials:"include" });
+          const j = await r.json().catch(()=>null);
+          if (!j?.ok){ alert("항목 정보를 불러오지 못했습니다."); return; }
+          const jsonUrl = (typeof window.__toAPI==="function") ? window.__toAPI(j.jsonUrl||j.json||"") : (j.jsonUrl||j.json||"");
+          try{
+            const jr = await fetch(jsonUrl, { credentials:"include", cache:"no-store" });
+            const meta = await jr.json();
+            const sts = Array.isArray(meta?.strokes) ? meta.strokes : [];
+            loaded = { ns, id, strokes: sts, width: meta?.width||W, height: meta?.height||H };
+            closeAdminLabModal();
+            drawAll(loaded.strokes);
+          } catch {
+            alert("strokes(JSON)를 불러오지 못했습니다.");
+          }
+        }, { passive:true });
+      });
+    }
+
+    // ---------- actions ----------
+    async function doPlay(){
+      if (!loaded.strokes?.length) return;
+      if (playing) return;
+      playing = true;
+      btnPlay && (btnPlay.textContent="Pause", btnPlay.setAttribute("aria-pressed","true"));
+      try {
+        animateStrokes(loaded.strokes);   // 시각 재현
+        await synthPlayFromStrokes(loaded.strokes); // 오디오 재현
+      } finally {
+        playing = false;
+        btnPlay && (btnPlay.textContent="Play", btnPlay.setAttribute("aria-pressed","false"));
+      }
+    }
+    async function doAccept(){
+      if (!(loaded.ns && loaded.id)) return;
+      try{
+        btnAccept.disabled = true;
+        // CSRF(백엔드가 지원하는 경우)
+        let headers = { "Content-Type":"application/json", "Accept":"application/json" };
+        try{
+          const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+          const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials:"include" }).catch(()=>null);
+          const csrf = await csrfRes?.json?.().catch(()=>null);
+          if (csrf?.csrfToken) headers["X-CSRF-Token"] = csrf.csrfToken;
+        } catch {}
+        const r = await fetch(API("/api/admin/audlab/accept"), {
+          method:"POST", credentials:"include", headers, body: JSON.stringify({ ns: loaded.ns, id: loaded.id })
+        });
+        const j = await r.json().catch(()=>({}));
+        if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
+        btnAccept.textContent = "Accepted ✓";
+        btnAccept.classList.remove("primary"); btnAccept.classList.add("ghost");
+      } catch(e){
+        alert("Accept 실패: " + (e?.message||e));
+        btnAccept.disabled = false;
       }
     }
 
-    const replay = new Replay(UI.canvas);
-    let current = null;
+    // ---------- wire ----------
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas(); drawAll([]);
 
-    // ── 모달 열기: 썸네일 로드
-    UI.btnOpenList?.addEventListener("click", async () => {
-      UI.modal?.classList.add("show");
-      UI.grid.innerHTML = `<div class="loading">Loading…</div>`;
-      try {
-        const items = await listAll(120);
-        UI.grid.innerHTML = items.map(it => `
-          <button class="card" data-id="${it.id}" data-ns="${it.ns}">
-            <img src="${toAPI(it.previewUrl||'')}" alt="">
-            <time>${new Date(it.createdAt||0).toLocaleString()}</time>
-          </button>
-        `).join("") || `<p class="empty">No submissions</p>`;
-      } catch {
-        UI.grid.innerHTML = `<p class="empty">Failed to load submissions</p>`;
-      }
-    });
+    // Readonly: no pointer binding on admin canvas (why: replay-only mode)
 
-    // ── 썸네일 선택 → 준비 후 모달 닫기
-    UI.grid?.addEventListener("click", async (e) => {
-      const card = e.target.closest(".card"); if (!card) return;
-      const id = card.dataset.id, ns = card.dataset.ns;
-      try {
-        const it = await getItem(ns, id);
-        await replay.loadFromJSON(it.jsonUrl);
-        current = { ns, id };
-        UI.btnAccept?.removeAttribute("disabled");
-      } catch (err) {
-        alert("불러오기 실패: " + (err?.message||err));
-      } finally {
-        UI.modal?.classList.remove("show");
-      }
-    });
-
-    UI.btnPlay?.addEventListener("click", () => replay.play());
-    UI.btnAccept?.addEventListener("click", async () => {
-      if (!current) return;
-      try {
-        await ensureCSRF();
-        const r = await fetch(new URL("/api/admin/audlab/accept", API_BASE),
-          await withCSRF({
-            method:"POST", credentials:"include",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify(current)
-          }));
-        if (!r.ok) throw new Error(`HTTP_${r.status}`);
-        alert("Accepted ✓");
-      } catch (e) {
-        alert("Accept 실패: " + (e?.message||e));
-      }
-    });
-
+    btnPlay?.addEventListener("click", doPlay);
+    btnAccept?.addEventListener("click", doAccept);
+    btnView?.addEventListener("click", openAdminLabModal);
   })();
 
 })();
