@@ -206,6 +206,19 @@ header.nav{
 }
 .btn.primary:hover, .btn-primary:hover{ filter: brightness(.98); transform: translateY(-1px); }
 .btn.ghost{ background: #fff; color: #111; }
+.btn.danger{
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: rgba(220,38,38,.25);
+}
+.btn.danger:hover{
+  background: #fee2e2;
+  box-shadow: 0 6px 16px rgba(220,38,38,.18);
+}
+.btn.danger:active{
+  transform: translateY(1px);
+  box-shadow: none;
+}
 
 /* --- Logout: 텍스트만 (아이콘 공간 제거) --- */
 .btn-logout{

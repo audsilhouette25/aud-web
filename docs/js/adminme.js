@@ -778,7 +778,8 @@
           <span class="time">${esc(when)}</span>
         </div>
         <div class="row row--spaced">
-          <button class="btn" data-act="hear">Hear</button>
+          <button class="btn" data-act="hear" type="button">Hear</button>
+          <button class="btn danger" data-act="delete" type="button">Delete</button>
         </div>
       </div>
     `.trim();
@@ -834,6 +835,36 @@
             card.setAttribute("data-accepted", "1");
           } catch (err) {
             alert("Accept 실패: " + (err?.message || err));
+            if (btn) btn.disabled = false;
+          }
+          return;
+        }
+
+        if (act === "delete") {
+          const btn = actEl instanceof HTMLButtonElement ? actEl : null;
+          if (!window.confirm("정말로 이 항목을 삭제할까요?")) return;
+          if (btn) btn.disabled = true;
+          try {
+            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
+            const headers = {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
+            };
+            const r = await fetch(new URL("/api/admin/audlab/delete", base), {
+              method: "POST",
+              credentials: "include",
+              headers,
+              body: JSON.stringify({ ns, id })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.ok) throw new Error(j?.error || "delete_failed");
+            card.remove();
+            await loadAdminLab();
+          } catch (err) {
+            alert("Delete 실패: " + (err?.message || err));
             if (btn) btn.disabled = false;
           }
           return;
