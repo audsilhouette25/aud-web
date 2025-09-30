@@ -746,7 +746,7 @@ header.nav{
 #admin-lab .nsbar .pill.active { background:#111; color:#fff; border-color:#111; }
 #admin-lab .admin-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; }
 #admin-lab .card { border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:10px; background:#fff; }
-#admin-lab .card img { width:100%; height:130px; object-fit:cover; border-radius:8px; display:block; background:#f3f4f6; }
+#admin-lab .card img { width:100%; height:auto; border-radius:12px; display:block; background:#f3f4f6; }
 #admin-lab .card .meta { margin-top:6px; font-size:12px; color:#6b7280; display:flex; justify-content:space-between; gap:8px; }
 #admin-lab .empty { color:#9ca3af; padding:24px; text-align:center; border:1px dashed #e5e7eb; border-radius:12px; }
 
@@ -802,7 +802,7 @@ header.nav{
   #admin-lab .card .btn { padding: 12px 18px; }
 }
 
-.admin-lab .card .preview{
+#admin-lab .card .preview{
   width: 100%;
   aspect-ratio: 1 / 1;          /* 정사각형 */
   background-size: cover;
