@@ -1058,10 +1058,11 @@
           emailLocal ||
           ownerId || "—";
 
+        const rawImg = src.image || src.preview || src.png || "";
         const preview =
-          (typeof window.__toAPI === "function")
-            ? window.__toAPI(src.image || src.preview || src.png || "")
-            : (src.image || src.preview || src.png || "");
+          (rawImg && typeof window.__toAPI === "function")
+            ? window.__toAPI(rawImg)
+            : rawImg;
 
         const audioPath = String(src.audio || src.audioUrl || src.audio_url || "");
 
