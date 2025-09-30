@@ -903,24 +903,25 @@ async function fetchJsonStrict(jsonUrl) {
 
   // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
   async function hearSubmission({ id, ns, card }) {
-  // 오디오만 재생(신규 요구사항). strokes 폴백은 제거.
-  let audioUrl = card?.__audioUrl || "";
-  if (!audioUrl) {
-    try {
-      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      const u = new URL("/api/admin/audlab/item", base);
-      u.searchParams.set("ns", ns);
-      u.searchParams.set("id", id);
-      const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
-      const j = await r?.json?.().catch?.(()=>({}));
-      if (j?.ok && j.audioUrl) audioUrl = j.audioUrl;
-    } catch {}
-  }
-  if (!audioUrl) { if (typeof toast === "function") toast("이 항목에는 오디오가 없습니다."); return; }
-  const url = (typeof window.__toAPI === "function") ? window.__toAPI(audioUrl) : audioUrl;
-  await playHTMLAudioOnce(url, { card });
-  card.__audioUrl = audioUrl;
-}
+    // 1) 오디오 URL 우선
+    let audioUrl = card.__audioUrl || "";
+    let jsonUrl  = card.__jsonUrl  || "";
+
+    // 카드에 없으면 서버에서 한 번 조회 (가벼운 단건 메타)
+    if (!audioUrl || !jsonUrl) {
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        const u = new URL("/api/admin/audlab/item", base);
+        u.searchParams.set("ns", ns);
+        u.searchParams.set("id", id);
+        const r = await fetch(u.toString(), { credentials:"include" }).catch(()=>null);
+        const j = await r?.json?.().catch?.(()=>({}));
+        if (j?.ok) {
+          audioUrl = j.audioUrl || "";
+          jsonUrl  = j.jsonUrl  || jsonUrl || "";
+        }
+      } catch {}
+    }
 
     // 2) 녹음이 있으면 그것부터 재생
     if (audioUrl) {
@@ -1417,7 +1418,7 @@ async function fetchJsonStrict(jsonUrl) {
     const by = new Map();
     // posts: 양쪽 목록의 아이템 수(중복 제거)로 계산
     const postsBy = new Map();
-    for (const it of [...galleryItems, ...audlabItems]) {
+    for (const it of [...galleryItems]) {
       const key = it.ns;
       const set = postsBy.get(key) || new Set();
       set.add(it.id);
