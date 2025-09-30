@@ -219,13 +219,7 @@ header.nav{
   transform: translateY(1px);
   box-shadow: none;
 }
-.btn.is-icon{
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-}
+.btn.is-icon{ width: 40px; height: 40px; padding: 0; display: grid; place-items: center; }
 .btn.is-icon .gh-icon{
   width: 18px;
   height: 18px;
@@ -865,9 +859,11 @@ header.nav{
 #admin-lab .card .row--spaced {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-top: 10px;
-  min-height: 44px;
+  min-height: 48px;
+  padding-inline: 12px;
 }
 
 #admin-lab .card .btn {
