@@ -779,7 +779,8 @@
         </div>
         <div class="row row--spaced">
           <button class="btn" data-act="hear" type="button">Hear</button>
-          <button class="btn danger" data-act="delete" type="button">Delete</button>
+          <button class="btn primary" data-act="accept" type="button">Accept</button>
+          <button class="btn danger is-icon" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
         </div>
       </div>
     `.trim();
@@ -2866,3 +2867,12 @@
     }
   })();
 })();
+  const SVG_TRASH = `
+<svg class="gh-icon gh-icon--trash" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <polyline points="3 6 5 6 21 6"></polyline>
+  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+  <path d="M10 11v6"></path>
+  <path d="M14 11v6"></path>
+  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+</svg>`;

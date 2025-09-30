@@ -219,6 +219,18 @@ header.nav{
   transform: translateY(1px);
   box-shadow: none;
 }
+.btn.is-icon{
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.btn.is-icon .gh-icon{
+  width: 18px;
+  height: 18px;
+}
+
 
 /* --- Logout: 텍스트만 (아이콘 공간 제거) --- */
 .btn-logout{
