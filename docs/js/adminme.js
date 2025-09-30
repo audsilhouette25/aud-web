@@ -928,14 +928,13 @@
     // 3) 폴백: strokes 합성
     // jsonUrl이 없으면 규칙대로 유추
     if (!jsonUrl) {
-      const base = window.STATIC_BASE || location.origin;
-      jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
+      jsonUrl = `/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`;
     }
     try {
       const url = (typeof window.__toAPI === "function")
         ? window.__toAPI(jsonUrl)
         : jsonUrl;
-      const r = await fetch(url, { credentials:"include", cache:"no-store" });
+      const r = await fetch(url, { cache:"no-store" });
       const meta = await r.json();
       const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
       if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
@@ -950,6 +949,7 @@
     return new Promise((resolve) => {
       try {
         const a = new Audio(url);
+        a.crossOrigin = "anonymous";
         a.preload = "auto";
         a.onended = () => resolve();
         a.onerror = () => resolve();
