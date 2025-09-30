@@ -1,6 +1,7 @@
-// me.js — Web 마이페이지 (no inline styles; CSS-only rendering)
-// 2025-09-14 rebuilt from scratch (server-first counts; safe fallbacks)
-
+/* ========================================================================
+ * path: /public/js/me.js
+ * desc: me 페이지 — 계정/프로필 + aud laboratory (단일 IIFE, "use strict" 1회)
+ * ===================================================================== */
 (() => {
   "use strict";
 
@@ -8,63 +9,35 @@
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
 
-  // me.js 상단 유틸로 추가
-
   // 실제 업로드 호스트로 반드시 바꿔주세요.
-  window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+  window.API_BASE = "https://aud-api-dtd1.onrender.com/";
 
   window.__toAPI = function (u) {
     const s = String(u || "");
     if (!s) return s;
-    if (/^https?:\/\//i.test(s)) return s;               // 이미 절대 URL이면 그대로
-    const base = window.API_BASE || location.origin + "/"; // 폴백: 현재 사이트
+    if (/^https?:\/\//i.test(s)) return s;
+    const base = window.API_BASE || location.origin + "/";
     return new URL(s.replace(/^\/+/, ""), base).toString();
   };
 
   const $  = (sel, root = document) => root.querySelector(sel);
-
-  const fmtInt = (n) => {
-    try { return new Intl.NumberFormat("en-US").format(Number(n ?? 0)); }
-    catch { return String(n ?? 0); }
-  };
+  const fmtInt = (n) => { try { return new Intl.NumberFormat("en-US").format(Number(n ?? 0)); } catch { return String(n ?? 0); } };
 
   /* [A] helpers (file-scope) */
-  function isEmailNS(s) {
-    return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim());
-  }
-  function currentNs() {
-    try {
-      const ns = (localStorage.getItem("auth:userns") || "").toLowerCase().trim();
-      return isEmailNS(ns) ? ns : "";
-    } catch { return ""; }
-  }
-  function nsKey(base) {
-    const ns = currentNs();
-    return ns ? `${base}::${ns}` : base;
-  }
-  function readJson(key, fallback) {
-    try { return JSON.parse(localStorage.getItem(key) || ""); } catch { return fallback; }
-  }
-
-
+  function isEmailNS(s) { return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s || "").trim()); }
+  function currentNs() { try { const ns = (localStorage.getItem("auth:userns") || "").toLowerCase().trim(); return isEmailNS(ns) ? ns : ""; } catch { return ""; } }
+  function nsKey(base) { const ns = currentNs(); return ns ? `${base}::${ns}` : base; }
+  function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || ""); } catch { return fallback; } }
   function normalizeNs(v) {
     let s = String(v ?? "").trim().toLowerCase();
     if (!s) return "";
-    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")) || (s.startsWith("`") && s.endsWith("`"))) {
-      s = s.slice(1, -1);
-    }
-    s = s.replace(/^user:/, ""); // legacy shapes
-
-    // ★ 변경: 이메일만 통과, 아니면 빈값
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")) || (s.startsWith("`") && s.endsWith("`"))) s = s.slice(1, -1);
+    s = s.replace(/^user:/, "");
     return isEmailNS(s) ? s : "";
   }
-
   function __readProfileCacheSafe() {
+    try { if (typeof window.readProfileCache === "function") return window.readProfileCache() || null; } catch {}
     try {
-      if (typeof window.readProfileCache === "function") return window.readProfileCache() || null;
-    } catch {}
-    try {
-      // fallback: best-effort from storage
       const keys = ["me:profile", `me:profile:${(localStorage.getItem("auth:userns") || "default").toLowerCase()}`];
       for (const k of keys) {
         const raw = sessionStorage.getItem(k) || localStorage.getItem(k);
@@ -73,89 +46,43 @@
     } catch {}
     return null;
   }
-
-  function readNs() {
-    try {
-      const raw = (localStorage.getItem("auth:userns") || "").trim();
-      return normalizeNs(raw);
-    } catch {
-      return "";
-    }
-  }
+  function readNs() { try { const raw = (localStorage.getItem("auth:userns") || "").trim(); return normalizeNs(raw); } catch { return ""; } }
   function writeNs(ns) {
     try {
-      let next = normalizeNs(ns);        // ★ 여기서 이미 비이메일 → ""
-      // Try to upgrade to email from profile if provided value is not an email.
+      let next = normalizeNs(ns);
       if (!isEmailNS(next)) {
         const snap = __readProfileCacheSafe();
         const cand = deriveNSFromProfile(snap);
         if (isEmailNS(cand)) next = cand;
       }
-
-      // ★ 추가: 여전히 이메일이 아니면 기록 금지
       if (!isEmailNS(next)) return;
-
       const prev = readNs();
       const prevIsEmail = isEmailNS(prev);
       const nextIsEmail = isEmailNS(next);
-
-      if (!prev) {
-        if (next) localStorage.setItem("auth:userns", next);
-        return;
-      }
-
-      if (prevIsEmail && !nextIsEmail) {
-        // Do not downgrade an email to id/username.
-        return;
-      }
-
-      if (!prevIsEmail && nextIsEmail && prev !== next) {
-        localStorage.setItem("auth:userns", next); // upgrade
-        return;
-      }
-
+      if (!prev) { if (next) localStorage.setItem("auth:userns", next); return; }
+      if (prevIsEmail && !nextIsEmail) return;
+      if (!prevIsEmail && nextIsEmail && prev !== next) { localStorage.setItem("auth:userns", next); return; }
     } catch {}
   }
-
   function deriveNSFromProfile(snap) {
     if (!snap || typeof snap !== "object") return null;
-    const email    = (snap.email    ?? snap.user?.email    ?? "").toString().trim().toLowerCase();
-    // ★ 변경: 이메일만 허용
+    const email = (snap.email ?? snap.user?.email ?? "").toString().trim().toLowerCase();
     return isEmailNS(email) ? email : null;
   }
-
   function getNS() {
     try {
-      // 1) From storage
       let cur = readNs();
       if (isEmailNS(cur)) return cur;
-
-      // 2) Try cached profile
       const cached = __readProfileCacheSafe();
       const candFromCache = deriveNSFromProfile(cached);
-      if (isEmailNS(candFromCache)) {
-        writeNs(candFromCache);
-        return candFromCache;
-      }
-
-      // 3) Try live user (sync; if async API exists elsewhere, boot will upgrade later)
+      if (isEmailNS(candFromCache)) { writeNs(candFromCache); return candFromCache; }
       const email = (window.__ME_EMAIL || "").toString().trim().toLowerCase();
-      if (isEmailNS(email)) {
-        writeNs(email);
-        return email;
-      }
-
-      // ★ 변경: 비이메일 fallback 완전 제거. 저장하지 않고 "default"만 반환.
+      if (isEmailNS(email)) { writeNs(email); return email; }
       return "";
-    } catch {
-      return "";
-    }
+    } catch { return ""; }
   }
-
-  // Ensure the global symbol uses the fixed version
   try { window.getNS = getNS; } catch {}
 
-  /* [B] run once before any push/socket init */
   (() => {
     let ns = readNs();
     if (!isEmailNS(ns)) {
@@ -164,21 +91,17 @@
       if (isEmailNS(cand)) writeNs(cand);
     }
     ns = readNs();
-    // ★ 변경: 이메일일 때만 브로드캐스트
     if (ns && isEmailNS(ns)) {
       window.dispatchEvent(new CustomEvent("user:updated", { detail: { email: ns, username: ns, id: ns, ns } }));
     }
   })();
 
-  /* [KEEP] Email-first NS bootstrap with downgrade guard */
   (() => {
     function pickNSFrom(detail) {
-      const email    = (detail?.email    ?? detail?.user?.email    ?? "").toString().trim().toLowerCase();
-      // ★ 변경: 이메일만 반환
+      const email = (detail?.email ?? detail?.user?.email ?? "").toString().trim().toLowerCase();
       return isEmailNS(email) ? email : null;
     }
     const isEmail = (s)=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||'').trim());
-
     (async () => {
       try {
         const cached = (typeof window.readProfileCache === "function") ? window.readProfileCache() : null;
@@ -188,26 +111,20 @@
           cand = pickNSFrom(me);
         }
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-
-        // ★ 변경: 비이메일 cand는 무시
         if (!isEmail(cand)) return;
-
-        // 아래는 기존 업그레이드/차등 저장 로직 그대로
-        if (isEmail(prev) && !isEmail(cand)) return; // don't downgrade
+        if (isEmail(prev) && !isEmail(cand)) return;
         if (cand && (!prev || prev === "default" || prev !== cand)) {
           localStorage.setItem("auth:userns", cand);
           window.dispatchEvent(new CustomEvent("user:updated", { detail: { username: cand, email: cand, id: cand } }));
         }
       } catch {}
     })();
-
-    // 이후 업데이트에도 다운그레이드 금지
     window.addEventListener("user:updated", (ev) => {
       try {
         const cand = pickNSFrom(ev?.detail || {});
-        if (!cand) return;                  // ★ 비이메일이면 null → 저장 안 함
+        if (!cand) return;
         const prev = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-        if (isEmail(prev) && !isEmail(cand)) return;
+        if (isEmailNS(prev) && !isEmailNS(cand)) return;
         if (!prev || prev === "default" || prev !== cand) localStorage.setItem("auth:userns", cand);
       } catch {}
     });
@@ -215,7 +132,7 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // External knobs / keys (backward compatible)
+  // External knobs / keys
   const REG_KEY        = "collectedLabels";
   const JIB_KEY        = "jib:collected";
   const LABEL_SYNC_KEY = (window.LABEL_SYNC_KEY || "label:sync");
@@ -223,50 +140,32 @@
   const EVT_LABEL      = (window.LABEL_COLLECTED_EVT || "label:collected-changed");
   const EVT_JIB        = (window.JIB_COLLECTED_EVT   || "jib:collection-changed");
 
-  const toAPI = (u) =>
-  (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
-
-  // Auth helpers (no-op safe)
+  const toAPI = (u) => (typeof window.__toAPI === "function") ? window.__toAPI(u) : String(u || "");
   const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
   const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
 
-  // In-memory state
   let MY_UID   = null;
   let ME_STATE = { displayName: "member", email: "", avatarUrl: "" };
 
-  // JSON & list normalization
   const parseJSON = (s, d = null) => { try { return JSON.parse(s); } catch { return d; } };
   const normalizeId = (v) => String(v ?? "").trim().toLowerCase();
   const dedupList   = (arr) => Array.isArray(arr) ? [...new Set(arr.map(normalizeId).filter(Boolean))] : [];
   const uniqueCount = (arr) => dedupList(arr).length;
 
-  /**
-   * Any → string[] (IDs). Accepts common shapes & coerces into de-duplicated IDs.
-   * @param {any} x
-   * @param {'label'|'jib'=} kind
-   */
   function coerceList(x, kind) {
     if (!x) return null;
-
-    // 1) JSON text
     if (typeof x === "string") {
       const p = parseJSON(x, null);
       if (p) return coerceList(p, kind);
     }
-
-    // 2) Array of anything (object gets best-effort id-ish pick)
     if (Array.isArray(x)) {
       const pick = (o) => (o && typeof o === "object")
         ? (o.id ?? o.label ?? o.name ?? o.key ?? o.value ?? o.uid ?? o.slug ?? o._id)
         : o;
       return dedupList(x.map(pick));
     }
-
-    // 3) Set / Map
     if (x instanceof Set) return dedupList([...x]);
     if (x instanceof Map) return dedupList([...x.keys()]);
-
-    // 4) Object candidates
     if (typeof x === "object") {
       const candidates =
         kind === "jib"
@@ -274,7 +173,6 @@
           : kind === "label"
             ? ["labels", "labelIds", "ids", "items", "list", "collection", "data"]
             : ["labels", "jibs", "ids", "items", "list", "collection", "data"];
-
       for (const k of candidates) {
         if (Array.isArray(x[k])) return coerceList(x[k], kind);
         if (x[k] && typeof x[k] === "object") {
@@ -282,34 +180,23 @@
           if (Array.isArray(nested)) return nested;
         }
       }
-
-      // Flag-shape { idA:true, idB:1, ... }
       const vals = Object.values(x);
-      if (vals.length && vals.every(v => typeof v === "boolean" || typeof v === "number")) {
-        return dedupList(Object.keys(x).filter(Boolean));
-      }
-
-      // Nested `data`
+      if (vals.length && vals.every(v => typeof v === "boolean" || typeof v === "number")) return dedupList(Object.keys(x).filter(Boolean));
       if (x.data) {
         const d = coerceList(x.data, kind);
         if (Array.isArray(d)) return d;
       }
     }
-
     return null;
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 1) Collections: store/session readers & stabilizers
-  * ──────────────────────────────────────────────────────────────────────────── */
+   * 1) Collections helpers
+   * ──────────────────────────────────────────────────────────────────────────── */
   function readRawLists(){
     const ns = currentNs();
-
-    // ── localStorage (NS별 신규 키)
     let storeLabels = readJson(nsKey("REG_COLLECT"), []);
     let storeJibs   = readJson(nsKey("JIBC_COLLECT"), []);
-
-    // ── 레거시 전역 키가 남아있으면 NS 키로 이관
     const legacyReg  = readJson("REG_COLLECT", null);
     const legacyJibc = readJson("JIBC_COLLECT", null);
     if (legacyReg !== null) {
@@ -322,100 +209,56 @@
       try { localStorage.removeItem("JIBC_COLLECT"); } catch {}
       storeJibs = Array.isArray(legacyJibc) ? legacyJibc : [];
     }
-
-    // ── sessionStorage (페이지 세션 캐시)
-    let sessLabels = [];
-    let sessJibs   = [];
+    let sessLabels = []; let sessJibs = [];
     try { const v = JSON.parse(sessionStorage.getItem(REG_KEY) || "[]"); if (Array.isArray(v)) sessLabels = v; } catch {}
     try { const v = JSON.parse(sessionStorage.getItem(JIB_KEY) || "[]"); if (Array.isArray(v)) sessJibs   = v; } catch {}
-
-    // 항상 배열 보장
     storeLabels = Array.isArray(storeLabels) ? storeLabels : [];
     storeJibs   = Array.isArray(storeJibs)   ? storeJibs   : [];
     sessLabels  = Array.isArray(sessLabels)  ? sessLabels  : [];
     sessJibs    = Array.isArray(sessJibs)    ? sessJibs    : [];
-
     return { storeLabels, storeJibs, sessLabels, sessJibs };
   }
+  function readLabels() { const { storeLabels, sessLabels } = readRawLists(); if (Array.isArray(storeLabels) && storeLabels.length) return dedupList(storeLabels); if (sessLabels.length) return dedupList(sessLabels); return dedupList(storeLabels || []); }
+  function readJibs()    { const { storeJibs, sessJibs } = readRawLists();   if (Array.isArray(storeJibs) && storeJibs.length)   return dedupList(storeJibs);   if (sessJibs.length) return dedupList(sessJibs);   return dedupList(storeJibs || []); }
 
-  function readLabels() {
-    const { storeLabels, sessLabels } = readRawLists();
-    if (Array.isArray(storeLabels) && storeLabels.length) return dedupList(storeLabels);
-    if (sessLabels.length) return dedupList(sessLabels);
-    return dedupList(storeLabels || []);
-  }
-
-  function readJibs() {
-    const { storeJibs, sessJibs } = readRawLists();
-    if (Array.isArray(storeJibs) && storeJibs.length) return dedupList(storeJibs);
-    if (sessJibs.length) return dedupList(sessJibs);
-    return dedupList(storeJibs || []);
-  }
-
-  /** Wait until store shape stabilizes or timeout, then pick robust counts. */
   async function settleInitialCounts(maxWaitMs = 1800, tickMs = 50) {
     const t0 = performance.now();
     let prev = "", stable = 0;
-
     while (performance.now() - t0 < maxWaitMs) {
       const { storeLabels, storeJibs, sessLabels, sessJibs } = readRawLists();
       const storeShapeReady = Array.isArray(storeLabels) || Array.isArray(storeJibs);
       const storeNonEmpty   = (Array.isArray(storeLabels) && storeLabels.length) || (Array.isArray(storeJibs) && storeJibs.length);
-
-      const L = storeNonEmpty
-        ? uniqueCount(storeLabels || [])
-        : (sessLabels.length ? uniqueCount(sessLabels) : uniqueCount(storeLabels || []));
-
-      const J = storeNonEmpty
-        ? uniqueCount(storeJibs || [])
-        : (sessJibs.length ? uniqueCount(sessJibs) : uniqueCount(storeJibs || []));
-
+      const L = storeNonEmpty ? uniqueCount(storeLabels || []) : (sessLabels.length ? uniqueCount(sessLabels) : uniqueCount(storeLabels || []));
+      const J = storeNonEmpty ? uniqueCount(storeJibs   || []) : (sessJibs.length   ? uniqueCount(sessJibs)   : uniqueCount(storeJibs   || []));
       const sig = `${storeShapeReady ? "S" : "X"}|${storeNonEmpty ? "N" : "0"}|${L}|${J}`;
       if (sig === prev) { if (++stable >= 2) return { labels: L, jibs: J }; } else { stable = 0; prev = sig; }
-
       await sleep(tickMs);
     }
-
-    // Final fallback
     const { storeLabels, storeJibs, sessLabels, sessJibs } = readRawLists();
     const pick = (sArr, fArr) => (Array.isArray(sArr) && sArr.length) ? sArr : (fArr || sArr || []);
-    return {
-      labels: uniqueCount(pick(storeLabels, sessLabels)),
-      jibs:   uniqueCount(pick(storeJibs,   sessJibs)),
-    };
+    return { labels: uniqueCount(pick(storeLabels, sessLabels)), jibs: uniqueCount(pick(storeJibs, sessJibs)) };
   }
 
-  /** Clear session collections when user or namespace changes. */
   function purgeCollectionsIfUserChanged(prevProfile, meProfileNow) {
     const ns = getNS();
     const lastUIDKey = isEmailNS(ns) ? `me:last-uid:${ns}` : `me:last-uid`;
     const lastNSKey  = `me:last-ns`;
-
     const lastUIDSeen = sessionStorage.getItem(lastUIDKey) || (prevProfile?.id ? String(prevProfile.id) : null);
     const lastNSSeen  = sessionStorage.getItem(lastNSKey);
     const currUID     = meProfileNow?.user?.id ?? meProfileNow?.id ?? meProfileNow?.uid ?? meProfileNow?.sub ?? null;
-
     const sessLabels = dedupList(parseJSON(sessionStorage.getItem(REG_KEY), []) || []);
     const sessJibs   = dedupList(parseJSON(sessionStorage.getItem(JIB_KEY), []) || []);
     const hasSessPayload = (sessLabels.length > 0) || (sessJibs.length > 0);
-
     const nsChanged   = !!lastNSSeen && lastNSSeen !== ns;
     const userChanged = !!currUID && !!lastUIDSeen && String(lastUIDSeen) !== String(currUID);
     const firstRunWithResidue = !!currUID && !lastUIDSeen && hasSessPayload;
-
     if (nsChanged || userChanged || firstRunWithResidue) {
       try { sessionStorage.removeItem(REG_KEY); } catch {}
       try { sessionStorage.removeItem(JIB_KEY); } catch {}
     }
-
     if (currUID != null) { try { sessionStorage.setItem(lastUIDKey, String(currUID)); } catch {} }
-    try {
-      if (isEmailNS(ns)) sessionStorage.setItem(lastNSKey, ns);
-      else sessionStorage.removeItem(lastNSKey);
-    } catch {}
+    try { if (isEmailNS(ns)) sessionStorage.setItem(lastNSKey, ns); else sessionStorage.removeItem(lastNSKey); } catch {}
   }
-
-  /** When store becomes ready with values, snapshot into session once (to prevent residue). */
   function syncSessionFromStoreIfReady() {
     const { storeLabels, storeJibs } = readRawLists();
     const ready = (Array.isArray(storeLabels) && storeLabels.length) || (Array.isArray(storeJibs) && storeJibs.length);
@@ -427,31 +270,21 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 2) Profile cache & avatar rendering
    * ──────────────────────────────────────────────────────────────────────────── */
-
   const emailLocal = (e) => String(e||"").toLowerCase().split("@")[0] || "user";
-
   const PROFILE_KEY_PREFIX = "me:profile";
-
   const profileKeys = () => {
     const ns  = getNS();
     const uid = MY_UID || "anon";
-    const keys = [PROFILE_KEY_PREFIX]; // 기본 키
-    if (isEmailNS(ns)) {
-      keys.unshift(`${PROFILE_KEY_PREFIX}:${ns}`, `${PROFILE_KEY_PREFIX}:${ns}:${uid}`);
-    }
+    const keys = [PROFILE_KEY_PREFIX];
+    if (isEmailNS(ns)) keys.unshift(`${PROFILE_KEY_PREFIX}:${ns}`, `${PROFILE_KEY_PREFIX}:${ns}:${uid}`);
     return keys;
   };
-
   function writeProfileCache(detail) {
     const ns  = getNS();
     const uid = detail?.id ?? MY_UID ?? "anon";
-
-    // ☆ email / displayName 보강
     const email = detail?.email ?? ME_STATE?.email ?? "";
     const displayName = detail?.displayName ?? detail?.name ?? ME_STATE?.displayName ?? "member";
     const payload = JSON.stringify({ ns, email, displayName, ...(detail || {}) });
-
-    // 이메일이면 NS별 키 + 기본키, 아니면 기본키만
     try {
       if (isEmailNS(ns)) {
         sessionStorage.setItem(`${PROFILE_KEY_PREFIX}:${ns}:${uid}`, payload);
@@ -463,15 +296,12 @@
       localStorage.setItem(PROFILE_KEY_PREFIX,  payload);
     } catch {}
   }
-
   function readProfileCache() {
     let latest = null;
     const consider = (obj) => {
       if (!obj) return;
       const rv = Number(obj.rev ?? obj.updatedAt ?? obj.updated_at ?? obj.ts ?? 0);
-      if (!latest || rv > Number(latest.rev ?? latest.updatedAt ?? latest.updated_at ?? latest.ts ?? 0)) {
-        latest = obj;
-      }
+      if (!latest || rv > Number(latest.rev ?? latest.updatedAt ?? latest.updated_at ?? latest.ts ?? 0)) latest = obj;
     };
     for (const k of profileKeys()) {
       try { consider(parseJSON(sessionStorage.getItem(k), null)); } catch {}
@@ -479,95 +309,53 @@
     }
     return latest;
   }
-
   const initials = (name = "member") => {
     const parts = String(name).trim().split(/\s+/).filter(Boolean);
     const init  = (parts[0]?.[0] || "") + (parts[1]?.[0] || "");
     return (init || name[0] || "U").toUpperCase().slice(0, 2);
   };
-
-  const hueIndexFrom = (s = "") => {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-    const hue = Math.abs(h) % 360;
-    return Math.round(hue / 15) % 24; // 24 buckets
-  };
-
+  const hueIndexFrom = (s = "") => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; const hue = Math.abs(h) % 360; return Math.round(hue / 15) % 24; };
   function ensureAvatarEl() {
-    let el = $("#me-avatar");
-    if (!el) return null;
-    if (el.tagName === "IMG") {
-      // Convert <img> to <div> avatar container (CSS-only)
-      const div = document.createElement("div");
-      div.id = el.id;
-      div.className = `${el.className || ""} avatar`;
-      el.replaceWith(div);
-      el = div;
-    } else {
-      el.classList.add("avatar");
-    }
+    let el = $("#me-avatar"); if (!el) return null;
+    if (el.tagName === "IMG") { const div = document.createElement("div"); div.id = el.id; div.className = `${el.className || ""} avatar`; el.replaceWith(div); el = div; }
+    else el.classList.add("avatar");
     return el;
   }
-
   function paintAvatar(nameOrEmail) {
     const name = String(nameOrEmail || "member").trim() || "member";
     const el   = ensureAvatarEl(); if (!el) return;
     const init = initials(name);
     const idx  = hueIndexFrom(name);
-    // remove old hue classes
     for (const c of Array.from(el.classList)) if (/^h\d+$/.test(c)) el.classList.remove(c);
     el.classList.add(`h${idx}`);
     el.setAttribute("data-initials", init);
     el.setAttribute("aria-label", `avatar ${init}`);
     el.classList.remove("has-img", "url-mode");
   }
-
   function ensureAvatarImg(container, url, opts = {}) {
     let img = container.querySelector("img.avatar-img");
-    if (!img) {
-      img = document.createElement("img");
-      img.className = "avatar-img";
-      img.alt = "";
-      img.decoding = "async";
-      img.loading = "lazy";
-      img.fetchPriority = "low";
-      img.referrerPolicy = "no-referrer";
-      container.appendChild(img);
-    }
-      let nextSrc = toAPI(url);
-      try {
-        const u = new URL(nextSrc, location.origin);
-        if (opts && opts.version != null) u.searchParams.set("v", String(opts.version));
-        else if (!u.searchParams.has("v")) {
-          const cached = readProfileCache() || {};
-          const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
-          u.searchParams.set("v", String(rev));
-        }
-        nextSrc = u.toString();
-      } catch {}
-      if (img.src !== nextSrc) img.src = nextSrc;
+    if (!img) { img = document.createElement("img"); img.className = "avatar-img"; img.alt = ""; img.decoding = "async"; img.loading = "lazy"; img.fetchPriority = "low"; img.referrerPolicy = "no-referrer"; container.appendChild(img); }
+    let nextSrc = toAPI(url);
+    try {
+      const u = new URL(nextSrc, location.origin);
+      if (opts && opts.version != null) u.searchParams.set("v", String(opts.version));
+      else if (!u.searchParams.has("v")) {
+        const cached = readProfileCache() || {};
+        const rev = Number(cached.rev ?? cached.updatedAt ?? cached.updated_at ?? cached.ts ?? 0) || Date.now();
+        u.searchParams.set("v", String(rev));
+      }
+      nextSrc = u.toString();
+    } catch {}
+    if (img.src !== nextSrc) img.src = nextSrc;
     container.classList.add("has-img", "url-mode");
     container.removeAttribute("data-initials");
   }
-
-  function clearAvatarImg() {
-    const el = ensureAvatarEl(); if (!el) return;
-    el.querySelector("img.avatar-img")?.remove();
-    el.classList.remove("has-img", "url-mode");
-  }
-
+  function clearAvatarImg() { const el = ensureAvatarEl(); if (!el) return; el.querySelector("img.avatar-img")?.remove(); el.classList.remove("has-img", "url-mode"); }
   async function broadcastMyProfile(patch = {}) {
     let me = null;
     try { me = await window.auth?.getUser?.().catch(() => null); } catch {}
     const id = me?.user?.id ?? me?.id ?? me?.uid ?? me?.sub ?? null;
-    const detail = {
-      id,
-      displayName: ME_STATE.displayName || me?.user?.displayName || me?.user?.name || "member",
-      avatarUrl:   ME_STATE.avatarUrl || "",
-      email:       ME_STATE.email || me?.user?.email || me?.email || "", 
-      ...patch,
-      rev: Date.now(),
-    };
+    const detail = { id, displayName: ME_STATE.displayName || me?.user?.displayName || me?.user?.name || "member", avatarUrl: ME_STATE.avatarUrl || "", email: ME_STATE.email || me?.user?.email || me?.email || "", ...patch, rev: Date.now(), };
     writeProfileCache(detail);
     try { window.dispatchEvent(new CustomEvent("user:updated", { detail })); } catch {}
   }
@@ -594,30 +382,18 @@
     } catch { return null; }
   }
 
-  async function fetchMe() {
-    const r = await api("/auth/me", { credentials: "include", cache: "no-store" });
-    if (!r || !r.ok) return null;
-    try { return await r.json(); } catch { return null; }
-  }
+  async function fetchMe() { const r = await api("/auth/me", { credentials: "include", cache: "no-store" }); if (!r || !r.ok) return null; try { return await r.json(); } catch { return null; } }
 
-  // 1) Replace the existing cardHTML(...) with the version below
   function cardHTML(it) {
     const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
     const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
-
     const ownerId   = String(it.ownerId || it.ns || "").trim();
     const ns        = String(it.ns || "").toLowerCase();
     const ownerName = String(it.ownerName || ownerId || "—");
-
-    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[c]));
-
+    const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     return `
-      <div class="card"
-          data-id="${esc(it.id)}"
-          data-ns="${esc(ns)}">
+      <div class="card" data-id="${esc(it.id)}" data-ns="${esc(ns)}">
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
@@ -635,58 +411,37 @@
       card.addEventListener("click", async (e) => {
         const act = e.target?.dataset?.act;
         if (!act) return;
-
         const id = card.dataset.id;
         const ns = card.dataset.ns;
-
         if (act === "hear") {
-          try {
-            e.target.disabled = true;
-            await hearSubmission({ id, ns, card });
-          } finally {
-            e.target.disabled = false;
-          }
+          try { e.target.disabled = true; await hearSubmission({ id, ns, card }); } finally { e.target.disabled = false; }
         }
       });
     });
-}
+  }
 
-  // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
   async function hearSubmission({ id, ns, card }) {
-    // 1) 오디오 URL 우선
     let audioUrl = card.__audioUrl || "";
     let jsonUrl  = card.__jsonUrl  || "";
-
-    // 2) 녹음이 있으면 그것부터 재생
     if (audioUrl) {
       const url = (typeof window.__toAPI === "function") ? window.__toAPI(audioUrl) : audioUrl;
-      await playHTMLAudioOnce(url, { card });
-      card.__audioUrl = audioUrl; // 캐시
-      return;
+      await playHTMLAudioOnce(url, { card }); card.__audioUrl = audioUrl; return;
     }
-
-    // 3) 폴백: strokes 합성
-    // jsonUrl이 없으면 규칙대로 유추
     if (!jsonUrl) {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
       jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
     }
     try {
-      const url = (typeof window.__toAPI === "function")
-        ? window.__toAPI(jsonUrl)
-        : jsonUrl;
+      const url = (typeof window.__toAPI === "function") ? window.__toAPI(jsonUrl) : jsonUrl;
       const r = await fetch(url, { credentials:"include", cache:"no-store" });
       const meta = await r.json();
       const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
       if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
       await synthPlayFromStrokes(strokes);
-      card.__jsonUrl = jsonUrl; // 캐시
-    } catch {
-      alert("재생 데이터(JSON)를 불러오지 못했습니다.");
-    }
+      card.__jsonUrl = jsonUrl;
+    } catch { alert("재생 데이터(JSON)를 불러오지 못했습니다."); }
   }
-
-  function playHTMLAudioOnce(url, { card } = {}) {
+  function playHTMLAudioOnce(url) {
     return new Promise((resolve) => {
       try {
         const a = new Audio(url);
@@ -697,33 +452,24 @@
       } catch { resolve(); }
     });
   }
-
-  // strokes 합성 재생기 (me 페이지 캔버스와 동일한 매핑 사용)
   async function synthPlayFromStrokes(strokes) {
     const AC = new (window.AudioContext || window.webkitAudioContext)();
     const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
     const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
-
-    const fMin = 110, fMax = 1760; // A2 ~ A6
+    const fMin = 110, fMax = 1760;
     const freqFromY = (y) => fMin * Math.pow(fMax / fMin, 1 - Math.max(0, Math.min(1, y)));
-
-    // 모든 포인트를 시간축으로 펴기
     const pts = [];
     for (const st of strokes) {
       const arr = Array.isArray(st?.points) ? st.points : [];
       for (const p of arr) {
-        const t = Number(p.t || 0);
-        const x = Number(p.x || 0);
-        const y = Number(p.y || 0);
+        const t = Number(p.t || 0), x = Number(p.x || 0), y = Number(p.y || 0);
         if (Number.isFinite(t)) pts.push({ t, x, y });
       }
     }
     if (!pts.length) { AC.close(); return; }
     pts.sort((a,b)=> a.t - b.t);
     const t0 = pts[0].t;
-    const T  = pts[pts.length-1].t - t0;
     const port = 0.04;
-
     const startAt = AC.currentTime + 0.05;
     let lastGainEnd = startAt;
     for (let i=0; i<pts.length; i++) {
@@ -732,8 +478,6 @@
       const fq  = Math.max(40, freqFromY(p.y));
       osc.frequency.cancelScheduledValues(at);
       osc.frequency.exponentialRampToValueAtTime(fq, at + port);
-
-      // 간단한 게이트(좌우로 legato 가정 없이 짧게)
       const a = 0.01, r = 0.08;
       master.gain.cancelScheduledValues(at);
       master.gain.setValueAtTime(0.0, at);
@@ -741,41 +485,24 @@
       master.gain.linearRampToValueAtTime(0.0, at + a + r);
       lastGainEnd = at + a + r;
     }
-    // 끝나면 종료
     await new Promise((res)=> setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime)*1000 + 80)));
     try { AC.close(); } catch {}
   }
-  
-  // [REPLACE] 기존 renderProfile(...) 전체를 아래로 교체
-  function renderProfile({ name, displayName, email, avatarUrl }) {
-    const nm =
-      (displayName && String(displayName).trim()) ||
-      (name && String(name).trim()) ||
-      (isEmailNS(email) ? emailLocal(email) : "member");
 
+  // [REPLACE] renderProfile
+  function renderProfile({ name, displayName, email, avatarUrl }) {
+    const nm = (displayName && String(displayName).trim()) || (name && String(name).trim()) || (isEmailNS(email) ? emailLocal(email) : "member");
     ME_STATE.displayName = nm;
     ME_STATE.email = email || "";
     ME_STATE.avatarUrl = avatarUrl || "";
-
-    // 전역 아이덴티티(why: NS → 프로필 매핑 유지)
     try {
       const ns = (localStorage.getItem("auth:userns") || "").trim().toLowerCase();
-      if (window.setNSIdentity && isEmailNS(ns)) {
-        window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
-      }
+      if (window.setNSIdentity && isEmailNS(ns)) window.setNSIdentity(ns, { email: ME_STATE.email, displayName: nm, avatarUrl: ME_STATE.avatarUrl });
     } catch {}
-
-    const $  = (sel, root = document) => root.querySelector(sel);
     const nameEl  = $("#me-name");  if (nameEl)  nameEl.textContent  = nm;
     const emailEl = $("#me-email"); if (emailEl) emailEl.textContent = email || "";
-
-    if (avatarUrl) {
-      const el = ensureAvatarEl();
-      if (el) ensureAvatarImg(el, avatarUrl);
-    } else {
-      clearAvatarImg();
-      paintAvatar(nm || email || "member");
-    }
+    if (avatarUrl) { const el = ensureAvatarEl(); if (el) ensureAvatarImg(el, avatarUrl); }
+    else { clearAvatarImg(); paintAvatar(nm || email || "member"); }
   }
 
   function renderQuick({ labels = 0, jibs = 0, posts = 0 /* authed unused */ }) {
@@ -794,30 +521,21 @@
   });
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 3.5) Server-first quick counts (labels & jibbitz)
+   * 3.5) Server-first quick counts
    * ──────────────────────────────────────────────────────────────────────────── */
-  const OPTIONS = ["thump", "miro", "whee", "track", "echo", "portal"]; // valid label set
-
-  const arrify = (x, kind) => {
-    const a = coerceList(x, kind);
-    return Array.isArray(a) ? a : [];
-  };
+  const OPTIONS = ["thump", "miro", "whee", "track", "echo", "portal"];
+  const arrify = (x, kind) => { const a = coerceList(x, kind); return Array.isArray(a) ? a : []; };
   function readInsightsCache(ns) {
     try {
       ns = String(ns || "").toLowerCase();
-      if (!isEmailNS(ns)) return null;  // ★ 이메일 아니라면 캐시 사용 안 함
+      if (!isEmailNS(ns)) return null;
       const raw = sessionStorage.getItem(`insights:${String(ns||"").toLowerCase()}`);
       if (!raw) return null;
       const obj = JSON.parse(raw);
       return obj && typeof obj === "object" ? obj : null;
     } catch { return null; }
   }
-
-  // PATCH for me.js — robust jibbitz counting (server-first but safe)
-
-  // 1) 유틸: 서버 state에서 지비츠 리스트를 최대한 유연하게 추출
   function extractJibListFromState(st) {
-    // why: 백엔드/버전별로 스키마가 달라서 coerceList를 여러 후보에 시도
     if (!st || typeof st !== "object") return [];
     const tryPick = (...paths) => {
       for (const p of paths) {
@@ -831,48 +549,35 @@
       }
       return null;
     };
-    // 흔한 스키마 후보들
     return (
       tryPick("jibs.collected") ||
       tryPick("jibs.items", "jibs.list", "jibs.data", "jibs") ||
       tryPick("jib.collected", "jib.items", "jib") ||
       tryPick("collectedJibs", "collected") ||
       tryPick("data.jibs", "data.jibIds") ||
-      tryPick("state.jibs.collected", "state.jibs") || // 일부 래핑
+      tryPick("state.jibs.collected", "state.jibs") ||
       []
     );
   }
-
-  // 2) 서버 카운트: 실패/빈값일 때 null 리턴(로컬에 맡김)
   async function fetchCountsFromServer(ns) {
-    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용ㄴ
+    if (!isEmailNS(ns)) return null;
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
     if (!res || !res.ok) return null;
     const j  = await res.json().catch(() => ({}));
     const st = j?.state || j || {};
     const labelsArr = arrify(st.labels, "label").filter((k) => OPTIONS.includes(k));
     const jibsArr   = extractJibListFromState(st);
-
-    // 아무 것도 못 읽으면 null (로컬에 맡김)
-    const hasAny = (labelsArr.length + jibsArr.length) > 0;
-    if (!hasAny) return null;
-
+    if (!labelsArr.length && !jibsArr.length) return null;
     return { labels: labelsArr.length, jibs: jibsArr.length, source: "server" };
   }
-
-  // 3) 병합 로직: 로컬 먼저 계산 → 서버가 유효하면만 덮어쓰기
   async function getQuickCounts() {
-    // 로컬(스토어/세션) 먼저 안정화
     let localCounts;
     try { localCounts = await settleInitialCounts(1000, 40); }
     catch { localCounts = { labels: readLabels().length, jibs: readJibs().length }; }
-
-    // 로그인 상태면 서버도 시도
     if (sessionAuthed()) {
       const ns = getNS();
       const s = await fetchCountsFromServer(ns).catch(() => null);
       if (s) {
-        // 규칙: 서버값이 명확히 유효(>=0)하되, **0은 덮어쓰지 않음**(로컬 보존)
         const labels = (typeof s.labels === "number" && s.labels > 0) ? s.labels : localCounts.labels;
         const jibs   = (typeof s.jibs   === "number" && s.jibs   > 0) ? s.jibs   : localCounts.jibs;
         return { labels, jibs, source: s.source };
@@ -880,41 +585,23 @@
     }
     return localCounts;
   }
-
   let __countsBusy = false;
   async function refreshQuickCounts() {
     if (__countsBusy) return;
     __countsBusy = true;
     try {
       const ns = getNS();
-
-      // ── 기존: DOM 값만 재사용 → 보강
       let postsNow = Number($("#k-posts")?.textContent?.replace(/[^0-9]/g, "") || 0);
-
       if (!postsNow) {
-        // 1) insights 캐시 먼저
         const cached = readInsightsCache(ns);
-        if (cached && typeof cached.posts === "number" && cached.posts >= 0) {
-          postsNow = cached.posts;
-        } else if (sessionAuthed()) {
-          // 2) 가벼운 폴백 조회(페이지 4 * 60 = 240개 한정)
-          try {
-            const mine = await fetchAllMyItems(4, 60);
-            if (Array.isArray(mine)) postsNow = mine.length;
-          } catch { /* 네트워크 실패 시 0 유지 */ }
+        if (cached && typeof cached.posts === "number" && cached.posts >= 0) postsNow = cached.posts;
+        else if (sessionAuthed()) {
+          try { const mine = await fetchAllMyItems(4, 60); if (Array.isArray(mine)) postsNow = mine.length; } catch {}
         }
       }
-
       const counts = await getQuickCounts();
-      renderQuick({
-        labels: counts.labels || 0,
-        jibs:   counts.jibs   || 0,
-        posts:  Number.isFinite(postsNow) ? postsNow : 0,
-        authed: sessionAuthed()
-      });
-    } finally {
-      __countsBusy = false;
-    }
+      renderQuick({ labels: counts.labels || 0, jibs: counts.jibs || 0, posts: Number.isFinite(postsNow) ? postsNow : 0, authed: sessionAuthed() });
+    } finally { __countsBusy = false; }
   }
   window.__meCountsRefresh = refreshQuickCounts;
 
@@ -922,29 +609,20 @@
    * 5) Vote insights (KPI)
    * ──────────────────────────────────────────────────────────────────────────── */
   const emptyCounts = () => OPTIONS.reduce((a, k) => (a[k] = 0, a), {});
-
   function normalizeCounts(raw) {
     if (!raw) return emptyCounts();
-
     if (Array.isArray(raw)) {
       const out = emptyCounts();
-      raw.forEach((r) => {
-        const k = String(r.label || "").trim();
-        const n = Number(r.count || 0);
-        if (OPTIONS.includes(k)) out[k] = Math.max(0, n);
-      });
+      raw.forEach((r) => { const k = String(r.label || "").trim(); const n = Number(r.count || 0); if (OPTIONS.includes(k)) out[k] = Math.max(0, n); });
       return out;
     }
-
     if (typeof raw === "object") {
       const out = emptyCounts();
       for (const k of OPTIONS) out[k] = Math.max(0, Number(raw[k] || 0));
       return out;
     }
-
     return emptyCounts();
   }
-
   function pickVotesFrom(obj) {
     if (!obj || typeof obj !== "object") return { counts: emptyCounts(), my: null, total: 0 };
     const c = normalizeCounts(obj.votes || obj.counts || obj.totals || obj.items || obj.data || obj);
@@ -953,12 +631,9 @@
     const total = Number.isFinite(Number(obj.total)) ? Number(obj.total) : sum;
     return { counts: c, my: (OPTIONS.includes(my) ? my : null), total };
   }
-
   async function fetchVotesSafe(itemId, ns) {
     const pid = encodeURIComponent(itemId);
     const nsq = `ns=${encodeURIComponent(ns)}`;
-
-    // Try item votes endpoints
     try {
       const r = await api(`/api/items/${pid}/votes?${nsq}`, { credentials: "include", cache: "no-store" });
       if (r?.ok) {
@@ -967,7 +642,6 @@
         if (picked?.counts) return picked;
       }
     } catch {}
-
     try {
       const r = await api(`/api/votes?item=${pid}&${nsq}`, { credentials: "include", cache: "no-store" });
       if (r?.ok) {
@@ -976,7 +650,6 @@
         if (picked?.counts) return picked;
       }
     } catch {}
-
     try {
       const r = await api(`/api/items/${pid}?${nsq}`, { credentials: "include", cache: "no-store" });
       if (r?.ok) {
@@ -985,58 +658,38 @@
         if (picked?.counts) return picked;
       }
     } catch {}
-
     return { counts: emptyCounts(), my: null, total: 0 };
   }
 
-async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
-
-  const myns = getNS();
-  const nsCandidates = [myns];
-  // 기존엔 UID를 후보로 추가했지만, 이제 이메일만 허용:
-  if (!isEmailNS(myns)) return [];   
-  
-  const seen = new Set();
-  const out  = [];
-
-  async function fetchByNs(nsVal) {
-    let cursor = null;
-    for (let p = 0; p < maxPages; p++) {
-      const qs = new URLSearchParams({ limit: String(Math.min(pageSize, 60)), ns: nsVal });
-      if (cursor) { qs.set("after", String(cursor)); qs.set("cursor", String(cursor)); }
-      const r = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include", cache: "no-store" });
-      if (!r || !r.ok) break;
-
-      const j = await r.json().catch(() => ({}));
-      const items = Array.isArray(j?.items) ? j.items : [];
-      for (const it of items) {
-        const id = String(it?.id || "");
-        if (!id || seen.has(id)) continue;
-        // 나와의 관계: ns 매치 또는 mine 플래그 또는 오너 uid 매치
-        const nsMatch    = String(it?.ns || "").toLowerCase() === nsVal;
-        const mineFlag   = (it?.mine === true);
-        const ownerMatch = (MY_UID != null) && (String(it?.user?.id || "").toLowerCase() === String(MY_UID).toLowerCase());
-        if (nsMatch || mineFlag || ownerMatch) {
-          seen.add(id);
-          out.push(it);
+  async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
+    const myns = getNS();
+    if (!isEmailNS(myns)) return [];
+    const nsCandidates = [myns];
+    const seen = new Set(); const out  = [];
+    async function fetchByNs(nsVal) {
+      let cursor = null;
+      for (let p = 0; p < maxPages; p++) {
+        const qs = new URLSearchParams({ limit: String(Math.min(pageSize, 60)), ns: nsVal });
+        if (cursor) { qs.set("after", String(cursor)); qs.set("cursor", String(cursor)); }
+        const r = await api(`/api/gallery/public?${qs.toString()}`, { credentials: "include", cache: "no-store" });
+        if (!r || !r.ok) break;
+        const j = await r.json().catch(() => ({}));
+        const items = Array.isArray(j?.items) ? j.items : [];
+        for (const it of items) {
+          const id = String(it?.id || ""); if (!id || seen.has(id)) continue;
+          const nsMatch    = String(it?.ns || "").toLowerCase() === nsVal;
+          const mineFlag   = (it?.mine === true);
+          const ownerMatch = (MY_UID != null) && (String(it?.user?.id || "").toLowerCase() === String(MY_UID).toLowerCase());
+          if (nsMatch || mineFlag || ownerMatch) { seen.add(id); out.push(it); }
         }
+        cursor = j?.nextCursor || null;
+        if (!cursor || items.length === 0) break;
       }
-      cursor = j?.nextCursor || null;
-      if (!cursor || items.length === 0) break;
     }
+    await fetchByNs(nsCandidates[0]);
+    if (out.length === 0 && nsCandidates[1]) await fetchByNs(nsCandidates[1]);
+    return out;
   }
-
-  // 1) 이메일 ns 우선
-  await fetchByNs(nsCandidates[0]);
-
-  // 2) 결과가 없고 uid 대안이 있으면 보강 조회
-  if (out.length === 0 && nsCandidates[1]) {
-    await fetchByNs(nsCandidates[1]);
-  }
-
-  return out;
-}
-
 
   async function mapLimit(arr, limit, worker) {
     const ret = new Array(arr.length);
@@ -1054,7 +707,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       pump();
     });
   }
-
   const winnersOf = (counts) => {
     const entries = Object.entries(counts || {});
     if (!entries.length) return [];
@@ -1062,11 +714,9 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (max <= 0) return [];
     return entries.filter(([, n]) => Number(n || 0) === max).map(([k]) => k);
   };
-
   function setRateBar(rate = 0) {
     const el = $("#m-rate-bar"); if (!el) return;
     const clamped = Math.max(0, Math.min(100, Math.round(rate)));
-
     if (el.tagName === "PROGRESS") {
       el.max = 100; el.value = clamped;
       el.setAttribute("aria-valuemin", "0");
@@ -1079,16 +729,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       el.setAttribute("data-pct", String(step));
     }
   }
-
   async function computeAndRenderInsights() {
     const elPosts = $("#m-posts");
     const elPart  = $("#m-participated");
     const elRate  = $("#m-rate");
     const elRateDetail = $("#m-rate-detail");
-
     const myItems = await fetchAllMyItems();
     const postCount = myItems.length;
-
     const votes = await mapLimit(myItems, 6, async (it) => {
       if (it?.votes || it?.counts || it?.totals) {
         const vRaw = pickVotesFrom(it);
@@ -1099,24 +746,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       const tops  = winnersOf(v.counts);
       return { label: String(it.label || "").trim(), total, tops };
     });
-
     const participated = votes.filter((v) => v && v.total > 0).length;
     let matched = 0;
-    for (const v of votes) {
-      if (!v || v.total === 0) continue;
-      if (v.label && v.tops.includes(v.label)) matched++;
-    }
+    for (const v of votes) { if (!v || v.total === 0) continue; if (v.label && v.tops.includes(v.label)) matched++; }
     const rate = (participated > 0) ? Math.round((matched / participated) * 100) : 0;
-
     try {
       const ns = getNS();
       const insights = { posts: postCount, participated, matched, rate };
-      if (isEmailNS(ns)) {
-        sessionStorage.setItem(`insights:${ns}`, JSON.stringify({ ...insights, t: Date.now() }));
-      }
+      if (isEmailNS(ns)) sessionStorage.setItem(`insights:${ns}`, JSON.stringify({ ...insights, t: Date.now() }));
       window.dispatchEvent(new CustomEvent("insights:ready", { detail: { ns, ...insights } }));
     } catch {}
-
     elPosts && (elPosts.textContent = fmtInt(postCount));
     elPart  && (elPart.textContent  = fmtInt(participated));
     elRate  && (elRate.textContent  = `${rate}%`);
@@ -1126,37 +765,29 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 6) Profile & Password update
+   * 6) Profile & Password update (unchanged)
    * ──────────────────────────────────────────────────────────────────────────── */
   async function updateDisplayName(displayName) {
     const name = String(displayName || "").trim();
     if (!name) return { ok: false, msg: "Display name is required." };
-
     const jsonBody = JSON.stringify({ displayName: name, name });
     const asJson = (url, method) => ({ url, method, headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: jsonBody });
     const asForm = (url, method, extra = {}) => {
       const usp = new URLSearchParams({ displayName: name, name, ...extra });
       return { url, method, headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "Accept": "application/json" }, body: usp.toString() };
     };
-
     await ensureCSRF();
     const variants = [
-      asJson("/auth/me",          "PATCH"),
-      asJson("/api/users/me",     "PUT"),
-      asJson("/auth/profile",     "POST"),
-      asForm("/auth/me",          "POST", { _method: "PATCH" }),
-      asForm("/api/users/me",     "POST", { _method: "PUT" }),
-      asForm("/auth/profile",     "POST"),
+      asJson("/auth/me","PATCH"), asJson("/api/users/me","PUT"), asJson("/auth/profile","POST"),
+      asForm("/auth/me","POST",{ _method:"PATCH" }), asForm("/api/users/me","POST",{ _method:"PUT" }), asForm("/auth/profile","POST"),
     ];
-
     for (const v of variants) {
       const opt = await withCSRF({ method: v.method, credentials: "include", headers: v.headers, body: v.body });
       const res = await api(v.url, opt);
       if (!res) continue;
       if (res.ok) return { ok: true };
       if (res.status === 400 || res.status === 422) {
-        let err = "Invalid input.";
-        try { const j = await res.json(); err = j?.message || j?.error || err; } catch {}
+        let err = "Invalid input."; try { const j = await res.json(); err = j?.message || j?.error || err; } catch {}
         return { ok: false, msg: err };
       }
     }
@@ -1168,7 +799,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     const cur = String(currentPassword || "");
     if (!pw || pw.length < 8) return { ok: false, msg: "Your new password must be at least 8 characters long." };
     if (!cur) return { ok: false, msg: "Please enter your current password." };
-
     await ensureCSRF();
     const payloads = [
       { url: "/auth/password",         method: "POST",  body: { currentPassword: cur, newPassword: pw } },
@@ -1176,7 +806,6 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       { url: "/api/users/me/password", method: "PUT",   body: { currentPassword: cur, newPassword: pw } },
       { url: "/auth/me",               method: "PATCH", body: { currentPassword: cur, password: pw } },
     ];
-
     for (const p of payloads) {
       try {
         const r = await api(p.url, await withCSRF({
@@ -1576,16 +1205,9 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 9) Reactive resync hooks for late-ready stores
+   * 9) Reactive resync hooks
    * ──────────────────────────────────────────────────────────────────────────── */
-  const RESYNC_EVENTS = [
-    "store:ready","labels:ready","label:ready","collected:ready",
-    "jib:ready","jibs:ready","collection:ready",
-    "store:changed","labels:changed","jibs:changed",
-    "collectedLabels:changed", // EVT_LABEL alias
-    "jib:collection-changed",  // EVT_JIB alias
-  ];
-
+  const RESYNC_EVENTS = ["store:ready","labels:ready","label:ready","collected:ready","jib:ready","jibs:ready","collection:ready","store:changed","labels:changed","jibs:changed","collectedLabels:changed","jib:collection-changed"];
   RESYNC_EVENTS.forEach((ev) => {
     window.addEventListener(ev, () => {
       setTimeout(() => {
@@ -1599,108 +1221,61 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────────
-  // 10) Boot  — REORDERED for early room subscription + predictable notifications
-  // ──────────────────────────────────────────────────────────────────────────────
+   /* ─────────────────────────────────────────────────────────────────────────────
+   * 10) Boot
+   * ──────────────────────────────────────────────────────────────────────────── */
   async function boot() {
     if (window.__PURGING) return;
     let me    = { displayName: "member", email: "", avatarUrl: "" };
     let quick = { posts: 0, labels: 0, jibs: 0, authed: false };
-
-    // 0) Warm from cache (빠른 초기 렌더)
     const cached = readProfileCache();
     if (cached) {
       me.displayName = cached.displayName || me.displayName;
       me.email       = cached.email || "";
       me.avatarUrl   = cached.avatarUrl || "";
     }
-
-    // 1) /auth/me 로 실사용자 파악 + 세션 잔여물 정리
     const meResp = await fetchMe();
     if (meResp && typeof meResp === "object") {
       purgeCollectionsIfUserChanged(cached, meResp);
       MY_UID = meResp?.user?.id ?? meResp?.id ?? null;
-      me = {
-        displayName: meResp.displayName || meResp.name || me.displayName,
-        email:       meResp.email || me.email,
-        avatarUrl:   meResp.avatarUrl || me.avatarUrl,
-      };
+      me = { displayName: meResp.displayName || meResp.name || me.displayName, email: meResp.email || me.email, avatarUrl: meResp.avatarUrl || me.avatarUrl };
       quick.authed = true;
       try { sessionStorage.setItem("auth:flag", "1"); localStorage.setItem("auth:flag", "1"); } catch {}
     }
-
-    // 2) 초기 카운트(server-first → fallback)
-    try {
-      const c = await getQuickCounts();
-      quick.labels = c.labels || 0;
-      quick.jibs   = c.jibs   || 0;
-    } catch {
-      quick.labels = readLabels().length;
-      quick.jibs   = readJibs().length;
-    }
-
-    // ★ 초기 posts 0으로 덮이지 않게 캐시로 보강
-    try {
-      const ic = readInsightsCache(getNS());
-      if (ic && typeof ic.posts === "number" && ic.posts >= 0) {
-        quick.posts = ic.posts; // why: 부팅 첫 렌더에서 0으로 찍히는 깜박임 방지
-      }
-    } catch {}
-
-    // 3) 1차 렌더(프로필/카운트) + 프로필 브로드캐스트
+    try { const c = await getQuickCounts(); quick.labels = c.labels || 0; quick.jibs = c.jibs || 0; } catch { quick.labels = readLabels().length; quick.jibs = readJibs().length; }
+    try { const ic = readInsightsCache(getNS()); if (ic && typeof ic.posts === "number" && ic.posts >= 0) quick.posts = ic.posts; } catch {}
     renderProfile(me);
     await broadcastMyProfile({});
     renderQuick(quick);
-
-    // 5) store 안정화되면 세션 한 번 동기화 + 카운트 보정 타이머
     syncSessionFromStoreIfReady();
     refreshQuickCounts();
     setTimeout(() => { syncSessionFromStoreIfReady(); refreshQuickCounts(); }, 300);
     setTimeout(() => { syncSessionFromStoreIfReady(); refreshQuickCounts(); }, 1500);
-
-    // 6) 이벤트 연결(라벨/집 수집 변화, 스토리지 변화, 인증 변화)
     window.addEventListener(EVT_LABEL, refreshQuickCounts);
     window.addEventListener(EVT_JIB,   refreshQuickCounts);
-
     window.addEventListener("storage", (e) => {
       if (window.__PURGING) return;
       if (!e?.key) return;
-
       if (e.key === LABEL_SYNC_KEY || /label:sync/.test(e.key)) refreshQuickCounts();
       if (e.key === JIB_SYNC_KEY   || /jib:sync/.test(e.key))   refreshQuickCounts();
       if (e.key === "auth:userns" || e.key === "auth:flag")     refreshQuickCounts();
-
-      if (e.key.startsWith(PROFILE_KEY_PREFIX) && e.newValue) {
-        try { renderProfile(parseJSON(e.newValue, {})); } catch {}
-      }
+      if (e.key.startsWith("me:profile") && e.newValue) { try { renderProfile(parseJSON(e.newValue, {})); } catch {} }
     }, { capture: true });
-
     window.addEventListener("auth:state",        refreshQuickCounts);
     window.addEventListener("store:ns-changed",  refreshQuickCounts);
-    // [ADD] me.js — 스토어 변경 이벤트를 들을 때마다 빠르게 카운트 리프레시
     window.addEventListener("itemLikes:changed",       () => window.__meCountsRefresh?.());
     window.addEventListener("label:votes-changed",     () => window.__meCountsRefresh?.());
     window.addEventListener("label:collected-changed", () => window.__meCountsRefresh?.());
     window.addEventListener("jib:collection-changed",  () => window.__meCountsRefresh?.());
-
-    // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
-
-    // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
-    if (quick.authed) {
-      computeAndRenderInsights().catch(() => {});
-    }
-  }
- 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
+    if (quick.authed) { computeAndRenderInsights().catch(() => {}); }
   }
 
-  // [ADD] 파일 상단 유틸 근처(함수 선언부들) 어딘가에 추가
-  function __purgeNamespaceKeys(ns) {
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 11) Purge / Logout / Delete (unchanged)
+   * ──────────────────────────────────────────────────────────────────────────── */
+    function __purgeNamespaceKeys(ns) {
     if (!ns || !isEmailNS(ns)) return;
     const enc = encodeURIComponent(ns);
 
@@ -1740,9 +1315,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         if (kl.includes(`:${ns}`) || kl.includes(`::${ns}`) || kl.includes(`:${enc}`) || kl.endsWith(ns) || kl.endsWith(enc)) wipe(k);
       }
     } catch {}
-  }
-
-  // me.js — __purgeLocalStateHard 보강 부분만 발췌
+  }  
   async function __purgeLocalStateHard(reason = "account-delete") {
     // [A] 재수화 가드: 이후 부팅/리스토어 경로 동작 차단
     try { window.__PURGING = true; } catch {}
@@ -1761,7 +1334,14 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     const ns = currentNs();
     const enc = encodeURIComponent(ns || "");
     ["auth:flag","auth:userns","auth:ns","collectedLabels","jib:collected"].forEach(wipe);
-    const KNOWN = [ /* ... (현행 KNOWN 목록 그대로) ... */ ];
+    const KNOWN = [
+      "me:profile","insights","mine","aud:label",
+      "REG_COLLECT","JIBC_COLLECT",
+      "label:sync","jib:sync","label:hearts-sync","label:ts-sync",
+      "itemLikes:sync","labelVotes:sync","state:updatedAt",
+      "collectedLabels","tempCollectedLabels","labelTimestamps","labelHearts",
+      "itemLikes","labelVotes","aud:selectedLabel","jib:selected","jib:collected"
+    ];
     KNOWN.forEach(base => {
       wipe(base);
       if (ns) { wipe(`${base}:${ns}`); wipe(`${base}::${ns}`); wipe(`${base}:${enc}`); wipe(`${base}::${enc}`); }
@@ -1879,31 +1459,22 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     try { localStorage.removeItem("auth:flag"); localStorage.removeItem("auth:userns"); } catch {}
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
   }
-
   function bindLogoutButtonForMe() {
     const btn = $("#btn-logout");
     if (!btn || btn.__bound) return;
     btn.__bound = true;
-
     btn.addEventListener("click", async (e) => {
       e.preventDefault(); e.stopPropagation();
       try { btn.disabled = true; btn.setAttribute("aria-busy", "true"); } catch {}
       try {
-        // ✅ 순수 로그아웃만 수행
         await __safeBeaconLogout();
         try { window.auth?.markNavigate?.(); } catch {}
         const loginURL = new URL("./login.html", document.baseURI);
         loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
         location.assign(loginURL.href);
-      } finally {
-        try { btn.disabled = false; btn.removeAttribute("aria-busy"); } catch {}
-      }
+      } finally { try { btn.disabled = false; btn.removeAttribute("aria-busy"); } catch {} }
     }, { capture: false });
-
-    btn.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); }
-    });
-
+    btn.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); } });
     try {
       const mo = new MutationObserver(() => {
         const b = $("#btn-logout");
@@ -1912,44 +1483,22 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       mo.observe(document.body, { childList:true, subtree:true });
     } catch {}
   }
-
-  // === Delete(탈퇴) 버튼 바인딩: #btn-delete ===
   function bindDeleteButtonForMe() {
     const btn = $("#btn-delete");
     if (!btn || btn.__bound) return;
     btn.__bound = true;
-
-    // inline 스타일 금지 정책을 지키기 위해 style 조작은 하지 않습니다.
-
     btn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
+      e.preventDefault(); e.stopPropagation();
       const res = await __confirmAndDeleteAccount();
-
-      // ⬇️ 확인 취소 시 즉시 중단 (아무 변화 없음)
       if (!res?.ok && res?.msg === "cancelled") return;
-
-      // ⬇️ 서버 실패 시: 알림만 띄우고 현재 페이지 유지 (로컬은 이미 정리됨)
-      if (!res?.ok) {
-        alert("Failed to delete your account on the server. Local data has been cleared; please try again later.");
-        return;
-      }
-
-      // 성공 시 세션 마무리 후 로그인으로
+      if (!res?.ok) { alert("Failed to delete your account on the server. Local data has been cleared; please try again later."); return; }
       await __safeBeaconLogout();
       try { window.auth?.markNavigate?.(); } catch {}
       const loginURL = new URL("./login.html", document.baseURI);
       loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
       location.assign(loginURL.href);
     }, { capture: false });
-
-    // 접근성: 키보드 엔터/스페이스로 활성화
-    btn.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); }
-    });
-
-    // 동적 리렌더 대비 재바인딩 가드
+    btn.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); } });
     try {
       const mo = new MutationObserver(() => {
         const b = $("#btn-delete");
@@ -1958,67 +1507,53 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       mo.observe(document.body, { childList: true, subtree: true });
     } catch {}
   }
-
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      bindLogoutButtonForMe();
-      bindDeleteButtonForMe();
-    }, { once: true });
-  } else {
-    bindLogoutButtonForMe();
-    bindDeleteButtonForMe();
-  }
+    document.addEventListener("DOMContentLoaded", () => { bindLogoutButtonForMe(); bindDeleteButtonForMe(); }, { once: true });
+  } else { bindLogoutButtonForMe(); bindDeleteButtonForMe(); }
 
   /* ========================================================================
-  * path: /public/js/me.js
-  * desc: aud laboratory — draw → collect path → submit paths only
-  * ===================================================================== */
-  (() => {
-    "use strict";
-
-    // ---------- DOM ----------
+   * 12) Aud Laboratory — draw → internal audio record → submit (merged)
+   *      (이전의 안쪽 IIFE를 함수로 치환하여 단일 IIFE 내에 포함)
+   * ===================================================================== */
+  function initAudLab() {
     const cvs = document.getElementById("aud-canvas");
+    if (!cvs) return; // why: 페이지에 aud-lab 영역이 없을 수 있음
     const ctx = cvs.getContext("2d");
     const btnPlay   = document.getElementById("lab-play");
     const btnUndo   = document.getElementById("lab-undo");
     const btnClear  = document.getElementById("lab-clear");
     const btnSubmit = document.getElementById("lab-submit");
-
     const elStrokeCount = document.getElementById("lab-strokes");
     const elPointCount  = document.getElementById("lab-points");
 
-    // ---------- State ----------
     let W = 800, H = 500;
     let playing = false;
     let curStroke = null;
     const strokes = [];
 
-    // Audio (sine synth with recording)
-let AC = null, master = null, osc = null;
-let mDest = null;               // MediaStreamDestination for recording
-let rec = null;                 // MediaRecorder
-let recChunks = [];             // Blob chunks
-let isRecording = false;
-const port = 0.02; // portamento
+    // Audio (sine synth with internal recording)
+    let AC = null, master = null, osc = null;
+    let mDest = null;
+    let rec = null;
+    let recChunks = [];
+    let isRecording = false;
+    const port = 0.02; // why: 부드러운 피치 천이
 
-    function freqFromY(y01) {
-      // y: 0(top)~1(bottom) → freq: 880~110 (A5~A2-ish). Why: 더 직관적 음높이
+    const freqFromY = (y01) => {
       const y = Math.min(1, Math.max(0, y01));
       const fTop = 880, fBot = 110;
       return fTop + (fBot - fTop) * y;
-    }
+    };
 
     function startAudio() {
       if (!AC) {
         AC = new (window.AudioContext || window.webkitAudioContext)();
         master = AC.createGain();
-        master.gain.value = 0.0; // 대기 중 무음
+        master.gain.value = 0.0;
         master.connect(AC.destination);
-      
-    // For recording
-    mDest = AC.createMediaStreamDestination();
-    master.connect(mDest);
-  }
+        mDest = AC.createMediaStreamDestination();
+        master.connect(mDest);
+      }
       if (!osc) {
         osc = AC.createOscillator();
         osc.type = "sine";
@@ -2031,7 +1566,7 @@ const port = 0.02; // portamento
       if (!AC || !osc || !master) return;
       const t = AC.currentTime;
       master.gain.cancelScheduledValues(t);
-      master.gain.linearRampToValueAtTime(0.15, t + 0.01); // 짧은 attack
+      master.gain.linearRampToValueAtTime(0.15, t + 0.01);
       osc.frequency.cancelScheduledValues(t);
       osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq), t + port);
     }
@@ -2042,47 +1577,27 @@ const port = 0.02; // portamento
       master.gain.linearRampToValueAtTime(0.0001, t + 0.05);
     }
 
-    // ---------- Canvas ----------
     function resizeCanvas() {
       const r = cvs.getBoundingClientRect();
       W = Math.max(300, Math.floor(r.width));
       H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
       cvs.width = W; cvs.height = H;
-      redraw();
+      redraw(); updateCounters();
     }
-    function clearAll() {
-      strokes.length = 0;
-      curStroke = null;
-      redraw();
-      updateCounters();
-    }
-    function undoStroke() {
-      strokes.pop();
-      curStroke = null;
-      redraw();
-      updateCounters();
-    }
+    function clearAll() { strokes.length = 0; curStroke = null; redraw(); updateCounters(); }
+    function undoStroke() { strokes.pop(); curStroke = null; redraw(); updateCounters(); }
     function redraw() {
       ctx.clearRect(0, 0, W, H);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = "#111";
-
+      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "#111";
       for (const s of strokes) {
-        const pts = s.points || [];
-        if (pts.length < 2) continue;
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x * W, pts[0].y * H);
-        for (let i = 1; i < pts.length; i++) {
-          ctx.lineTo(pts[i].x * W, pts[i].y * H);
-        }
+        const pts = s.points || []; if (pts.length < 2) continue;
+        ctx.beginPath(); ctx.moveTo(pts[0].x * W, pts[0].y * H);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * W, pts[i].y * H);
         ctx.stroke();
       }
       if (curStroke && curStroke.points.length >= 1) {
         const p = curStroke.points;
-        ctx.beginPath();
-        ctx.moveTo(p[0].x * W, p[0].y * H);
+        ctx.beginPath(); ctx.moveTo(p[0].x * W, p[0].y * H);
         for (let i = 1; i < p.length; i++) ctx.lineTo(p[i].x * W, p[i].y * H);
         ctx.stroke();
       }
@@ -2097,7 +1612,6 @@ const port = 0.02; // portamento
       btnClear  && (btnClear.disabled  = s === 0);
     }
 
-    // ---------- Pointer drawing ----------
     function beginStroke(e) {
       if (!playing) return; // why: Play 눌러야 녹화/발음 시작
       const rect = cvs.getBoundingClientRect();
@@ -2119,22 +1633,17 @@ const port = 0.02; // portamento
     function endStroke() {
       if (!playing || !curStroke) return;
       noteOff();
-      if (curStroke.points.length >= 2) {
-        strokes.push(curStroke);
-        updateCounters();
-      }
+      if (curStroke.points.length >= 2) { strokes.push(curStroke); updateCounters(); }
       curStroke = null;
       redraw();
     }
 
-    // ---------- Controls ----------
     function togglePlay() {
       playing = !playing;
       btnPlay?.setAttribute("aria-pressed", String(playing));
       btnPlay && (btnPlay.textContent = playing ? "Pause" : "Play");
       if (playing) {
         startAudio();
-        // Start MediaRecorder
         try {
           if (mDest && !isRecording) {
             recChunks = [];
@@ -2148,52 +1657,33 @@ const port = 0.02; // portamento
         } catch {}
       } else {
         noteOff();
-        // Pause does not stop recording to allow resume. (Optional behavior)
+        // 녹음은 Submit 시 정지(연속 드로잉 허용)
       }
     }
 
     async function submitLab() {
       try {
         btnSubmit && (btnSubmit.disabled = true);
-        // 1) Preview image
         const previewDataURL = cvs.toDataURL("image/png", 0.9);
-
-        // 2) Normalize ns (email)
         const nsEmail = (window.getNS ? String(window.getNS()).toLowerCase().trim() : "");
-        if (!/^[^@]+@[^@]+$/.test(nsEmail)) throw new Error("need_login");
-
-        // 3) Stop recording and build payload (final image + audio)
+        if (!isEmailNS(nsEmail)) throw new Error("need_login");
         let audioDataURL = "";
         if (rec && isRecording) {
           await new Promise((res) => { try { rec.onstop = () => res(); } catch { res(); } try { rec.stop(); } catch { res(); } });
           isRecording = false;
           try {
             const blob = new Blob(recChunks, { type: (rec && rec.mimeType) ? rec.mimeType : "audio/webm" });
-            audioDataURL = await new Promise((resolve) => {
-              const fr = new FileReader();
-              fr.onloadend = () => resolve(fr.result);
-              fr.readAsDataURL(blob);
-            });
+            audioDataURL = await new Promise((resolve) => { const fr = new FileReader(); fr.onloadend = () => resolve(fr.result); fr.readAsDataURL(blob); });
           } catch {}
         }
-
-        const payload = {
-          ns: nsEmail,
-          width: W,
-          height: H,
-          previewDataURL,
-          audioDataURL
-        };
-
-        const res = await fetch((window.__toAPI ? __toAPI("/api/audlab/submit") : "/api/audlab/submit"), {
-          method: "POST",
-          credentials: "include",
+        const payload = { ns: nsEmail, width: W, height: H, previewDataURL, audioDataURL };
+        const res = await fetch(toAPI("/api/audlab/submit"), {
+          method: "POST", credentials: "include",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify(payload),
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.ok) throw new Error(j?.error || `HTTP_${res.status}`);
-
         btnSubmit && (btnSubmit.textContent = "Submitted ✓");
         setTimeout(() => { if (btnSubmit) btnSubmit.textContent = "Submit"; }, 900);
       } catch (e) {
@@ -2203,20 +1693,25 @@ const port = 0.02; // portamento
       }
     }
 
-    // ---------- Wire ----------
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas(); updateCounters();
-
     cvs.addEventListener("pointerdown", (e) => { try { cvs.setPointerCapture(e.pointerId); } catch {} beginStroke(e); });
     cvs.addEventListener("pointermove", moveStroke);
     cvs.addEventListener("pointerup",   (e) => { try { cvs.releasePointerCapture(e.pointerId); } catch {} endStroke(); });
     cvs.addEventListener("pointercancel", endStroke);
     cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
-
     btnPlay  && btnPlay.addEventListener("click", togglePlay);
     btnUndo  && btnUndo.addEventListener("click", undoStroke);
     btnClear && btnClear.addEventListener("click", clearAll);
     btnSubmit&& btnSubmit.addEventListener("click", submitLab);
-  })();
+  }
 
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 13) Ready — boot + aud-lab init (단일 IIFE에서 끝)
+   * ──────────────────────────────────────────────────────────────────────────── */
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => { boot(); initAudLab(); }, { once: true });
+  } else {
+    boot(); initAudLab();
+  }
 })();
