@@ -604,7 +604,6 @@
   function cardHTML(it) {
     const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
-    const audio = it.audio || it.webm || (it.record && (it.record.url || it.record.webm)) || "";
     const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
 
     const ownerId   = String(it.ownerId || it.ns || "").trim();
@@ -619,7 +618,6 @@
       <div class="card"
           data-id="${esc(it.id)}"
           data-ns="${esc(ns)}">
-          data-audio="${esc(audio)}">
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
@@ -634,8 +632,6 @@
   }
   function wireCardActions(root){
     root.querySelectorAll(".card").forEach(card => {
-      const dataAudio = card.getAttribute("data-audio");
-      if (dataAudio) card.__audioUrl = dataAudio; // 초기 바인딩(있으면)
       card.addEventListener("click", async (e) => {
         const act = e.target?.dataset?.act;
         if (!act) return;
@@ -849,7 +845,7 @@
 
   // 2) 서버 카운트: 실패/빈값일 때 null 리턴(로컬에 맡김)
   async function fetchCountsFromServer(ns) {
-    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용
+    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용ㄴ
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
     if (!res || !res.ok) return null;
     const j  = await res.json().catch(() => ({}));
@@ -2176,4 +2172,5 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     cvs.tabIndex = 0;
     cvs.addEventListener("keydown", (e)=>{ if (e.code==="Space"){ e.preventDefault(); togglePlay(); } });
   })();
+
 })();

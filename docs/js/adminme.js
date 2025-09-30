@@ -748,7 +748,7 @@
     }
   }
 
-  // 1) Replace the existing cardHTML(...) with this minimal, image-only version
+  // 1) Replace the existing cardHTML(...) with the version below
   function cardHTML(it) {
     const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
@@ -769,30 +769,79 @@
           data-ns="${esc(ns)}"
           data-owner="${esc(ownerId)}"
           ${accepted ? 'data-accepted="1"' : ''}>
-        <img alt="" src="${esc(thumb)}" class="click-to-hear" />
+        <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
+        <div class="row row--spaced">
+          <button class="btn" data-act="hear">Hear</button>
+        </div>
       </div>
     `.trim();
   }
+  function wireCardActions(root){
+    root.querySelectorAll(".card").forEach(card => {
+      card.addEventListener("click", async (e) => {
+        const act = e.target?.dataset?.act;
+        if (!act) return;
 
-function wireCardActions(root){
-  root.querySelectorAll(".card").forEach(card => {
-    // 이미지 클릭 → hear
-    card.querySelector("img.click-to-hear")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      const id = card.dataset.id;
-      const ns = card.dataset.ns;
-      // ① admin 리플레이 컨트롤러로 "선택" 신호 전송
-      window.dispatchEvent(new CustomEvent("audlab:pick", { detail: { id, ns } }));
-      // ② 모달 닫기
-      try { closeAdminLabModal(); } catch {}
+        const id = card.dataset.id;
+        const ns = card.dataset.ns;
+
+        if (act === "hear") {
+          try {
+            e.target.disabled = true;
+            await hearSubmission({ id, ns, card });
+          } finally {
+            e.target.disabled = false;
+          }
+        } else if (act === "accept") {
+          const btn = e.target;
+          btn.disabled = true;
+          try {
+            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
+            const csrf = await csrfRes?.json?.().catch(() => null);
+            const headers = {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
+            };
+            const r = await fetch(new URL("/api/admin/audlab/accept", base), {
+              method: "POST",
+              credentials: "include",
+              headers,
+              body: JSON.stringify({ ns, id })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
+            btn.textContent = "Accepted ✓";
+            btn.classList.remove("primary");
+            btn.classList.add("ghost");
+            card.setAttribute("data-accepted", "1");
+          } catch (err) {
+            alert("Accept 실패: " + (err?.message || err));
+            btn.disabled = false;
+          }
+        } else if (act === "copy-owner") {
+          const btn = e.target;
+          const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
+          if (!owner) { alert("owner id가 없습니다."); return; }
+          try {
+            await navigator.clipboard.writeText(owner);
+            const prev = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+          } catch {
+            // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
+            prompt("Copy this owner id:", owner);
+          }
+        }
+      });
     });
-    // (관리자용 Accept / copy-owner 등 나머지 버튼 액션이 필요하다면 여기에 별도 버튼을 주입해 사용)
-  });
 }
 
   // ====== Hear: 녹음 있으면 재생, 없으면 strokes로 합성 ======
@@ -990,8 +1039,7 @@ function wireCardActions(root){
         try {
           const admin = await (typeof isAdmin === "function" ? isAdmin() : Promise.resolve(false));
           if (admin) {
-            grid.querySelectorAll(".card").forEach((card) => {
-              const row = card.querySelector(".meta") || card; // meta가 없으면 카드 자체에 주입
+            grid.querySelectorAll(".card .row--spaced").forEach((row) => {
               if (!row.querySelector('[data-act="accept"]')) {
                 const b = document.createElement("button");
                 b.className = "btn primary";
@@ -1100,7 +1148,7 @@ function wireCardActions(root){
 
   // 2) 서버 카운트: 실패/빈값일 때 null 리턴(로컬에 맡김)
   async function fetchCountsFromServer(ns) {
-    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용
+    if (!isEmailNS(ns)) return null; // ★ 이메일 NS만 허용ㄴ
     const res = await api(`/api/state?ns=${encodeURIComponent(ns)}`, { method: "GET", credentials: "include", cache: "no-store" });
     if (!res || !res.ok) return null;
     const j  = await res.json().catch(() => ({}));
@@ -2235,12 +2283,9 @@ function wireCardActions(root){
     "use strict";
 
     const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
-    if (!Array.isArray(LABELS) || !LABELS.length) { console.warn("[quick] LABELS missing"); return; }
-    const JIBS = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
-    if (!Array.isArray(JIBS) || !JIBS.length) {
-      console.warn("[quick] JIBBITZ missing");
-      return;
-    }
+    if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
+    const JIBS   = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
+    if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
 
     const SELECTED_LABEL_KEY = "aud:selectedLabel"; // sessionStorage
     const LABEL_COL_EVT      = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";
