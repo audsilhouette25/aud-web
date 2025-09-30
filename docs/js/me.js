@@ -2046,10 +2046,16 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       }
     }
 
-    function startAudio() {
+    async function startAudio() {
       ensureAudioNodes();
+      if (AC && typeof AC.resume === "function" && AC.state === "suspended") {
+        try { await AC.resume(); } catch {}
+      }
     }
     function noteOn(freq) {
+      if (AC && typeof AC.resume === "function" && AC.state === "suspended") {
+        AC.resume().catch(()=>{});
+      }
       if (!AC || !osc || !master) return;
       const t = AC.currentTime;
       master.gain.cancelScheduledValues(t);
@@ -2267,7 +2273,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       btnPlay?.setAttribute("aria-pressed", String(playing));
       if (btnPlay) btnPlay.textContent = playing ? "Pause" : "Play";
       if (playing) {
-        startAudio();
+        await startAudio();
         await startRecording();
       } else {
         noteOff();
