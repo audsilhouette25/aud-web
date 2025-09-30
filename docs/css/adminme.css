@@ -801,3 +801,12 @@ header.nav{
   #admin-lab .card .row--spaced { gap: 14px; margin-top: 12px; }
   #admin-lab .card .btn { padding: 12px 18px; }
 }
+
+.admin-lab .card .preview{
+  width: 100%;
+  aspect-ratio: 1 / 1;          /* 정사각형 */
+  background-size: cover;
+  background-position: center;
+  border-radius: 12px;
+  background-color: #111;        /* 이미지 로드 전 배경 */
+}
