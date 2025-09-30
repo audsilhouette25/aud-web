@@ -7,63 +7,6 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
-// ➊ GitHub blob → raw URL 변환 + Pages 서브경로 보정
-function normalizeJsonUrl(url) {
-  if (!url) return url;
-
-  // blob → raw 변환
-  if (url.startsWith('https://github.com/') && url.includes('/blob/')) {
-    return url
-      .replace('https://github.com/', 'https://raw.githubusercontent.com/')
-      .replace('/blob/', '/');
-  }
-
-  // GitHub Pages 서브경로 보정: /aud-web/ 하위에 배포된 경우
-  // 예) 제공된 url이 'uploads/...' 또는 '/uploads/...' 처럼 상대/절대 혼재인 경우
-  try {
-    // url이 상대경로라면 현재 페이지를 기준으로 절대경로로 변환
-    const abs = new URL(url, document.baseURI).href;
-
-    // 내 사이트 도메인이면서, 최상위(/)로 잘못 가는 경우 /aud-web/을 붙여줌
-    // (정확히 맞추려면 'aud-web' → 본인 레포명으로 바꾸세요)
-    const PAGES_BASE = `${location.origin}/aud-web/`;
-    if (abs.startsWith(location.origin + '/') && !abs.startsWith(PAGES_BASE)) {
-      // '/uploads/...' → '/aud-web/uploads/...'
-      const path = abs.replace(location.origin + '/', '');
-      return PAGES_BASE + path; 
-    }
-    return abs;
-  } catch (e) {
-    return url; // URL 파싱 실패 시 원본 반환
-  }
-}
-
-// ➋ JSON 가져오기(진단 강화)
-async function fetchJsonStrict(jsonUrl) {
-  const url = normalizeJsonUrl(jsonUrl);
-  const res = await fetch(url, { cache: 'no-store' });
-
-  // 상태코드 체크
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`HTTP ${res.status} at ${url}\nFirst 120 chars: ${body.slice(0,120)}`);
-  }
-
-  // 콘텐츠 타입 점검(진단용)
-  const ct = res.headers.get('content-type') || '';
-  const text = await res.text();
-
-  // HTML로 보이는 응답 차단
-  if (text.trim().startsWith('<')) {
-    throw new Error(`Got HTML, not JSON at ${url}\nFirst 120 chars: ${text.slice(0,120)}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Invalid JSON at ${url}\nFirst 120 chars: ${text.slice(0,120)}`);
-  }
-}
 
   // me.js 상단 유틸로 추가
 
@@ -105,55 +48,6 @@ async function fetchJsonStrict(jsonUrl) {
     try { return new Intl.NumberFormat("en-US").format(Number(n ?? 0)); }
     catch { return String(n ?? 0); }
   };
-
-  function fixAdminLabPointerEvents(root) {
-    if (!root) return;
-    // 1) pointer-events:auto 강제 (왜: 상위/전역 CSS가 none으로 막음)
-    const targets = root.querySelectorAll('button, .btn, [role="button"], .admin-toolbar, .sheet');
-    targets.forEach(el => {
-      const pe = getComputedStyle(el).pointerEvents;
-      if (pe === 'none') el.style.pointerEvents = 'auto';
-    });
-
-    // 2) z-index 안전값(겹침으로 클릭 가로채기 방지)
-    const overlay = root.querySelector('.overlay');
-    const sheet   = root.querySelector('.sheet');
-    if (root.style.zIndex !== '9999') root.style.zIndex = '9999';
-    if (overlay && overlay.style.zIndex !== '1') overlay.style.zIndex = '1';
-    if (sheet   && sheet.style.zIndex   !== '2') sheet.style.zIndex   = '2';
-
-    // 3) 캡처 단계로 확실한 클릭 바인딩 (겹침/버블 이슈 무력화)
-    const onCap = (el, fn) => el && el.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation(); fn && fn(e);
-    }, { capture: true });
-
-    onCap(root.querySelector('#admin-lab-refresh'), () => {
-      // 두 구현 중 사용 중인 로더 호출
-      if (typeof loadAdminLab === 'function') loadAdminLab();
-      else if (typeof loadAdminList === 'function') loadAdminList();
-    });
-    onCap(root.querySelector('#admin-lab-close'), () => {
-      root.classList.remove('open');
-      root.setAttribute('aria-hidden','true');
-      root.setAttribute('inert','');
-      document.body.classList.remove('modal-open');
-    });
-    onCap(overlay, () => {
-      root.classList.remove('open');
-      root.setAttribute('aria-hidden','true');
-      root.setAttribute('inert','');
-      document.body.classList.remove('modal-open');
-    });
-
-    // 4) 동적 DOM 변화에도 자동 재적용
-    if (!root.__peMo) {
-      const mo = new MutationObserver(() => {
-        fixAdminLabPointerEvents(root);
-      });
-      mo.observe(root, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
-      root.__peMo = mo;
-    }
-}
 
   /* [A] helpers (file-scope) */
   function isEmailNS(s) {
@@ -778,7 +672,6 @@ async function fetchJsonStrict(jsonUrl) {
         </div>
       `.trim();
       document.body.appendChild(wrap);
-      try { fixAdminLabPointerEvents(wrap); } catch {}
     }
 
     // 이미 있어도 바인딩은 한 번 보장
@@ -825,7 +718,6 @@ async function fetchJsonStrict(jsonUrl) {
       m.__escAttached = true;
     }
     loadAdminLab().catch(()=>{});
-    try { fixAdminLabPointerEvents(m); } catch {}
   }
 
   // 모달 닫기: 포커스 밖으로 이동 → aria-hidden/inert 적용
@@ -1469,7 +1361,7 @@ async function fetchJsonStrict(jsonUrl) {
     const by = new Map();
     // posts: 양쪽 목록의 아이템 수(중복 제거)로 계산
     const postsBy = new Map();
-    for (const it of [...galleryItems]) {
+    for (const it of [...galleryItems, ...audlabItems]) {
       const key = it.ns;
       const set = postsBy.get(key) || new Set();
       set.add(it.id);
@@ -2606,389 +2498,399 @@ async function fetchJsonStrict(jsonUrl) {
     }
   })();
 
-  /* ========================================================================
-  * path: /public/js/adminme.js
-  * desc: aud laboratory — select submitted path → replay (draw+sound) → accept
-  * ===================================================================== */
+  /* ==== PATCH: append to bottom of public/js/me.js ==== */
+  /* aud laboratory inlined into me.js (isolated via IIFE). 
+    Why: keep single-file page JS without polluting globals. */
   (() => {
-    "use strict";
+    // --- fast exit if lab UI is not on this page ---
+    const $ = (s, r = document) => r.querySelector(s);
+    const cvs = $("#aud-canvas");
+    if (!cvs) return; // lab not present → do nothing
 
-    // ---------- DOM ----------
-    const cvs = document.getElementById("aud-canvas");
-    const ctx = cvs.getContext("2d");
-    const btnPlay  = document.getElementById("lab-play");
-    const btnUndo  = document.getElementById("lab-undo");   // will hide
-    const btnClear = document.getElementById("lab-clear");  // will hide
-    const btnViewList = document.getElementById("lab-view-list");
+    // --- DOM refs ---
+    const btnPlay = $("#lab-play");
+    const btnUndo = $("#lab-undo");
+    const btnClear = $("#lab-clear");
+    const btnSubmit = $("#lab-submit");
+    const spanStrokes = $("#lab-strokes");
+    const spanPoints = $("#lab-points");
+    const btnViewList = $("#lab-view-list");
 
-    const elStrokeCount = document.getElementById("lab-strokes");
-    const elPointCount  = document.getElementById("lab-points");
-
-    // ---------- State ----------
-    let W = 800, H = 500;
-    let replaying = false;
-    let rafId = 0;
-
-    const state = {
-      selected: null,  // { ns, id, strokes, width, height, audioUrl? }
-      t0: 0,           // min timestamp across strokes
+    // --- API base (reuse existing globals if present) ---
+    const API = (path) => {
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const u = new URL(String(path).replace(/^\/+/, ""), base);
+      return u.toString();
     };
 
-    // --- Disable drawing inputs on admin page ---
-    cvs.style.touchAction = "none";
-    ["pointerdown","pointermove","pointerup","pointercancel","touchstart"].forEach(ev =>
-      cvs.addEventListener(ev, (e)=>{ e.preventDefault(); }, { passive:false })
-    );
+    // --- Canvas & drawing state ---
+    const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    let W = 900, H = 500;
+    const ctx2d = cvs.getContext("2d", { desynchronized: true, alpha: false });
 
-    // ---------- Audio synth ----------
+    /** @typedef {{x:number,y:number,t:number}} Point */
+    /** @typedef {{points: Point[]}} Stroke */
+    const strokes = [];
+    let curStroke = null;
+    let isDrawing = false;
+
+    // --- Audio state ---
     let AC = null, master = null, osc = null;
-    const port = 0.02;
-    function freqFromY(y01) {
-      const y = Math.min(1, Math.max(0, y01));
-      const fTop = 880, fBot = 110;
-      return fTop + (fBot - fTop) * y;
-    }
-    function ensureAudio() {
-      if (!AC) {
-        AC = new (window.AudioContext || window.webkitAudioContext)();
-        master = AC.createGain(); master.gain.value = 0.0001; master.connect(AC.destination);
-      }
-      if (!osc) {
-        osc = AC.createOscillator(); osc.type = "sine"; osc.frequency.value = 440; osc.connect(master); osc.start();
-      }
-    }
-    function scheduleSynth(strokes) {
-      ensureAudio();
-      if (!AC || !osc || !master) return;
-      const t0 = state.t0;
-      const startAt = AC.currentTime + 0.06;
-      const gain = master.gain;
+    let playing = false;
+    let lastNoteAt = 0;
 
-      // why: 짧은 게이트로 path 진행감을 살림 (프레임당 1~2개 포인트만 스냅)
-      for (const s of (strokes || [])) {
-        const pts = s.points || [];
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          const at = startAt + Math.max(0, (p.t - t0) / 1000);
-          const fq = Math.max(40, freqFromY(p.y));
-          osc.frequency.cancelScheduledValues(at);
-          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+    /* === Recorder (NEW) === */
+    let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
 
-          const a = 0.012, r = 0.06; // attack/release
-          gain.cancelScheduledValues(at);
-          gain.setValueAtTime(0.0, at);
-          gain.linearRampToValueAtTime(0.18, at + a);
-          gain.linearRampToValueAtTime(0.0, at + a + r);
-        }
+    function startRecorder(){
+      if (!AC) return;
+      if (!recDest) recDest = AC.createMediaStreamDestination();
+      if (master && recDest && !master.__recWired){
+        master.connect(recDest);             // 스피커 연결은 기존 master→destination 그대로 유지
+        master.__recWired = true;
+      }
+      if (!mediaRecorder) {
+        const mtype =
+          MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
+          MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus" :
+          "audio/webm";
+        mediaRecorder = new MediaRecorder(recDest.stream, {
+          mimeType: mtype,
+          audioBitsPerSecond: 128000
+        });
+        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
+        mediaRecorder.onstop = ()=>{
+          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); }
+          catch { lastRecording = null; }
+          recChunks = [];
+        };
+      }
+      if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+    }
+
+    function stopRecorder(){
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
       }
     }
 
-    // ---------- Canvas render ----------
+    // --- Helpers ---
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+    function now(){ return performance.now(); }
+
     function resizeCanvas() {
-      const r = cvs.getBoundingClientRect();
-      W = Math.max(300, Math.floor(r.width));
-      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
+      const rect = cvs.getBoundingClientRect();
+      W = Math.max(320, Math.floor(rect.width * DPR));
+      H = Math.max(180, Math.floor(rect.height * DPR));
       cvs.width = W; cvs.height = H;
-      drawStatic();
+      drawAll();
     }
-    function drawStatic() {
-      ctx.clearRect(0, 0, W, H);
-      if (!state.selected?.strokes?.length) return;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = "#111";
-      for (const s of state.selected.strokes) {
-        const pts = s.points || [];
-        if (pts.length < 2) continue;
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x * W, pts[0].y * H);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * W, pts[i].y * H);
-        ctx.stroke();
-      }
+
+    function updateCounters(){
+      const p = strokes.reduce((s, st)=>s + st.points.length, 0);
+      if (spanStrokes) spanStrokes.textContent = String(strokes.length);
+      if (spanPoints)  spanPoints.textContent  = String(p);
+      if (btnUndo)  btnUndo.disabled  = strokes.length === 0;
+      if (btnClear) btnClear.disabled = strokes.length === 0;
     }
-    function drawUntil(targetMs) {
-      ctx.clearRect(0, 0, W, H);
-      if (!state.selected?.strokes?.length) return;
 
-      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "#111";
-      const t0 = state.t0;
-
-      for (const s of state.selected.strokes) {
-        const pts = s.points || [];
-        if (pts.length === 0) continue;
-        ctx.beginPath();
-        // walk points until time reached
-        let drewAny = false;
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          const t = p.t - t0;
-          if (i === 0) {
-            ctx.moveTo(p.x * W, p.y * H);
-            drewAny = true;
-            continue;
-          }
-          const prev = pts[i - 1];
-          const tPrev = prev.t - t0;
-          if (tPrev <= targetMs) {
-            const x = p.x * W, y = p.y * H;
-            if (t <= targetMs) {
-              ctx.lineTo(x, y);
-              drewAny = true;
-            } else {
-              // partial segment (simple snap to prev)
-              ctx.lineTo(prev.x * W, prev.y * H);
-              drewAny = true;
-              break;
-            }
-          }
+    function drawAll() {
+      // background bands
+      ctx2d.fillStyle = "#eef2f7";
+      ctx2d.fillRect(0,0,W,H);
+      const bands = 8;
+      for (let i=0;i<bands;i++){
+        const y0 = Math.floor((i + (i%2?0.5:0))*H/bands);
+        ctx2d.fillStyle = i%2? "#f7f9fb" : "#f1f4f9";
+        ctx2d.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
+        if (i%2) {
+          ctx2d.fillStyle = "rgba(0,0,0,.03)";
+          ctx2d.fillRect(0, y0, W, 1);
         }
-        if (drewAny) ctx.stroke();
       }
-    }
-
-    function computeT0(strokes) {
-      let t0 = Infinity;
-      for (const s of (strokes || [])) {
-        if (!s.points?.length) continue;
-        t0 = Math.min(t0, s.points[0].t);
-      }
-      return Number.isFinite(t0) ? t0 : performance.now();
-    }
-
-    // ---------- Replay ----------
-    function stopReplay() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
-      replaying = false;
-      btnPlay?.setAttribute("aria-pressed", "false");
-      btnPlay && (btnPlay.textContent = "Play");
-      // no hard stop of audio envelope (already short per step)
-    }
-
-    function startReplay() {
-      if (!state.selected?.strokes?.length) return;
-      replaying = true;
-      btnPlay?.setAttribute("aria-pressed", "true");
-      btnPlay && (btnPlay.textContent = "Pause");
-
-      const strokes = state.selected.strokes;
-      state.t0 = computeT0(strokes);
-      const totalMs = (() => {
-        let t1 = 0;
-        for (const s of strokes) {
-          const pts = s.points || [];
-          if (!pts.length) continue;
-          t1 = Math.max(t1, pts[pts.length - 1].t);
+      // strokes
+      ctx2d.lineJoin = "round";
+      ctx2d.lineCap = "round";
+      for (const st of strokes) {
+        if (st.points.length < 2) continue;
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(st.points[0].x*W, st.points[0].y*H);
+        for (let i=1;i<st.points.length;i++){
+          const p = st.points[i];
+          ctx2d.lineTo(p.x*W, p.y*H);
         }
-        return Math.max(0, t1 - state.t0);
-      })();
+        ctx2d.stroke();
+      }
+    }
 
-      // schedule audio once
-      scheduleSynth(strokes);
+    function startAudio(){
+      if (AC) return;
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain();
+      master.gain.value = 0.0;
+      master.connect(AC.destination);   // 스피커
 
-      const start = performance.now();
-      const loop = () => {
-        const elapsed = performance.now() - start;
-        drawUntil(elapsed);
-        if (!replaying) return;
-        if (elapsed >= totalMs + 80) { // a small tail
-          stopReplay();
-          drawStatic(); // final full drawing
+      osc = AC.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      osc.connect(master);
+      osc.start();
+
+      // (NEW) 녹음 경로도 준비
+      startRecorder();
+    }
+
+    function freqFromY(yNorm){
+      // y=0(top) -> high, y=1(bottom) -> low
+      const fMin = 110;  // A2
+      const fMax = 1760; // A6
+      const inv = 1 - clamp(yNorm, 0, 1);
+      return fMin * Math.pow(fMax / fMin, inv); // exponential mapping
+    }
+
+    function applySoundForPoint(pxNorm, pyNorm){
+      if (!AC) startAudio();
+      if (AC.state === "suspended") AC.resume();
+
+      const legato = clamp(pxNorm, 0, 1); // 0=staccato, 1=legato
+      const f = freqFromY(pyNorm);
+
+      const t = AC.currentTime;
+      const portamento = 0.02 + 0.18 * legato; // smoother to the right
+      osc.frequency.cancelScheduledValues(t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, f), t + portamento);
+
+      const nowMs = now();
+      const staccato = 1 - legato;
+      const retriggerGap = 18 + 120 * staccato; // ms
+      const a = 0.003 + 0.020 * legato; // attack
+      const r = 0.030 + 0.250 * (1 - legato); // release
+
+      // Left: chopped via retrigger; Right: sustained
+      if (staccato > 0.12) {
+        if (nowMs - lastNoteAt > retriggerGap) {
+          lastNoteAt = nowMs;
+          master.gain.cancelScheduledValues(t);
+          master.gain.setValueAtTime(0.0, t);
+          master.gain.linearRampToValueAtTime(0.9, t + a);
+          master.gain.linearRampToValueAtTime(0.0, t + a + r);
+        }
+      } else {
+        master.gain.cancelScheduledValues(t);
+        const g = 0.15 + 0.75 * legato;
+        master.gain.linearRampToValueAtTime(g, t + a);
+      }
+    }
+
+    function noteOff(){
+      if (!AC || !master) return;
+      const t = AC.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.linearRampToValueAtTime(0.0, t + 0.08);
+    }
+
+    // --- Pointer handlers ---
+    function getXY(e){
+      const rect = cvs.getBoundingClientRect();
+      const x = ("clientX" in e ? e.clientX : e.touches?.[0]?.clientX) - rect.left;
+      const y = ("clientY" in e ? e.clientY : e.touches?.[0]?.clientY) - rect.top;
+      return { x: clamp(x, 0, rect.width), y: clamp(y, 0, rect.height) };
+    }
+    function toNorm({x,y}){
+      const rect = cvs.getBoundingClientRect();
+      return { x: x/rect.width, y: y/rect.height };
+    }
+
+    function beginStroke(e){
+      if (!playing) return; // only when play ON
+      isDrawing = true;
+      curStroke = { points: [] };
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      strokes.push(curStroke);
+      applySoundForPoint(p.x, p.y);
+      updateCounters();
+      drawAll();
+    }
+
+    function moveStroke(e){
+      if (!isDrawing || !curStroke) return;
+      const p = toNorm(getXY(e));
+      curStroke.points.push({ x:p.x, y:p.y, t: performance.now() });
+      applySoundForPoint(p.x, p.y);
+      // incremental draw
+      const lastTwo = curStroke.points.slice(-2);
+      if (lastTwo.length === 2){
+        ctx2d.strokeStyle = "#111";
+        ctx2d.lineWidth = Math.max(2, Math.min(6, H * 0.006));
+        ctx2d.beginPath();
+        ctx2d.moveTo(lastTwo[0].x*W, lastTwo[0].y*H);
+        ctx2d.lineTo(lastTwo[1].x*W, lastTwo[1].y*H);
+        ctx2d.stroke();
+      }
+      if (spanPoints) spanPoints.textContent = String(Number(spanPoints.textContent||"0")+1);
+    }
+
+    function endStroke(){
+      if (!isDrawing) return;
+      isDrawing = false;
+      curStroke = null;
+      if (!playing) noteOff();
+      updateCounters();
+    }
+
+    function undoStroke(){
+      if (!strokes.length) return;
+      strokes.pop();
+      drawAll();
+      updateCounters();
+    }
+
+    function clearAll(){
+      strokes.length = 0;
+      drawAll();
+      updateCounters();
+    }
+
+    function togglePlay(){
+      playing = !playing;
+      if (btnPlay) {
+        btnPlay.setAttribute("aria-pressed", String(playing));
+        btnPlay.textContent = playing ? "Pause" : "Play";
+      }
+      if (playing) {
+        startAudio();
+        startRecorder();
+      } else {
+        noteOff();
+        stopRecorder();
+      }
+    }
+
+    // --- Submit ---
+    function blobToDataURL(blob){
+      return new Promise((resolve,reject)=>{
+        const fr = new FileReader();
+        fr.onload = ()=> resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+    }
+
+    async function submitLab(){
+      if (btnSubmit) btnSubmit.disabled = true;
+      try {
+        // 1) 캔버스 → PNG dataURL
+        const dataURL = cvs.toDataURL("image/png", 0.92);
+
+        // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
+        if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
+        // stop 이벤트가 비동기라 아주 잠깐 대기
+        await new Promise(r => setTimeout(r, 120));
+
+        // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
+        let audioDataURL = "";
+        if (lastRecording && lastRecording.size > 0) {
+          audioDataURL = await blobToDataURL(lastRecording);
+        }
+
+        // 4) 페이로드 구성 (이메일 userns만 허용)
+        const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
+          .toString().trim().toLowerCase();
+
+        if (!isEmailNS(nsEmail)) {
+          alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
+          if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
           return;
         }
-        rafId = requestAnimationFrame(loop);
-      };
-      rafId = requestAnimationFrame(loop);
-    }
 
-    function togglePlay() {
-      if (!state.selected?.strokes?.length) {
-        alert("먼저 View submissions에서 항목을 선택하세요.");
-        return;
-      }
-      if (replaying) stopReplay(); else startReplay();
-    }
-
-    // ---------- Select & Accept ----------
-    async function selectSubmission(ns, id) {
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        const u = new URL("/api/admin/audlab/item", base);
-        u.searchParams.set("ns", ns);
-        u.searchParams.set("id", id);
-        const r = await fetch(u.toString(), { credentials: "include" });
-        const j = await r.json().catch(()=> ({}));
-        if (!r.ok || !j.ok) throw new Error(j?.error || "ITEM_FAIL");
-
-        // fetch strokes json
-        const jj = await fetch((window.__toAPI ? __toAPI(j.jsonUrl) : j.jsonUrl), { credentials: "include" })
-                    .then(r => r.json());
-        const strokes = Array.isArray(jj?.strokes) ? jj.strokes : [];
-
-        state.selected = {
-          ns, id,
+        const payload = {
+          ns: nsEmail,
+          width: W,
+          height: H,
           strokes,
-          width:  Number(jj?.width || j?.meta?.width || 0),
-          height: Number(jj?.height|| j?.meta?.height|| 0),
+          previewDataURL: dataURL,
+          audioDataURL
         };
 
-        // show on canvas (static)
-        updateCounters();
-        drawStatic();
-
-        // close modal if open
-        const modal = document.getElementById("admin-lab");
-        if (modal) modal.classList.remove("open");
-
-        // enable accept
-        const b = ensureAcceptButton();
-        b.disabled = false;
-      } catch (e) {
-        alert("불러오기 실패: " + (e?.message || e));
-      }
-    }
-
-    function updateCounters() {
-      const s = state.selected?.strokes?.length || 0;
-      const pts = (state.selected?.strokes || []).reduce((n, st) => n + (st.points?.length || 0), 0);
-      elStrokeCount && (elStrokeCount.textContent = String(s));
-      elPointCount  && (elPointCount.textContent  = String(pts));
-    }
-
-    function ensureAcceptButton() {
-      // hide undo/clear
-      btnUndo  && (btnUndo.style.display  = "none");
-      btnClear && (btnClear.style.display = "none");
-
-      // already created?
-      let b = document.getElementById("lab-accept");
-      if (b) return b;
-
-      // insert before View submissions
-      b = document.createElement("button");
-      b.id = "lab-accept";
-      b.className = "btn ghost";
-      b.type = "button";
-      b.textContent = "Accept";
-      b.disabled = true;
-
-      btnViewList?.parentElement?.insertBefore(b, btnViewList);
-      b.addEventListener("click", acceptSelected);
-      return b;
-    }
-
-    async function acceptSelected() {
-      const sel = state.selected;
-      if (!sel) return;
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        // read csrf cookie (server uses cookie-mode CSRF)
-        const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
-        const headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {})
-        };
-        const r = await fetch(new URL("/api/admin/audlab/accept", base), {
+        // 5) 전송
+        const res = await fetch(API("/api/audlab/submit"), {
           method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
           credentials: "include",
-          headers,
-          body: JSON.stringify({ ns: sel.ns, id: sel.id }),
+          body: JSON.stringify(payload),
         });
-        const j = await r.json().catch(()=> ({}));
-        if (!r.ok || !j.ok) throw new Error(j?.error || `HTTP_${r.status}`);
-        const b = document.getElementById("lab-accept");
-        if (b) { b.textContent = "Accepted ✓"; b.classList.add("ghost"); b.disabled = true; }
+
+        // 6) 응답 처리(기존 로직 유지)
+        const ct = res.headers.get("content-type") || "";
+        const isJSON = /\bapplication\/json\b/i.test(ct);
+        let j = null, text = null;
+        if (!res.ok) {
+          text = await res.text().catch(()=> "");
+          const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
+          throw new Error(`submit_api_${res.status}${hint}`);
+        }
+        j = isJSON ? await res.json().catch(()=>null) : null;
+        if (!j || j.ok === false) {
+          if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
+          throw new Error(j?.error || "submit_failed");
+        }
+
+        if (btnSubmit){
+          btnSubmit.textContent = "Submitted ✓";
+          setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
+        }
+        try {
+          const m = document.querySelector("#admin-lab");
+          if (m && m.classList.contains("open")) loadAdminLab();
+        } catch {}
       } catch (e) {
-        alert("Accept 실패: " + (e?.message || e));
+        const msg = String(e?.message || e);
+        if (msg.startsWith("submit_api_404")) {
+          alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
+        } else if (msg.startsWith("submit_api_401")) {
+          alert("제출 실패: 로그인이 필요합니다(401).");
+        } else if (msg.startsWith("submit_api_")) {
+          alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
+        } else {
+          alert("제출 실패: " + msg);
+        }
+      } finally {
+        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
       }
     }
 
-    // ---------- Modal (images only) ----------
-    function ensureAdminModal() {
-      let modal = document.getElementById("admin-lab");
-      if (modal) return modal;
-      modal = document.createElement("div");
-      modal.id = "admin-lab";
-      modal.className = "modal";
-      modal.innerHTML = `
-        <button class="overlay" type="button" aria-label="Close"></button>
-        <div class="sheet" role="document">
-          <h2 class="title">aud laboratory — submissions</h2>
-          <div class="admin-toolbar">
-            <div class="spacer"></div>
-            <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
-            <button id="admin-lab-close" class="btn" type="button">Close</button>
-          </div>
-          <div id="admin-lab-grid" class="admin-grid"></div>
-          <p id="admin-lab-msg" class="hint"></p>
-        </div>
-      `.trim();
-      document.body.appendChild(modal);
-      try { fixAdminLabPointerEvents(modal); } catch {}
-      modal.querySelector(".overlay")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-close")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-refresh")?.addEventListener("click", loadAdminList);
-      return modal;
-    }
-
-    function cardHTML(it) {
-      const preview = (window.__toAPI ? __toAPI(it.image || it.preview || it.png || it.url || "") : (it.image || it.preview || it.png || it.url || ""));
-      const owner  = (it.user?.displayName || it.user?.email || it.ns || "").toString();
-      return `
-        <div class="card" data-id="${it.id}" data-ns="${it.ns}">
-          <div class="thumb"><img loading="lazy" src="${preview}" alt="${owner}'s submission"/></div>
-          <div class="meta">
-            <div class="owner">${owner}</div>
-            <div class="id">${it.id}</div>
-          </div>
-        </div>
-      `.trim();
-    }
-
-    async function loadAdminList() {
-      const modal = ensureAdminModal();
-      const grid  = modal.querySelector("#admin-lab-grid");
-      const msg   = modal.querySelector("#admin-lab-msg");
-      grid.innerHTML = ""; msg.textContent = "Loading…";
-
+    document.addEventListener("visibilitychange", () => {
       try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials: "include" });
-        const j = await r.json().catch(()=> ({}));
-        const items = Array.isArray(j?.items) ? j.items : [];
-        if (!items.length) { grid.innerHTML = `<div class="empty">No submissions</div>`; msg.textContent = ""; return; }
-        grid.innerHTML = items.map(cardHTML).join("");
-        msg.textContent = "";
+        if (document.hidden && AC && master && AC.state !== "closed") {
+          master.gain.setValueAtTime(0, AC.currentTime); // 왜: 탭 전환 시 잔음 컷
+        }
+      } catch {}
+    });
 
-        grid.addEventListener("click", async (e) => {
-          const card = e.target.closest(".card");
-          if (!card) return;
-          const ns = card.dataset.ns, id = card.dataset.id;
-          if (e.target.tagName === "IMG" || e.target.closest(".thumb")) {
-            await hearSubmission({ id, ns, card });
-            return;
-          }
-          selectSubmission(ns, id);
-        }, { once: true }); // 첫 선택 후 모달 닫히면 다음 열기 때 다시 바인딩
-      } catch (e) {
-        msg.textContent = "Load failed";
-      }
-    }
-
-    function openAdminModal() {
-      const m = ensureAdminModal();
-      m.classList.add("open");
-      try { fixAdminLabPointerEvents(m); } catch {}
-      loadAdminList();
-    }
-
-    // ---------- Wire ----------
+    // --- Wire up ---
     window.addEventListener("resize", resizeCanvas);
-    resizeCanvas(); drawStatic(); ensureAcceptButton();
+    resizeCanvas();
+    updateCounters();
 
-    btnPlay     && btnPlay.addEventListener("click", togglePlay);
-    btnViewList && btnViewList.addEventListener("click", openAdminModal);
-  })();
+    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId); }catch{} beginStroke(e); });
+    cvs.addEventListener("pointermove", moveStroke);
+    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId); }catch{} endStroke(); });
+    cvs.addEventListener("pointercancel", endStroke);
+    cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
+
+    if (btnPlay)  btnPlay.addEventListener("click", togglePlay);
+    if (btnUndo)  btnUndo.addEventListener("click", undoStroke);
+    if (btnClear) btnClear.addEventListener("click", clearAll);
+    if (btnViewList) btnViewList.addEventListener("click", openAdminLabModal);
+
+    // a11y: space toggles play when canvas focused
+    cvs.tabIndex = 0;
+    cvs.addEventListener("keydown", (e)=>{
+      if (e.code === "Space"){ e.preventDefault(); togglePlay(); }
+    });
+  })(); 
 
 })();
