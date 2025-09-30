@@ -1697,7 +1697,7 @@
     const by = new Map();
     // posts: 양쪽 목록의 아이템 수(중복 제거)로 계산
     const postsBy = new Map();
-    for (const it of [...galleryItems, ...audlabItems]) {
+    for (const it of [...galleryItems]) {
       const key = it.ns;
       const set = postsBy.get(key) || new Set();
       set.add(it.id);

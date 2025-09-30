@@ -5,18 +5,27 @@
 
 :root{
   /* Brand & UI */
-  --accent: #FFA765;
-  --text: #111;
-  --muted: #666;
-  --focus: #0B72FF;
+  --accent: #FFA765;            /* primary action 색 */
+  --text: #111;                 /* 본문 텍스트 */
+  --muted: #666;                /* 보조 텍스트 */
+  --focus: #0B72FF;             /* 포커스 링 */
   --heart-red: #E53935;
+
+  /* Surfaces & Panels */
+  --surface: #F5F5F5;           /* 페이지 배경 */
+  --panel: #fff;                /* 카드/패널 배경 */
+  --panel-radius: 18px;
+  --shadow-soft: 0 1px 3px rgba(0,0,0,.05);
+
   /* Notice metrics */
-  --notice-h: 64px;      /* 알림 1개 기준 높이 */
-  --notice-gap: 8px;     /* .notify-list의 gap(.5rem ≒ 8px) */
+  --notice-h: 64px;             /* 알림 1개 기준 높이 */
+  --notice-gap: 8px;            /* .notify-list gap */
 
   /* Layout */
   --nav-h: 64px;
   --container-w: clamp(350px, 85vw, 1000px);
+  --container-max: 1500px;      /* footer에서 사용 */
+  --container-pad: 24px;        /* footer에서 사용 */
 
   /* Quick/Feed spacing */
   --feed-top-gap: 32px;
@@ -24,9 +33,9 @@
 
   /* Post Modal Layout tokens (PM) */
   --pm-gutter: 14px;
-  --pm-left: 600px;          /* 좌측(미디어) 최대폭 */
-  --pm-right: 350px;         /* 우측(텍스트) 고정폭 */
-  --pm-left-min: 300px;      /* 세로 전환 임계 좌측폭 */
+  --pm-left: 600px;             /* 좌측(미디어) 최대폭 */
+  --pm-right: 350px;            /* 우측(텍스트) 고정폭 */
+  --pm-left-min: 300px;         /* 세로 전환 임계 좌측폭 */
   --pm-lock-h: 350px;
 
   /* Sheet geometry */
@@ -35,9 +44,14 @@
   --sheet-ar-den: 9;
   --pm-fixed-h: 92dvh;
 
-  /* Hero 배경 */
+  /* Hero 배경(그라디언트 구분감 강화) */
   --green: #A9B9CF;
-  --green-deep: #A9B9CF;
+  --green-deep: #90A3BC;
+
+  /* Lab tokens (JS/HTML과 동기화) */
+  --lab-head-h: 36px;
+  --lab-controls-h: 52px;
+  --lab-gap: 20px;
 
   /* Icons (data URI) */
   --ico-bell-off: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%237b8192' d='m20,8c2.206,0,4-1.794,4-4s-1.794-4-4-4-4,1.794-4,4,1.794,4,4,4Zm0-6c1.103,0,2,.897,2,2s-.897,2-2,2-2-.897-2-2,.897-2,2-2Zm3.272,14.247l-.005-.019s0,0,0-.001h0l-1.573-6.473c-.538.158-1.105.247-1.694.247-.104,0-.205-.01-.308-.016l1.637,6.735c.002.007.007.012.008.02h-.004c.082.308.021.615-.169.866-.192.255-.476.395-.796.395H3.493c-.305,0-.589-.137-.778-.371-.192-.24-.264-.548-.207-.812l2.352-9.117c.746-3.356,3.682-5.7,7.14-5.7.773,0,1.523.132,2.232.361.188-.661.484-1.275.872-1.821-.979-.348-2.025-.539-3.104-.539C7.598,0,3.859,2.988,2.916,7.233L.564,16.352c-.197.89.018,1.811.591,2.528.573.712,1.426,1.12,2.338,1.12h3.608c.465,2.279,2.484,4,4.899,4s4.434-1.721,4.899-4h3.47c.947,0,1.817-.433,2.39-1.186.556-.733.739-1.66.514-2.55-.001-.006,0-.011,0-.017Zm-11.272,5.753c-1.302,0-2.402-.839-2.816-2h5.631c-.414,1.161-1.514,2-2.816,2Z'/></svg>");
@@ -49,7 +63,7 @@ html, body { height: 100%; }
 body{
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
-  background: #F5F5F5;
+  background: var(--surface);
   min-width: 400px;
 }
 
@@ -78,7 +92,7 @@ body{
 header.nav{
   position: sticky; top: 0; z-index: 100;
   height: var(--nav-h);
-  background: #F5F5F5;
+  background: var(--surface);   
 }
 .nav-inner{
   height: 100%;
@@ -250,10 +264,10 @@ header.nav{
    ※ KPI 스타일 제거와 무관하게 유지되어야 함
 ===================================================================== */
 .panel{
-  background: #fff;
-  border-radius: 18px;
+  background: var(--panel);           
+  border-radius: var(--panel-radius);
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  box-shadow: var(--shadow-soft);    
 }
 .panel h3{
   margin: 0 0 10px;
@@ -544,11 +558,9 @@ header.nav{
   transform: translateY(8px);
   transition: transform .18s ease, opacity .18s ease;
   opacity: .98;
-  position: relative;
-  z-index: 1;
 }
 .modal.open .sheet{ transform: translateY(0); opacity: 1; }
-.modal .overlay{ position: fixed; inset: 0; background: transparent; border: 0; cursor: default; z-index: 0; }
+.modal .overlay{ position: fixed; inset: 0; background: transparent; border: 0; cursor: default; }
 .modal .title{ font-size: 20px; font-weight: 800; margin: 2px 4px 14px; }
 .form-row{ display: grid; gap: 6px; margin: 10px 4px; }
 .form-row > label{ font-size: 13px; font-weight: 700; color: #222; }
@@ -642,9 +654,7 @@ header.nav{
   gap: 10px;
   height: 450px;             /* 필요 시 조절 가능 (예: 420px, 48vh 등) */
   padding: 12px 14px;        /* ← 원하는 옆 패딩을 여기서 지정 */
-  --lab-head-h: 36px;        /* 제목줄 대략값 (참고용 토큰) */
-  --lab-controls-h: 52px;    /* 버튼줄 대략값 (참고용 토큰) */
-  --lab-gap: 20px;           /* 내부 gap 여유 */
+
 }
 
 .lab-head{
@@ -728,14 +738,56 @@ header.nav{
 }
 
 /* ===== admin aud-lab modal (full-page overlay) ===== */
-#admin-lab.modal{ z-index: 1000; }                /* 네비(z=100) 위로 */
-#admin-lab .sheet { max-width: 980px; width: min(92vw, 980px); }
+/* file: public/css/adminme.css  (추가/교체) */
 
-/* 오버레이 클릭영역: 화면 전체 */
-#admin-lab .overlay{
+/* Base modal reset */
+#admin-lab.modal{
   position: fixed;
   inset: 0;
+  display: grid;
+  place-items: center;
+  /* 기본은 비활성 상태로 시작 */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;                  /* ← 닫힌 동안 클릭 차단(자기 자신) */
+  z-index: -1;                           /* ← 스택에서 빼둠 */
+  transition: opacity .18s ease, visibility 0s linear .18s;
+  background: transparent; 
 }
+
+/* 열렸을 때만 상단으로 끌어올리고 상호작용 활성화 */
+#admin-lab.modal.open,
+#admin-lab.modal[aria-hidden="false"]{
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;                  /* ← 클릭 허용 */
+  z-index: 1000;
+  transition: opacity .18s ease;
+  background: transparent; 
+}
+
+/* overlay/button 레이어도 닫힌 동안은 반드시 비활성화 */
+#admin-lab.modal:not(.open)[aria-hidden="true"] .overlay,
+#admin-lab.modal:not(.open)[aria-hidden="true"] *{
+  pointer-events: none !important;       /* ← “가려진 차일드”가 클릭 먹는 것 방지 */
+}
+
+/* 시트 및 오버레이 기본 */
+#admin-lab .overlay{
+  position: fixed; inset: 0;
+  background: rgba(17,17,17,.35);
+}
+#admin-lab .sheet{
+  position: relative;
+  max-width: var(--sheet-w-max, 960px);
+  width: min(96vw, var(--sheet-w-max, 960px));
+  max-height: 92dvh;
+  border-radius: 16px;
+  background: var(--panel, #fff);
+  box-shadow: var(--shadow-soft, 0 10px 30px rgba(0,0,0,.15));
+  overflow: auto;
+}
+
 
 /* 나머지 카드/툴바 스타일 동일 */
 #admin-lab .admin-toolbar { display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
@@ -811,4 +863,14 @@ header.nav{
   background-position: center;
   border-radius: 12px;
   background-color: #111;        /* 이미지 로드 전 배경 */
+}
+
+/* file: /public/css/me.css (또는 공용 CSS) */
+/* [5] ADD — 영구 규칙: 모달 컨트롤은 항상 인터랙션 가능 */
+#admin-lab.modal .sheet,
+#admin-lab.modal .admin-toolbar,
+#admin-lab.modal .btn,
+#admin-lab.modal button,
+#admin-lab.modal [role="button"] {
+  pointer-events: auto !important; /* why: 전역 reset/오버레이 규칙으로 none 되는 것 차단 */
 }
