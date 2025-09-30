@@ -9,17 +9,14 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 0) Utilities & Globals (single source of truth)
    * ──────────────────────────────────────────────────────────────────────────── */
-  // GitHub blob → raw + Pages 보정
   function normalizeJsonUrl(url) {
     if (!url) return url;
     if (url.startsWith('https://github.com/') && url.includes('/blob/')) {
-      return url
-        .replace('https://github.com/', 'https://raw.githubusercontent.com/')
-        .replace('/blob/', '/');
+      return url.replace('https://github.com/', 'https://raw.githubusercontent.com/').replace('/blob/', '/');
     }
     try {
       const abs = new URL(url, document.baseURI).href;
-      const PAGES_BASE = `${location.origin}/aud-web/`; // 레포명에 맞게 조정 필요
+      const PAGES_BASE = `${location.origin}/aud-web/`;
       if (abs.startsWith(location.origin + '/') && !abs.startsWith(PAGES_BASE)) {
         const path = abs.replace(location.origin + '/', '');
         return PAGES_BASE + path;
@@ -504,7 +501,7 @@
     insights.innerHTML = `<div id="lb-root" class="lb-grid"><article class="panel"><div class="kpi-lg">Loading leaderboards…</div></article></div>`;
     return document.getElementById('lb-root');
   }
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;","&gt;":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
   function who(row) {
     const a = row?.author || row?.user || row?.owner || row || {};
     const rawNs   = a.ns || row.ns || "";
@@ -810,13 +807,19 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 8) Quick Panel Lists (Labels & Jibbitz) — unchanged
+   * 8) Quick Panel Lists (Labels & Jibbitz) — FIX: no-throw guards
    * ──────────────────────────────────────────────────────────────────────────── */
   (function QuickPanelLinks(){
     const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
-    if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
+    if (!Array.isArray(LABELS) || !LABELS.length) {
+      console.warn("[QuickPanelLinks] LABELS missing. Skipping quick list.");
+      return; // ✅ 절대 throw 금지: 초기화 계속 진행
+    }
     const JIBS   = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
-    if (!Array.isArray(JIBS)   || !JIBS.length)   throw new Error("APP_CONFIG.JIBBITZ missing");
+    if (!Array.isArray(JIBS) || !JIBS.length) {
+      console.warn("[QuickPanelLinks] JIBBITZ missing. Skipping quick list.");
+      return; // ✅ 절대 throw 금지
+    }
     const SELECTED_LABEL_KEY = "aud:selectedLabel";
     const LABEL_COL_EVT      = window.LABEL_COLLECTED_EVT || "collectedLabels:changed";
     const JIB_COL_EVT        = window.JIB_COLLECTED_EVT   || "jib:collection-changed";
@@ -906,27 +909,23 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 9) Admin Lab (aud laboratory) — unified (modal + list + hear + replay + accept)
    * ──────────────────────────────────────────────────────────────────────────── */
-  // Canvas & controls
   const cvs = document.getElementById("aud-canvas");
   const ctx = cvs?.getContext?.("2d");
   const btnPlay     = document.getElementById("lab-play");
-  const btnUndo     = document.getElementById("lab-undo");   // hidden in admin
-  const btnClear    = document.getElementById("lab-clear");  // hidden in admin
+  const btnUndo     = document.getElementById("lab-undo");
+  const btnClear    = document.getElementById("lab-clear");
   const btnViewList = document.getElementById("lab-view-list");
   const elStrokeCount = document.getElementById("lab-strokes");
   const elPointCount  = document.getElementById("lab-points");
 
-  // Disable drawing interactions on admin canvas
   if (cvs) {
     cvs.style.touchAction = "none";
     ["pointerdown","pointermove","pointerup","pointercancel","touchstart"].forEach(ev => cvs.addEventListener(ev, (e)=> e.preventDefault(), { passive:false }));
   }
 
-  // State for replay
   let W = 800, H = 500, replaying = false, rafId = 0;
-  const state = { selected: null, t0: 0 }; // { ns, id, strokes[], width, height, audioUrl? }
+  const state = { selected: null, t0: 0 };
 
-  // Audio synth (fallback when audio file missing)
   let AC = null, master = null, osc = null;
   const port = 0.02;
   function freqFromY(y01) { const y = Math.min(1, Math.max(0, y01)); const fTop = 880, fBot = 110; return fTop + (fBot - fTop) * y; }
@@ -955,7 +954,6 @@
     }
   }
 
-  // Canvas drawing
   function resizeCanvas() {
     if (!cvs || !ctx) return;
     const r = cvs.getBoundingClientRect();
@@ -1010,7 +1008,6 @@
     return Number.isFinite(t0) ? t0 : performance.now();
   }
 
-  // Replay controls
   function stopReplay() {
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     replaying = false;
@@ -1044,7 +1041,6 @@
     if (replaying) stopReplay(); else startReplay();
   }
 
-  // Admin modal (single)
   function ensureAdminLabModal() {
     let wrap = document.querySelector("#admin-lab");
     if (!wrap) {
@@ -1102,7 +1098,6 @@
     if (m.__onEsc && m.__escAttached) { document.removeEventListener("keydown", m.__onEsc); m.__escAttached = false; }
   }
 
-  // Card + actions
   function cardHTML(it) {
     const raw   = it.preview || it.previewDataURL || it.thumbnail || it.image || it.png || "";
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
@@ -1157,7 +1152,6 @@
     });
   }
 
-  // Hear: audio if exists, else synth from strokes
   async function hearSubmission({ id, ns, card }) {
     let audioUrl = card.__audioUrl || "";
     let jsonUrl  = card.__jsonUrl  || "";
@@ -1227,7 +1221,6 @@
     try { ACx.close(); } catch {}
   }
 
-  // List loader + accept injection
   async function loadAdminLab() {
     const msg  = document.querySelector("#admin-lab-msg");
     const grid = document.querySelector("#admin-lab-grid");
@@ -1290,7 +1283,6 @@
     });
   }
 
-  // Selection + accept
   async function selectSubmission(ns, id) {
     try {
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
@@ -1323,7 +1315,7 @@
     }
     b = document.createElement("button");
     b.id = "lab-accept";
-    b.className = "btn primary"; // ← HTML과 톤 통일(ghost→primary)
+    b.className = "btn primary";
     b.type = "button";
     b.textContent = "Accept";
     b.disabled = true;
@@ -1346,7 +1338,6 @@
     } catch (e) { alert("Accept 실패: " + (e?.message || e)); }
   }
 
-  // Modal open
   function openAdminModal() { openAdminLabModal(); }
 
   /* ─────────────────────────────────────────────────────────────────────────────
@@ -1411,17 +1402,14 @@
     window.addEventListener("label:collected-changed", () => window.__meCountsRefresh?.());
     window.addEventListener("jib:collection-changed",  () => window.__meCountsRefresh?.());
 
-    // Admin canvas & buttons
     window.addEventListener("resize", resizeCanvas);
     if (cvs) { resizeCanvas(); drawStatic(); ensureAcceptButton(); }
     if (btnPlay)     btnPlay.addEventListener("click", togglePlay);
     if (btnViewList) btnViewList.addEventListener("click", openAdminModal);
 
-    // Edit/Avatar
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
 
-    // Leaderboards (authed only)
     if (quick.authed) await loadLeaderboardsIntoInsights();
   }
 
@@ -1522,7 +1510,7 @@
     const wipe = (k) => { try { sessionStorage.removeItem(k); } catch {} try { localStorage.removeItem(k); } catch {} };
     const ns = currentNs(); const enc = encodeURIComponent(ns || "");
     ["auth:flag","auth:userns","auth:ns","collectedLabels","jib:collected"].forEach(wipe);
-    const KNOWN = []; // keep consistent with __purgeNamespaceKeys
+    const KNOWN = [];
     KNOWN.forEach(base => { wipe(base); if (ns) { wipe(`${base}:${ns}`); wipe(`${base}::${ns}`); wipe(`${base}:${enc}`); wipe(`${base}::${enc}`); } });
     try { __purgeNamespaceKeys(ns); } catch {}
     try { for (let i = sessionStorage.length - 1; i >= 0; i--) { const k = sessionStorage.key(i); if (!k) continue; if (k.startsWith("me:last-uid:") || k === "me:last-ns") sessionStorage.removeItem(k); } } catch {}
@@ -1548,6 +1536,5 @@
     document.addEventListener("DOMContentLoaded", () => { bindLogoutButtonForMe(); bindDeleteButtonForMe(); }, { once: true });
   } else { bindLogoutButtonForMe(); bindDeleteButtonForMe(); }
 
-  // Public helpers for test
   window.__audlab = { open: openAdminModal, refresh: loadAdminLab, select: selectSubmission, hear: hearSubmission };
 })();
