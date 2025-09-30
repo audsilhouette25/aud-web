@@ -598,7 +598,7 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 3) API helpers & rendering
+   * 3) Auth helpers & admin tooling
    * ──────────────────────────────────────────────────────────────────────────── */
   const hasAuthedFlag = () => sessionStorage.getItem("auth:flag") === "1";
   const serverAuthed  = () => !!(window.auth?.isAuthed && window.auth.isAuthed());
@@ -1060,7 +1060,387 @@
     }
   }
   
-  // [REPLACE] 기존 renderProfile(...) 전체를 아래로 교체
+  // Admin laboratory replay canvas (aud lab tooling)
+
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * Admin laboratory replay canvas (aud lab toolset)
+   * Select submission → replay strokes/audio → accept into catalog
+   * ──────────────────────────────────────────────────────────────────────────── */
+  (() => {
+    "use strict";
+
+    // ---------- DOM ----------
+    const cvs = document.getElementById("aud-canvas");
+    const ctx = cvs.getContext("2d");
+    const btnPlay  = document.getElementById("lab-play");
+    const btnUndo  = document.getElementById("lab-undo");   // will hide
+    const btnClear = document.getElementById("lab-clear");  // will hide
+    const btnViewList = document.getElementById("lab-view-list");
+
+    const elStrokeCount = document.getElementById("lab-strokes");
+    const elPointCount  = document.getElementById("lab-points");
+
+    // ---------- State ----------
+    let W = 800, H = 500;
+    let replaying = false;
+    let rafId = 0;
+
+    const state = {
+      selected: null,  // { ns, id, strokes, width, height, audioUrl? }
+      t0: 0,           // min timestamp across strokes
+    };
+
+    // --- Disable drawing inputs on admin page ---
+    cvs.style.touchAction = "none";
+    ["pointerdown","pointermove","pointerup","pointercancel","touchstart"].forEach(ev =>
+      cvs.addEventListener(ev, (e)=>{ e.preventDefault(); }, { passive:false })
+    );
+
+    // ---------- Audio synth ----------
+    let AC = null, master = null, osc = null;
+    const port = 0.02;
+    function freqFromY(y01) {
+      const y = Math.min(1, Math.max(0, y01));
+      const fTop = 880, fBot = 110;
+      return fTop + (fBot - fTop) * y;
+    }
+    function ensureAudio() {
+      if (!AC) {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
+        master = AC.createGain(); master.gain.value = 0.0001; master.connect(AC.destination);
+      }
+      if (!osc) {
+        osc = AC.createOscillator(); osc.type = "sine"; osc.frequency.value = 440; osc.connect(master); osc.start();
+      }
+    }
+    function scheduleSynth(strokes) {
+      ensureAudio();
+      if (!AC || !osc || !master) return;
+      const t0 = state.t0;
+      const startAt = AC.currentTime + 0.06;
+      const gain = master.gain;
+
+      // why: 짧은 게이트로 path 진행감을 살림 (프레임당 1~2개 포인트만 스냅)
+      for (const s of (strokes || [])) {
+        const pts = s.points || [];
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          const at = startAt + Math.max(0, (p.t - t0) / 1000);
+          const fq = Math.max(40, freqFromY(p.y));
+          osc.frequency.cancelScheduledValues(at);
+          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+
+          const a = 0.012, r = 0.06; // attack/release
+          gain.cancelScheduledValues(at);
+          gain.setValueAtTime(0.0, at);
+          gain.linearRampToValueAtTime(0.18, at + a);
+          gain.linearRampToValueAtTime(0.0, at + a + r);
+        }
+      }
+    }
+
+    // ---------- Canvas render ----------
+    function resizeCanvas() {
+      const r = cvs.getBoundingClientRect();
+      W = Math.max(300, Math.floor(r.width));
+      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
+      cvs.width = W; cvs.height = H;
+      drawStatic();
+    }
+    function drawStatic() {
+      ctx.clearRect(0, 0, W, H);
+      if (!state.selected?.strokes?.length) return;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+      for (const s of state.selected.strokes) {
+        const pts = s.points || [];
+        if (pts.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x * W, pts[0].y * H);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * W, pts[i].y * H);
+        ctx.stroke();
+      }
+    }
+    function drawUntil(targetMs) {
+      ctx.clearRect(0, 0, W, H);
+      if (!state.selected?.strokes?.length) return;
+
+      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "#111";
+      const t0 = state.t0;
+
+      for (const s of state.selected.strokes) {
+        const pts = s.points || [];
+        if (pts.length === 0) continue;
+        ctx.beginPath();
+        // walk points until time reached
+        let drewAny = false;
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          const t = p.t - t0;
+          if (i === 0) {
+            ctx.moveTo(p.x * W, p.y * H);
+            drewAny = true;
+            continue;
+          }
+          const prev = pts[i - 1];
+          const tPrev = prev.t - t0;
+          if (tPrev <= targetMs) {
+            const x = p.x * W, y = p.y * H;
+            if (t <= targetMs) {
+              ctx.lineTo(x, y);
+              drewAny = true;
+            } else {
+              // partial segment (simple snap to prev)
+              ctx.lineTo(prev.x * W, prev.y * H);
+              drewAny = true;
+              break;
+            }
+          }
+        }
+        if (drewAny) ctx.stroke();
+      }
+    }
+
+    function computeT0(strokes) {
+      let t0 = Infinity;
+      for (const s of (strokes || [])) {
+        if (!s.points?.length) continue;
+        t0 = Math.min(t0, s.points[0].t);
+      }
+      return Number.isFinite(t0) ? t0 : performance.now();
+    }
+
+    // ---------- Replay ----------
+    function stopReplay() {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      replaying = false;
+      btnPlay?.setAttribute("aria-pressed", "false");
+      btnPlay && (btnPlay.textContent = "Play");
+      // no hard stop of audio envelope (already short per step)
+    }
+
+    function startReplay() {
+      if (!state.selected?.strokes?.length) return;
+      replaying = true;
+      btnPlay?.setAttribute("aria-pressed", "true");
+      btnPlay && (btnPlay.textContent = "Pause");
+
+      const strokes = state.selected.strokes;
+      state.t0 = computeT0(strokes);
+      const totalMs = (() => {
+        let t1 = 0;
+        for (const s of strokes) {
+          const pts = s.points || [];
+          if (!pts.length) continue;
+          t1 = Math.max(t1, pts[pts.length - 1].t);
+        }
+        return Math.max(0, t1 - state.t0);
+      })();
+
+      // schedule audio once
+      scheduleSynth(strokes);
+
+      const start = performance.now();
+      const loop = () => {
+        const elapsed = performance.now() - start;
+        drawUntil(elapsed);
+        if (!replaying) return;
+        if (elapsed >= totalMs + 80) { // a small tail
+          stopReplay();
+          drawStatic(); // final full drawing
+          return;
+        }
+        rafId = requestAnimationFrame(loop);
+      };
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function togglePlay() {
+      if (!state.selected?.strokes?.length) {
+        alert("먼저 View submissions에서 항목을 선택하세요.");
+        return;
+      }
+      if (replaying) stopReplay(); else startReplay();
+    }
+
+    // ---------- Select & Accept ----------
+    async function selectSubmission(ns, id) {
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        const u = new URL("/api/admin/audlab/item", base);
+        u.searchParams.set("ns", ns);
+        u.searchParams.set("id", id);
+        const r = await fetch(u.toString(), { credentials: "include" });
+        const j = await r.json().catch(()=> ({}));
+        if (!r.ok || !j.ok) throw new Error(j?.error || "ITEM_FAIL");
+
+        // fetch strokes json
+        const jj = await fetch((window.__toAPI ? __toAPI(j.jsonUrl) : j.jsonUrl), { credentials: "include" })
+                    .then(r => r.json());
+        const strokes = Array.isArray(jj?.strokes) ? jj.strokes : [];
+
+        state.selected = {
+          ns, id,
+          strokes,
+          width:  Number(jj?.width || j?.meta?.width || 0),
+          height: Number(jj?.height|| j?.meta?.height|| 0),
+        };
+
+        // show on canvas (static)
+        updateCounters();
+        drawStatic();
+
+        // close modal if open
+        const modal = document.getElementById("admin-lab");
+        if (modal) modal.classList.remove("open");
+
+        // enable accept
+        const b = ensureAcceptButton();
+        b.disabled = false;
+      } catch (e) {
+        alert("불러오기 실패: " + (e?.message || e));
+      }
+    }
+
+    function updateCounters() {
+      const s = state.selected?.strokes?.length || 0;
+      const pts = (state.selected?.strokes || []).reduce((n, st) => n + (st.points?.length || 0), 0);
+      elStrokeCount && (elStrokeCount.textContent = String(s));
+      elPointCount  && (elPointCount.textContent  = String(pts));
+    }
+
+    function ensureAcceptButton() {
+      // hide undo/clear
+      btnUndo  && (btnUndo.style.display  = "none");
+      btnClear && (btnClear.style.display = "none");
+
+      // already created?
+      let b = document.getElementById("lab-accept");
+      if (b) return b;
+
+      // insert before View submissions
+      b = document.createElement("button");
+      b.id = "lab-accept";
+      b.className = "btn ghost";
+      b.type = "button";
+      b.textContent = "Accept";
+      b.disabled = true;
+
+      btnViewList?.parentElement?.insertBefore(b, btnViewList);
+      b.addEventListener("click", acceptSelected);
+      return b;
+    }
+
+    async function acceptSelected() {
+      const sel = state.selected;
+      if (!sel) return;
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        // read csrf cookie (server uses cookie-mode CSRF)
+        const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
+        const headers = {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {})
+        };
+        const r = await fetch(new URL("/api/admin/audlab/accept", base), {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({ ns: sel.ns, id: sel.id }),
+        });
+        const j = await r.json().catch(()=> ({}));
+        if (!r.ok || !j.ok) throw new Error(j?.error || `HTTP_${r.status}`);
+        const b = document.getElementById("lab-accept");
+        if (b) { b.textContent = "Accepted ✓"; b.classList.add("ghost"); b.disabled = true; }
+      } catch (e) {
+        alert("Accept 실패: " + (e?.message || e));
+      }
+    }
+
+    // ---------- Modal (images only) ----------
+    function ensureAdminModal() {
+      let modal = document.getElementById("admin-lab");
+      if (modal) return modal;
+      modal = document.createElement("div");
+      modal.id = "admin-lab";
+      modal.className = "modal";
+      modal.innerHTML = `
+        <button class="overlay" type="button" aria-label="Close"></button>
+        <div class="sheet" role="document">
+          <h2 class="title">aud laboratory — submissions</h2>
+          <div class="admin-toolbar">
+            <div class="spacer"></div>
+            <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
+            <button id="admin-lab-close" class="btn" type="button">Close</button>
+          </div>
+          <div id="admin-lab-grid" class="admin-grid"></div>
+          <p id="admin-lab-msg" class="hint"></p>
+        </div>
+      `.trim();
+      document.body.appendChild(modal);
+      modal.querySelector(".overlay")?.addEventListener("click", ()=> modal.classList.remove("open"));
+      modal.querySelector("#admin-lab-close")?.addEventListener("click", ()=> modal.classList.remove("open"));
+      modal.querySelector("#admin-lab-refresh")?.addEventListener("click", loadAdminList);
+      return modal;
+    }
+
+    function cardHTML(it) {
+      const preview = (window.__toAPI ? __toAPI(it.image || it.preview || it.png || it.url || "") : (it.image || it.preview || it.png || it.url || ""));
+      const owner  = (it.user?.displayName || it.user?.email || it.ns || "").toString();
+      return `
+        <div class="card" data-id="${it.id}" data-ns="${it.ns}">
+          <div class="thumb"><img loading="lazy" src="${preview}" alt="${owner}'s submission"/></div>
+          <div class="meta">
+            <div class="owner">${owner}</div>
+            <div class="id">${it.id}</div>
+          </div>
+        </div>
+      `.trim();
+    }
+
+    async function loadAdminList() {
+      const modal = ensureAdminModal();
+      const grid  = modal.querySelector("#admin-lab-grid");
+      const msg   = modal.querySelector("#admin-lab-msg");
+      grid.innerHTML = ""; msg.textContent = "Loading…";
+
+      try {
+        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials: "include" });
+        const j = await r.json().catch(()=> ({}));
+        const items = Array.isArray(j?.items) ? j.items : [];
+        if (!items.length) { grid.innerHTML = `<div class="empty">No submissions</div>`; msg.textContent = ""; return; }
+        grid.innerHTML = items.map(cardHTML).join("");
+        msg.textContent = "";
+
+        grid.addEventListener("click", (e) => {
+          const card = e.target.closest(".card");
+          if (!card) return;
+          const ns = card.dataset.ns, id = card.dataset.id;
+          selectSubmission(ns, id);
+        }, { once: true }); // 첫 선택 후 모달 닫히면 다음 열기 때 다시 바인딩
+      } catch (e) {
+        msg.textContent = "Load failed";
+      }
+    }
+
+    function openAdminModal() {
+      const m = ensureAdminModal();
+      m.classList.add("open");
+      loadAdminList();
+    }
+
+    // ---------- Wire ----------
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas(); drawStatic(); ensureAcceptButton();
+
+    btnPlay     && btnPlay.addEventListener("click", togglePlay);
+    btnViewList && btnViewList.addEventListener("click", openAdminModal);
+  })();
+
   function renderProfile({ name, displayName, email, avatarUrl }) {
     const nm =
       (displayName && String(displayName).trim()) ||
@@ -1107,7 +1487,7 @@
   });
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * 3.5) Server-first quick counts (labels & jibbitz)
+   * 4) Profile rendering & quick counts
    * ──────────────────────────────────────────────────────────────────────────── */
   const OPTIONS = ["thump", "miro", "whee", "track", "echo", "portal"]; // valid label set
 
@@ -1915,9 +2295,9 @@
     });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────────
-  // 10) Boot  — REORDERED for early room subscription + predictable notifications
-  // ──────────────────────────────────────────────────────────────────────────────
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 10) Boot sequence — early subscriptions & predictable notifications
+   * ──────────────────────────────────────────────────────────────────────────── */
   async function boot() {
     if (window.__PURGING) return;
     let me    = { displayName: "member", email: "", avatarUrl: "" };
@@ -2005,7 +2385,7 @@
     boot();
   }
 
-  // [ADD] 파일 상단 유틸 근처(함수 선언부들) 어딘가에 추가
+  // 11) Account purge helpers & logout flows
   function __purgeNamespaceKeys(ns) {
     if (!ns || !isEmailNS(ns)) return;
     const enc = encodeURIComponent(ns);
@@ -2274,9 +2654,9 @@
     bindLogoutButtonForMe();
     bindDeleteButtonForMe();
   }
-  /* ========= adminme.js : Quick Panel Lists (Labels & Jibbitz) =========
-  * Drop-in: paste near the bottom of adminme.js (before the last IIFE closes).
-  * No inline styles; pure DOM + classes.  */
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 11) Quick panel lists (labels & jibbitz shortcuts)
+   * ──────────────────────────────────────────────────────────────────────────── */
 
   /* ── constants ─────────────────────────────────────────── */
   (function QuickPanelLinks(){
@@ -2497,384 +2877,4 @@
       bind();
     }
   })();
-
-  /* ========================================================================
-  * path: /public/js/adminme.js
-  * desc: aud laboratory — select submitted path → replay (draw+sound) → accept
-  * ===================================================================== */
-  (() => {
-    "use strict";
-
-    // ---------- DOM ----------
-    const cvs = document.getElementById("aud-canvas");
-    const ctx = cvs.getContext("2d");
-    const btnPlay  = document.getElementById("lab-play");
-    const btnUndo  = document.getElementById("lab-undo");   // will hide
-    const btnClear = document.getElementById("lab-clear");  // will hide
-    const btnViewList = document.getElementById("lab-view-list");
-
-    const elStrokeCount = document.getElementById("lab-strokes");
-    const elPointCount  = document.getElementById("lab-points");
-
-    // ---------- State ----------
-    let W = 800, H = 500;
-    let replaying = false;
-    let rafId = 0;
-
-    const state = {
-      selected: null,  // { ns, id, strokes, width, height, audioUrl? }
-      t0: 0,           // min timestamp across strokes
-    };
-
-    // --- Disable drawing inputs on admin page ---
-    cvs.style.touchAction = "none";
-    ["pointerdown","pointermove","pointerup","pointercancel","touchstart"].forEach(ev =>
-      cvs.addEventListener(ev, (e)=>{ e.preventDefault(); }, { passive:false })
-    );
-
-    // ---------- Audio synth ----------
-    let AC = null, master = null, osc = null;
-    const port = 0.02;
-    function freqFromY(y01) {
-      const y = Math.min(1, Math.max(0, y01));
-      const fTop = 880, fBot = 110;
-      return fTop + (fBot - fTop) * y;
-    }
-    function ensureAudio() {
-      if (!AC) {
-        AC = new (window.AudioContext || window.webkitAudioContext)();
-        master = AC.createGain(); master.gain.value = 0.0001; master.connect(AC.destination);
-      }
-      if (!osc) {
-        osc = AC.createOscillator(); osc.type = "sine"; osc.frequency.value = 440; osc.connect(master); osc.start();
-      }
-    }
-    function scheduleSynth(strokes) {
-      ensureAudio();
-      if (!AC || !osc || !master) return;
-      const t0 = state.t0;
-      const startAt = AC.currentTime + 0.06;
-      const gain = master.gain;
-
-      // why: 짧은 게이트로 path 진행감을 살림 (프레임당 1~2개 포인트만 스냅)
-      for (const s of (strokes || [])) {
-        const pts = s.points || [];
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          const at = startAt + Math.max(0, (p.t - t0) / 1000);
-          const fq = Math.max(40, freqFromY(p.y));
-          osc.frequency.cancelScheduledValues(at);
-          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
-
-          const a = 0.012, r = 0.06; // attack/release
-          gain.cancelScheduledValues(at);
-          gain.setValueAtTime(0.0, at);
-          gain.linearRampToValueAtTime(0.18, at + a);
-          gain.linearRampToValueAtTime(0.0, at + a + r);
-        }
-      }
-    }
-
-    // ---------- Canvas render ----------
-    function resizeCanvas() {
-      const r = cvs.getBoundingClientRect();
-      W = Math.max(300, Math.floor(r.width));
-      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
-      cvs.width = W; cvs.height = H;
-      drawStatic();
-    }
-    function drawStatic() {
-      ctx.clearRect(0, 0, W, H);
-      if (!state.selected?.strokes?.length) return;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = "#111";
-      for (const s of state.selected.strokes) {
-        const pts = s.points || [];
-        if (pts.length < 2) continue;
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x * W, pts[0].y * H);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * W, pts[i].y * H);
-        ctx.stroke();
-      }
-    }
-    function drawUntil(targetMs) {
-      ctx.clearRect(0, 0, W, H);
-      if (!state.selected?.strokes?.length) return;
-
-      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "#111";
-      const t0 = state.t0;
-
-      for (const s of state.selected.strokes) {
-        const pts = s.points || [];
-        if (pts.length === 0) continue;
-        ctx.beginPath();
-        // walk points until time reached
-        let drewAny = false;
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          const t = p.t - t0;
-          if (i === 0) {
-            ctx.moveTo(p.x * W, p.y * H);
-            drewAny = true;
-            continue;
-          }
-          const prev = pts[i - 1];
-          const tPrev = prev.t - t0;
-          if (tPrev <= targetMs) {
-            const x = p.x * W, y = p.y * H;
-            if (t <= targetMs) {
-              ctx.lineTo(x, y);
-              drewAny = true;
-            } else {
-              // partial segment (simple snap to prev)
-              ctx.lineTo(prev.x * W, prev.y * H);
-              drewAny = true;
-              break;
-            }
-          }
-        }
-        if (drewAny) ctx.stroke();
-      }
-    }
-
-    function computeT0(strokes) {
-      let t0 = Infinity;
-      for (const s of (strokes || [])) {
-        if (!s.points?.length) continue;
-        t0 = Math.min(t0, s.points[0].t);
-      }
-      return Number.isFinite(t0) ? t0 : performance.now();
-    }
-
-    // ---------- Replay ----------
-    function stopReplay() {
-      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
-      replaying = false;
-      btnPlay?.setAttribute("aria-pressed", "false");
-      btnPlay && (btnPlay.textContent = "Play");
-      // no hard stop of audio envelope (already short per step)
-    }
-
-    function startReplay() {
-      if (!state.selected?.strokes?.length) return;
-      replaying = true;
-      btnPlay?.setAttribute("aria-pressed", "true");
-      btnPlay && (btnPlay.textContent = "Pause");
-
-      const strokes = state.selected.strokes;
-      state.t0 = computeT0(strokes);
-      const totalMs = (() => {
-        let t1 = 0;
-        for (const s of strokes) {
-          const pts = s.points || [];
-          if (!pts.length) continue;
-          t1 = Math.max(t1, pts[pts.length - 1].t);
-        }
-        return Math.max(0, t1 - state.t0);
-      })();
-
-      // schedule audio once
-      scheduleSynth(strokes);
-
-      const start = performance.now();
-      const loop = () => {
-        const elapsed = performance.now() - start;
-        drawUntil(elapsed);
-        if (!replaying) return;
-        if (elapsed >= totalMs + 80) { // a small tail
-          stopReplay();
-          drawStatic(); // final full drawing
-          return;
-        }
-        rafId = requestAnimationFrame(loop);
-      };
-      rafId = requestAnimationFrame(loop);
-    }
-
-    function togglePlay() {
-      if (!state.selected?.strokes?.length) {
-        alert("먼저 View submissions에서 항목을 선택하세요.");
-        return;
-      }
-      if (replaying) stopReplay(); else startReplay();
-    }
-
-    // ---------- Select & Accept ----------
-    async function selectSubmission(ns, id) {
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        const u = new URL("/api/admin/audlab/item", base);
-        u.searchParams.set("ns", ns);
-        u.searchParams.set("id", id);
-        const r = await fetch(u.toString(), { credentials: "include" });
-        const j = await r.json().catch(()=> ({}));
-        if (!r.ok || !j.ok) throw new Error(j?.error || "ITEM_FAIL");
-
-        // fetch strokes json
-        const jj = await fetch((window.__toAPI ? __toAPI(j.jsonUrl) : j.jsonUrl), { credentials: "include" })
-                    .then(r => r.json());
-        const strokes = Array.isArray(jj?.strokes) ? jj.strokes : [];
-
-        state.selected = {
-          ns, id,
-          strokes,
-          width:  Number(jj?.width || j?.meta?.width || 0),
-          height: Number(jj?.height|| j?.meta?.height|| 0),
-        };
-
-        // show on canvas (static)
-        updateCounters();
-        drawStatic();
-
-        // close modal if open
-        const modal = document.getElementById("admin-lab");
-        if (modal) modal.classList.remove("open");
-
-        // enable accept
-        const b = ensureAcceptButton();
-        b.disabled = false;
-      } catch (e) {
-        alert("불러오기 실패: " + (e?.message || e));
-      }
-    }
-
-    function updateCounters() {
-      const s = state.selected?.strokes?.length || 0;
-      const pts = (state.selected?.strokes || []).reduce((n, st) => n + (st.points?.length || 0), 0);
-      elStrokeCount && (elStrokeCount.textContent = String(s));
-      elPointCount  && (elPointCount.textContent  = String(pts));
-    }
-
-    function ensureAcceptButton() {
-      // hide undo/clear
-      btnUndo  && (btnUndo.style.display  = "none");
-      btnClear && (btnClear.style.display = "none");
-
-      // already created?
-      let b = document.getElementById("lab-accept");
-      if (b) return b;
-
-      // insert before View submissions
-      b = document.createElement("button");
-      b.id = "lab-accept";
-      b.className = "btn ghost";
-      b.type = "button";
-      b.textContent = "Accept";
-      b.disabled = true;
-
-      btnViewList?.parentElement?.insertBefore(b, btnViewList);
-      b.addEventListener("click", acceptSelected);
-      return b;
-    }
-
-    async function acceptSelected() {
-      const sel = state.selected;
-      if (!sel) return;
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        // read csrf cookie (server uses cookie-mode CSRF)
-        const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
-        const headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {})
-        };
-        const r = await fetch(new URL("/api/admin/audlab/accept", base), {
-          method: "POST",
-          credentials: "include",
-          headers,
-          body: JSON.stringify({ ns: sel.ns, id: sel.id }),
-        });
-        const j = await r.json().catch(()=> ({}));
-        if (!r.ok || !j.ok) throw new Error(j?.error || `HTTP_${r.status}`);
-        const b = document.getElementById("lab-accept");
-        if (b) { b.textContent = "Accepted ✓"; b.classList.add("ghost"); b.disabled = true; }
-      } catch (e) {
-        alert("Accept 실패: " + (e?.message || e));
-      }
-    }
-
-    // ---------- Modal (images only) ----------
-    function ensureAdminModal() {
-      let modal = document.getElementById("admin-lab");
-      if (modal) return modal;
-      modal = document.createElement("div");
-      modal.id = "admin-lab";
-      modal.className = "modal";
-      modal.innerHTML = `
-        <button class="overlay" type="button" aria-label="Close"></button>
-        <div class="sheet" role="document">
-          <h2 class="title">aud laboratory — submissions</h2>
-          <div class="admin-toolbar">
-            <div class="spacer"></div>
-            <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
-            <button id="admin-lab-close" class="btn" type="button">Close</button>
-          </div>
-          <div id="admin-lab-grid" class="admin-grid"></div>
-          <p id="admin-lab-msg" class="hint"></p>
-        </div>
-      `.trim();
-      document.body.appendChild(modal);
-      modal.querySelector(".overlay")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-close")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-refresh")?.addEventListener("click", loadAdminList);
-      return modal;
-    }
-
-    function cardHTML(it) {
-      const preview = (window.__toAPI ? __toAPI(it.image || it.preview || it.png || it.url || "") : (it.image || it.preview || it.png || it.url || ""));
-      const owner  = (it.user?.displayName || it.user?.email || it.ns || "").toString();
-      return `
-        <div class="card" data-id="${it.id}" data-ns="${it.ns}">
-          <div class="thumb"><img loading="lazy" src="${preview}" alt="${owner}'s submission"/></div>
-          <div class="meta">
-            <div class="owner">${owner}</div>
-            <div class="id">${it.id}</div>
-          </div>
-        </div>
-      `.trim();
-    }
-
-    async function loadAdminList() {
-      const modal = ensureAdminModal();
-      const grid  = modal.querySelector("#admin-lab-grid");
-      const msg   = modal.querySelector("#admin-lab-msg");
-      grid.innerHTML = ""; msg.textContent = "Loading…";
-
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials: "include" });
-        const j = await r.json().catch(()=> ({}));
-        const items = Array.isArray(j?.items) ? j.items : [];
-        if (!items.length) { grid.innerHTML = `<div class="empty">No submissions</div>`; msg.textContent = ""; return; }
-        grid.innerHTML = items.map(cardHTML).join("");
-        msg.textContent = "";
-
-        grid.addEventListener("click", (e) => {
-          const card = e.target.closest(".card");
-          if (!card) return;
-          const ns = card.dataset.ns, id = card.dataset.id;
-          selectSubmission(ns, id);
-        }, { once: true }); // 첫 선택 후 모달 닫히면 다음 열기 때 다시 바인딩
-      } catch (e) {
-        msg.textContent = "Load failed";
-      }
-    }
-
-    function openAdminModal() {
-      const m = ensureAdminModal();
-      m.classList.add("open");
-      loadAdminList();
-    }
-
-    // ---------- Wire ----------
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas(); drawStatic(); ensureAcceptButton();
-
-    btnPlay     && btnPlay.addEventListener("click", togglePlay);
-    btnViewList && btnViewList.addEventListener("click", openAdminModal);
-  })();
-
 })();
