@@ -2384,19 +2384,50 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       });
     }
 
+    // === REPLACE: submitLab (me.js) ===
     async function submitLab(){
       if (btnSubmit) btnSubmit.disabled = true;
+
+      // 내부 유틸: strokes → 타이밍 계산
+      function computeAudTimingFromStrokes(strokesArr){
+        // why: 서버 측 endedAt 요구. 비어도 안전값 보장.
+        let startedAt = Date.now();
+        let endedAt = startedAt;
+        try {
+          const ts = [];
+          if (Array.isArray(strokesArr)) {
+            for (const st of strokesArr) {
+              const pts = Array.isArray(st?.points) ? st.points : [];
+              for (const p of pts) {
+                const t = Number(p?.t);
+                if (Number.isFinite(t)) ts.push(t);
+              }
+            }
+          }
+          if (ts.length) {
+            ts.sort((a,b)=>a-b);
+            startedAt = ts[0];
+            endedAt   = ts[ts.length-1];
+          }
+        } catch {}
+        const durationMs = Math.max(0, Number(endedAt) - Number(startedAt));
+        return { startedAt, endedAt, durationMs };
+      }
+
       try {
         try { stopRecorder(); } catch {}
-        // NEW: 먼저 WebM 업로드 시도
+        // 1) 우선 WebM 업로드 시도
         const note = (document.getElementById("aud-note")?.value || "").trim() || null;
         const up = await stopAndUploadRecording(note);
         if (up && up.ok) {
-          btnSubmit && (btnSubmit.textContent = "Submitted ✓");
-          setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1000);
-          return; // 성공 → 끝
+          if (btnSubmit){
+            btnSubmit.textContent = "Submitted ✓";
+            setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1000);
+          }
+          return;
         }
-        // 실패 시 기존 플로우로 폴백
+
+        // 2) 폴백: 프리뷰/오디오 생성
         const dataURL = cvs.toDataURL("image/png", 0.92);
         if (playing) { togglePlay(); }
         await stopRecorderAsync().catch(()=>{});
@@ -2408,26 +2439,35 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           if (wavBlob && wavBlob.size) audioDataURL = await blobToDataURL(wavBlob);
         }
 
-        // 4) 페이로드 구성 (이메일 userns만 허용)
+        // 3) NS 검증(이메일)
         const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
           .toString().trim().toLowerCase();
-
         if (typeof isEmailNS === "function" ? !isEmailNS(nsEmail) : !/^[^@]+@[^@]+\.[^@]+$/.test(nsEmail)) {
           alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
-          if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
+          if (btnSubmit) btnSubmit.disabled = false;
           return;
         }
 
+        // 4) 타이밍 계산(핵심 수정)
+        const { startedAt, endedAt, durationMs } = computeAudTimingFromStrokes(strokes);
+
+        // 5) 페이로드
         const payload = {
           ns: nsEmail,
           width: W,
           height: H,
           strokes,
           previewDataURL: dataURL,
-          audioDataURL
+          audioDataURL,
+          startedAt,           // ← 추가
+          endedAt,             // ← 추가
+          durationMs,          // ← 추가
+          points: strokes.reduce((n,s)=> n + (Array.isArray(s.points)? s.points.length : 0), 0), // why: 서버 통계용(있으면)
+          createdAt: Date.now(),
+          v: 1
         };
 
-        // 5) 전송
+        // 6) 전송
         await ensureCSRF();
         const res = await fetch(API("/api/audlab/submit"), await withCSRF({
           method: "POST",
@@ -2436,7 +2476,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
           body: JSON.stringify(payload),
         }));
 
-        // 6) 응답 처리(기존 로직 유지)
+        // 7) 응답 처리
         const ct = res.headers.get("content-type") || "";
         const isJSON = /\bapplication\/json\b/i.test(ct);
         let j = null, text = null;
