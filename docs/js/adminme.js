@@ -782,19 +782,15 @@
 function wireCardActions(root){
   root.querySelectorAll(".card").forEach(card => {
     // 이미지 클릭 → hear
-    card.querySelector("img.click-to-hear")?.addEventListener("click", async (e) => {
+    card.querySelector("img.click-to-hear")?.addEventListener("click", (e) => {
       e.preventDefault();
       const id = card.dataset.id;
       const ns = card.dataset.ns;
-      const target = e.currentTarget;
-      try {
-        target.setAttribute("aria-busy","true");
-        await hearSubmission({ id, ns, card });
-      } finally {
-        target.removeAttribute("aria-busy");
-      }
+      // ① admin 리플레이 컨트롤러로 "선택" 신호 전송
+      window.dispatchEvent(new CustomEvent("audlab:pick", { detail: { id, ns } }));
+      // ② 모달 닫기
+      try { closeAdminLabModal(); } catch {}
     });
-
     // (관리자용 Accept / copy-owner 등 나머지 버튼 액션이 필요하다면 여기에 별도 버튼을 주입해 사용)
   });
 }
@@ -2498,11 +2494,18 @@ function wireCardActions(root){
         if (!r.ok) throw new Error(`item_${r.status}`);
         const j = await r.json().catch(()=> ({}));
         if (!j?.ok) throw new Error("item_invalid");
+        // server가 안 줄 경우를 대비한 안전 추정 경로
+        let jsonUrl  = j.jsonUrl  || "";
+        if (!jsonUrl) {
+          const base = window.STATIC_BASE || location.origin;
+          jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
+        }
         return {
           id, ns,
           createdAt: j.createdAt || null,
           meta: j.meta || {},
-          videoUrl: j.videoUrl || j.webm || j.video || j.media || "",
+          audioUrl: j.audioUrl || "",   // 있으면 파일 재생
+          jsonUrl,                      // 없으면 strokes 합성
         };
       }
       async accept(ns, id) {
@@ -2521,56 +2524,258 @@ function wireCardActions(root){
     }
 
     class AudLabReplay {
+
+      #paintBands(W, H) {
+        const ctx = this.ctx;
+        ctx.fillStyle = "#eef2f7";
+        ctx.fillRect(0, 0, W, H);
+        const bands = 8;
+        for (let i = 0; i < bands; i++) {
+          const yStart = Math.floor(i * H / bands);
+          const yEnd   = Math.floor((i + 1) * H / bands);
+          ctx.fillStyle = (i % 2) ? "#f7f9fb" : "#f1f4f9";
+          ctx.fillRect(0, yStart, W, yEnd - yStart);
+          if (i % 2) {
+            const y0 = Math.floor((i + 0.5) * H / bands);
+            ctx.fillStyle = "rgba(0,0,0,.03)";
+            ctx.fillRect(0, y0, W, 1);
+          }
+        }
+      }
+
       constructor({ canvas, playBtn, pauseBtn, metaEl }) {
         this.cvs = canvas;
         this.ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
         this.metaEl = metaEl;
-        this.video = document.createElement("video");
-        this.video.playsInline = true;
-        this.video.muted = true;    // unmute on play click
-        this.video.controls = false;
-        this.video.preload = "auto";
-        this._raf = 0;
 
-        playBtn?.addEventListener("click", () => { this.video.muted = false; this.video.play().catch(()=>{}); });
-        pauseBtn?.addEventListener("click", () => this.video.pause());
-        document.addEventListener("visibilitychange", () => { if (document.hidden) this.video.pause(); });
+        // 재생 상태
+        this._strokes = [];
+        this._t0 = 0;
+        this._T = 0;
+        this._raf = 0;
+        this._playing = false;
+        this._startedAt = 0;
+        this._pauseAtMs = 0;
+
+        // 오디오
+        this._audioUrl = "";
+        this._audioEl = null;
+        this._ac = null;      // AudioContext (합성용)
+        this._osc = null;
+        this._gain = null;
+
+        playBtn?.addEventListener("click", () => this.play());
+        pauseBtn?.addEventListener("click", () => this.pause());
+        document.addEventListener("visibilitychange", () => { if (document.hidden) this.pause(); });
       }
+
       async load(item) {
-        this.#stop();
+        // 이전 상태 정리
+        this.stop();
+
+        // 메타 표시
         this.#renderMeta(item);
-        const src = this.#pick(item);
-        if (!src) return;
-        this.video.src = src;
-        try { await this.video.play(); } catch {}
-        this.#loop();
-      }
-      #pick(it){ return toAPI(it?.videoUrl || it?.webm || it?.video || it?.media || ""); }
-      #stop(){ if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; } }
-      #loop(){
-        this._raf = requestAnimationFrame(() => this.#step());
-      }
-      #step(){
-        if (this.video.readyState >= 2) {
-          if ((!this.cvs.width || !this.cvs.height) && this.video.videoWidth && this.video.videoHeight) {
-            this.cvs.width  = this.video.videoWidth;
-            this.cvs.height = this.video.videoHeight;
-          }
-          this.ctx.drawImage(this.video, 0, 0, this.cvs.width, this.cvs.height);
+
+        // 데이터 준비
+        this._audioUrl = item.audioUrl || "";
+        const strokes = await this.#loadStrokes(item.jsonUrl);
+        this._strokes = this.#flattenPoints(strokes);
+        if (!this._strokes.length) {
+          this.#blank();
+          throw new Error("no_strokes");
         }
-        this._raf = requestAnimationFrame(() => this.#step());
+
+        this._t0 = this._strokes[0].t;
+        this._T  = this._strokes[this._strokes.length - 1].t - this._t0;
+        this._pauseAtMs = 0;
+
+        // 첫 프레임 미리 그림
+        this.#drawProgress(0);
       }
+
+      play() {
+        if (!this._strokes.length) return;
+
+        if (this._playing) return;
+        this._playing = true;
+
+        // 타임라인 시작점
+        const offset = this._pauseAtMs > 0 ? this._pauseAtMs : 0;
+        this._startedAt = performance.now() - offset;
+
+        // 오디오 시작
+        if (this._audioUrl) {
+          this.#ensureHTMLAudio();
+          try { this._audioEl.currentTime = offset / 1000; } catch {}
+          this._audioEl.play().catch(()=>{});
+        } else {
+          this.#startSynth(offset);
+        }
+
+        // 드로잉 루프
+        const loop = () => {
+          if (!this._playing) return;
+          const now = performance.now();
+          const elapsed = now - this._startedAt; // ms
+          this.#drawProgress(elapsed);
+          if (elapsed >= this._T + 80) { // 여유
+            this.stop();
+            return;
+          }
+          this._raf = requestAnimationFrame(loop);
+        };
+        this._raf = requestAnimationFrame(loop);
+      }
+
+      pause() {
+        if (!this._playing) return;
+        this._playing = false;
+        cancelAnimationFrame(this._raf); this._raf = 0;
+
+        // 현재 위치 기억
+        this._pauseAtMs = Math.min(this._T, performance.now() - this._startedAt);
+
+        // 오디오 정지
+        if (this._audioEl) { try { this._audioEl.pause(); } catch {} }
+        this.#stopSynth(false); // context 유지(재개 대비)
+      }
+
+      stop() {
+        this._playing = false;
+        cancelAnimationFrame(this._raf); this._raf = 0;
+        this._pauseAtMs = 0;
+        if (this._audioEl) { try { this._audioEl.pause(); this._audioEl.currentTime = 0; } catch {} }
+        this.#stopSynth(true); // 완전 종료
+      }
+
+      /* ───────── 내부 유틸 ───────── */
+
+      #blank() {
+        const W = this.cvs.width || 720, H = this.cvs.height || 480;
+        this.cvs.width = W; this.cvs.height = H;
+        this.#paintBands(W, H);
+      }
+
       #renderMeta(it){
         if (!this.metaEl) return;
         const m = it?.meta || {};
         const parts = [
           `#${it.id}`,
           it.createdAt ? new Date(it.createdAt).toLocaleString() : "",
-          (m.width && m.height) ? `${m.width}×${m.height}` : "",
-          m.fps ? `@${m.fps}` : "",
           m.durationMs ? `${(m.durationMs/1000).toFixed(1)}s` : ""
         ].filter(Boolean);
         this.metaEl.textContent = parts.join(" · ");
+      }
+
+      async #loadStrokes(url) {
+        if (!url) return [];
+        const u = (typeof window.__toAPI === "function") ? window.__toAPI(url) : url;
+        const r = await fetch(u, { credentials:"include", cache:"no-store" }).catch(()=>null);
+        const j = await r?.json?.().catch?.(()=>null);
+        const list = Array.isArray(j?.strokes) ? j.strokes : [];
+        return list;
+      }
+
+      #flattenPoints(strokes) {
+        const pts = [];
+        for (const st of (strokes || [])) {
+          const arr = Array.isArray(st?.points) ? st.points : [];
+          for (const p of arr) {
+            const t = Number(p.t || 0);
+            const x = Number(p.x || 0);
+            const y = Number(p.y || 0);
+            if (Number.isFinite(t)) pts.push({ t, x, y });
+          }
+        }
+        pts.sort((a,b)=> a.t - b.t);
+        return pts;
+      }
+      
+      #drawProgress(elapsedMs) {
+        // 캔버스 크기 확보
+        const W = this.cvs.width  || 720;
+        const H = this.cvs.height || 480;
+        if (!this.cvs.width || !this.cvs.height) { this.cvs.width = W; this.cvs.height = H; }
+
+        // me.js와 동일한 밴드 배경
+        this.#paintBands(W, H);
+
+        // 진행 시점(절대 ms)
+        const cutoff = this._t0 + elapsedMs;
+
+        // me.js 스타일의 펜 설정
+        this.ctx.lineJoin = "round";
+        this.ctx.lineCap  = "round";
+        this.ctx.strokeStyle = "#111";
+        this.ctx.lineWidth   = Math.max(2, Math.min(6, H * 0.006));
+
+        // me.js 좌표계: x,y ∈ [0..1] → (x*W, y*H)  ※ y 뒤집지 않음!
+        this.ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < this._strokes.length; i++) {
+          const p = this._strokes[i];
+          if (p.t > cutoff) break;
+          const xx = Math.max(0, Math.min(1, p.x)) * W;
+          const yy = Math.max(0, Math.min(1, p.y)) * H;
+          if (!started) { this.ctx.moveTo(xx, yy); started = true; }
+          else { this.ctx.lineTo(xx, yy); }
+        }
+        this.ctx.stroke();
+      }
+
+      #ensureHTMLAudio() {
+        if (this._audioEl) return;
+        const src = (typeof window.__toAPI === "function") ? window.__toAPI(this._audioUrl) : this._audioUrl;
+        const a = document.createElement("audio");
+        a.src = src;
+        a.preload = "auto";
+        a.crossOrigin = "anonymous";
+        this._audioEl = a;
+      }
+
+      #startSynth(offsetMs = 0) {
+        if (!this._strokes.length) return;
+        // 간단한 합성기: 제출 코드의 매핑과 유사 (A2~A6)
+        const AC = new (window.AudioContext || window.webkitAudioContext)();
+        const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
+        const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
+
+        this._ac = AC; this._osc = osc; this._gain = master;
+
+        const fMin = 110, fMax = 1760;
+        const freqFromY = (y) => fMin * Math.pow(fMax / fMin, 1 - Math.max(0, Math.min(1, y)));
+
+        const t0 = this._strokes[0].t;
+        const startAt = AC.currentTime + 0.02; // 작은 여유
+        const port = 0.04;
+
+        // offset 적용: offset 이후 포인트만 스케줄
+        const fromIdx = this._strokes.findIndex(p => (p.t - t0) >= offsetMs);
+        const pts = (fromIdx >= 0) ? this._strokes.slice(fromIdx) : this._strokes;
+
+        let last = startAt;
+        for (const p of pts) {
+          const at = startAt + Math.max(0, (p.t - t0 - offsetMs) / 1000);
+          const fq = Math.max(40, freqFromY(p.y));
+          osc.frequency.cancelScheduledValues(at);
+          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+
+          const a = 0.01, r = 0.08;
+          master.gain.cancelScheduledValues(at);
+          master.gain.setValueAtTime(0.0, at);
+          master.gain.linearRampToValueAtTime(0.85, at + a);
+          master.gain.linearRampToValueAtTime(0.0, at + a + r);
+          last = at + a + r;
+        }
+      }
+
+      #stopSynth(hard = false) {
+        try {
+          if (this._osc) { this._osc.stop(); this._osc.disconnect(); }
+          if (this._gain) this._gain.disconnect();
+          if (hard && this._ac) this._ac.close();
+        } catch {}
+        if (hard) { this._ac = null; this._osc = null; this._gain = null; }
       }
     }
 
@@ -2622,6 +2827,13 @@ function wireCardActions(root){
           root: UI.list,
           onPick: (p) => this.#pick(p),
           onAccept: (p) => this.#accept(p),
+        });
+        window.addEventListener("audlab:pick", (ev) => {
+          const { id, ns } = ev.detail || {};
+          if (id && ns) {
+            this.#pick({ id, ns });
+            try { closeAdminLabModal(); } catch {}
+          }
         });
         this.items = [];
       }

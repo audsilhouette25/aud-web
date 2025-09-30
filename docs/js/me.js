@@ -1997,6 +1997,10 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       return u.toString();
     };
 
+    // CSRF 헬퍼(존재하면 사용)
+    const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
+    const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
+
     // --- Canvas & drawing state ---
     const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     let W = 900, H = 500;
@@ -2109,12 +2113,18 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
       const blob = new Blob(__rec.chunks, { type: __rec.mime || "video/webm" });
       __rec.chunks = [];
-      const endedAt = Date.now();
+      // ★ 스트림 정리
+      try {
+        __rec.stream?.getTracks?.().forEach(t => t.stop());
+      } catch {}
+      __rec.stream = null;
 
       // 이메일 NS만 허용(기존 규칙 유지)
       const ns = (typeof getNS === "function" ? getNS() : "").trim().toLowerCase();
-      if (!isEmailNS ? !/^[^@]+@[^@]+\.[^@]+$/.test(ns) : !isEmailNS(ns)) {
-        throw new Error("ns_required");
+      if (typeof isEmailNS === "function") {
+        if (!isEmailNS(ns)) throw new Error("ns_required");
+      } else {
+        if (!/^[^@]+@[^@]+\.[^@]+$/.test(ns)) throw new Error("ns_required");
       }
 
       const fd = new FormData();
@@ -2124,7 +2134,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
       const url = (typeof window.__toAPI === "function") ? window.__toAPI("/api/audlab/record")
                                                         : new URL("/api/audlab/record", location.origin).toString();
-      const resp = await fetch(url, { method: "POST", credentials: "include", body: fd });
+      await ensureCSRF();
+      const resp = await fetch(url, await withCSRF({ method: "POST", credentials: "include", body: fd }));
       if (!resp.ok) {
         let j = null; try { j = await resp.json(); } catch {}
         throw new Error(`upload_failed:${j?.error || resp.status}`);
@@ -2401,7 +2412,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
           .toString().trim().toLowerCase();
 
-        if (!isEmailNS(nsEmail)) {
+        if (typeof isEmailNS === "function" ? !isEmailNS(nsEmail) : !/^[^@]+@[^@]+\.[^@]+$/.test(nsEmail)) {
           alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
           if (btnSubmit) btnSubmit.disabled = false; // 버튼 풀어주기
           return;
@@ -2417,12 +2428,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         };
 
         // 5) 전송
-        const res = await fetch(API("/api/audlab/submit"), {
+        await ensureCSRF();
+        const res = await fetch(API("/api/audlab/submit"), await withCSRF({
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           credentials: "include",
           body: JSON.stringify(payload),
-        });
+        }));
 
         // 6) 응답 처리(기존 로직 유지)
         const ct = res.headers.get("content-type") || "";
