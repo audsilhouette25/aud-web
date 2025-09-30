@@ -1993,9 +1993,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     let curStroke = null;
     const strokes = [];
 
-    // Audio (sine synth only, no recording upload)
-    let AC = null, master = null, osc = null;
-    const port = 0.02; // portamento
+    // Audio (sine synth with recording)
+let AC = null, master = null, osc = null;
+let mDest = null;               // MediaStreamDestination for recording
+let rec = null;                 // MediaRecorder
+let recChunks = [];             // Blob chunks
+let isRecording = false;
+const port = 0.02; // portamento
 
     function freqFromY(y01) {
       // y: 0(top)~1(bottom) → freq: 880~110 (A5~A2-ish). Why: 더 직관적 음높이
@@ -2010,7 +2014,11 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         master = AC.createGain();
         master.gain.value = 0.0; // 대기 중 무음
         master.connect(AC.destination);
-      }
+      
+    // For recording
+    mDest = AC.createMediaStreamDestination();
+    master.connect(mDest);
+  }
       if (!osc) {
         osc = AC.createOscillator();
         osc.type = "sine";
@@ -2124,7 +2132,24 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       playing = !playing;
       btnPlay?.setAttribute("aria-pressed", String(playing));
       btnPlay && (btnPlay.textContent = playing ? "Pause" : "Play");
-      if (playing) startAudio(); else noteOff();
+      if (playing) {
+        startAudio();
+        // Start MediaRecorder
+        try {
+          if (mDest && !isRecording) {
+            recChunks = [];
+            try { rec = new MediaRecorder(mDest.stream, { mimeType: 'audio/webm' }); }
+            catch { rec = new MediaRecorder(mDest.stream); }
+            rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+            rec.onstop = () => {};
+            rec.start();
+            isRecording = true;
+          }
+        } catch {}
+      } else {
+        noteOff();
+        // Pause does not stop recording to allow resume. (Optional behavior)
+      }
     }
 
     async function submitLab() {
@@ -2137,13 +2162,27 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         const nsEmail = (window.getNS ? String(window.getNS()).toLowerCase().trim() : "");
         if (!/^[^@]+@[^@]+$/.test(nsEmail)) throw new Error("need_login");
 
-        // 3) Send ONLY paths
+        // 3) Stop recording and build payload (final image + audio)
+        let audioDataURL = "";
+        if (rec && isRecording) {
+          await new Promise((res) => { try { rec.onstop = () => res(); } catch { res(); } try { rec.stop(); } catch { res(); } });
+          isRecording = false;
+          try {
+            const blob = new Blob(recChunks, { type: (rec && rec.mimeType) ? rec.mimeType : "audio/webm" });
+            audioDataURL = await new Promise((resolve) => {
+              const fr = new FileReader();
+              fr.onloadend = () => resolve(fr.result);
+              fr.readAsDataURL(blob);
+            });
+          } catch {}
+        }
+
         const payload = {
           ns: nsEmail,
           width: W,
           height: H,
-          strokes,
-          previewDataURL,   // path snapshot only
+          previewDataURL,
+          audioDataURL
         };
 
         const res = await fetch((window.__toAPI ? __toAPI("/api/audlab/submit") : "/api/audlab/submit"), {
@@ -2160,7 +2199,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       } catch (e) {
         alert("Submit 실패: " + (e?.message || e));
       } finally {
-        btnSubmit && (btnSubmit.disabled = strokes.length === 0);
+        btnSubmit && (btnSubmit.disabled = false);
       }
     }
 
