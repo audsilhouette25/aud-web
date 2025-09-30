@@ -10,29 +10,35 @@
 
   // me.js 상단 유틸로 추가
 
-  // 실제 업로드 호스트로 반드시 바꿔주세요.
   window.API_BASE    = "https://aud-api-dtd1.onrender.com/";
   window.STATIC_BASE = location.origin + "/";
-  window.LB_REPAIR = true;
+  window.LB_REPAIR   = true;
 
   // [ADD] admin allowlist
-  const ADMIN_EMAILS = ["audsilhouette@gmail.com"]; // 운영자 이메일
+  const ADMIN_EMAILS = ["audsilhouette@gmail.com"];
 
-  // 🔁 기존 window.__toAPI 교체
-  window.__toAPI = function (u) {
-    const s = String(u || "");
+  function _ensureSlash(u){ return u.endsWith("/") ? u : (u + "/"); }
+  window.API_BASE    = _ensureSlash(window.API_BASE);
+  window.STATIC_BASE = _ensureSlash(window.STATIC_BASE);
+
+  // Robust __toAPI: uploads 상대경로 & data/blob 처리
+  window.__toAPI = function __toAPI(u) {
+    const s = (u ?? "").toString().trim();
     if (!s) return s;
-    if (/^https?:\/\//i.test(s)) return s; // 절대 URL은 통과
 
-    const p = s.replace(/^\/+/, "/"); // 정규화
-    const isAPI     = p.startsWith("/api/") || p.startsWith("/auth/");
+    // absolute schemes → pass-through
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^(data|blob):/i.test(s)) return s;
+
+    // normalize path
+    let p = s.replace(/^\/+/, "/");      // collapse leading slashes
+    // handle "uploads/..." (no leading slash) or "./uploads/..."
+    if (/^(?:\.?\/)?uploads\//i.test(s)) p = "/uploads/" + s.replace(/^(?:\.?\/)?uploads\//i, "");
+
+    const isAPI     = p.startsWith("/api/")  || p.startsWith("/auth/");
     const isUploads = p.startsWith("/uploads/");
-    // ⚠️ uploads는 백엔드(public/uploads)에서 서빙되므로 API_BASE를 사용
-    const base =
-      isAPI     ? (window.API_BASE    || location.origin + "/") :
-      isUploads ? (window.API_BASE    || location.origin + "/") :
-                  (window.STATIC_BASE || location.origin + "/");
 
+    const base = (isAPI || isUploads) ? window.API_BASE : window.STATIC_BASE;
     return new URL(p.replace(/^\/+/, ""), base).toString();
   };
 
