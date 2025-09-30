@@ -784,22 +784,25 @@
   function wireCardActions(root){
     root.querySelectorAll(".card").forEach(card => {
       card.addEventListener("click", async (e) => {
-        const act = e.target?.dataset?.act;
-        if (!act) return;
-
+        const target = e.target instanceof Element ? e.target : null;
+        const actEl = target ? target.closest("[data-act]") : null;
+        const act = actEl?.dataset?.act;
         const id = card.dataset.id;
         const ns = card.dataset.ns;
 
         if (act === "hear") {
           try {
-            e.target.disabled = true;
+            if (actEl instanceof HTMLButtonElement) actEl.disabled = true;
             await hearSubmission({ id, ns, card });
           } finally {
-            e.target.disabled = false;
+            if (actEl instanceof HTMLButtonElement) actEl.disabled = false;
           }
-        } else if (act === "accept") {
-          const btn = e.target;
-          btn.disabled = true;
+          return;
+        }
+
+        if (act === "accept") {
+          const btn = actEl instanceof HTMLButtonElement ? actEl : null;
+          if (btn) btn.disabled = true;
           try {
             const base = window.PROD_BACKEND || window.API_BASE || location.origin;
             const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
@@ -817,29 +820,40 @@
             });
             const j = await r.json().catch(() => ({}));
             if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
-            btn.textContent = "Accepted ✓";
-            btn.classList.remove("primary");
-            btn.classList.add("ghost");
+            if (btn) {
+              btn.textContent = "Accepted ✓";
+              btn.classList.remove("primary");
+              btn.classList.add("ghost");
+            }
             card.setAttribute("data-accepted", "1");
           } catch (err) {
             alert("Accept 실패: " + (err?.message || err));
-            btn.disabled = false;
+            if (btn) btn.disabled = false;
           }
-        } else if (act === "copy-owner") {
-          const btn = e.target;
+          return;
+        }
+
+        if (act === "copy-owner") {
+          const btn = actEl instanceof HTMLButtonElement ? actEl : null;
           const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
           if (!owner) { alert("owner id가 없습니다."); return; }
           try {
             await navigator.clipboard.writeText(owner);
-            const prev = btn.textContent;
-            btn.textContent = "Copied!";
-            btn.disabled = true;
-            setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+            if (btn) {
+              const prev = btn.textContent;
+              btn.textContent = "Copied!";
+              btn.disabled = true;
+              setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
+            }
           } catch {
             // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
             prompt("Copy this owner id:", owner);
           }
+          return;
         }
+
+        if (!id || !ns) return;
+        document.dispatchEvent(new CustomEvent("adminlab:select", { detail: { id, ns } }));
       });
     });
 }
@@ -1293,8 +1307,7 @@
         drawStatic();
 
         // close modal if open
-        const modal = document.getElementById("admin-lab");
-        if (modal) modal.classList.remove("open");
+        closeAdminLabModal();
 
         // enable accept
         const b = ensureAcceptButton();
@@ -1333,6 +1346,14 @@
       return b;
     }
 
+    document.addEventListener("adminlab:select", (event) => {
+      const detail = event?.detail || {};
+      const ns = detail.ns || "";
+      const id = detail.id || "";
+      if (!ns || !id) return;
+      selectSubmission(ns, id);
+    });
+
     async function acceptSelected() {
       const sel = state.selected;
       if (!sel) return;
@@ -1359,86 +1380,12 @@
         alert("Accept 실패: " + (e?.message || e));
       }
     }
-
-    // ---------- Modal (images only) ----------
-    function ensureAdminModal() {
-      let modal = document.getElementById("admin-lab");
-      if (modal) return modal;
-      modal = document.createElement("div");
-      modal.id = "admin-lab";
-      modal.className = "modal";
-      modal.innerHTML = `
-        <button class="overlay" type="button" aria-label="Close"></button>
-        <div class="sheet" role="document">
-          <h2 class="title">aud laboratory — submissions</h2>
-          <div class="admin-toolbar">
-            <div class="spacer"></div>
-            <button id="admin-lab-refresh" class="btn" type="button">Refresh</button>
-            <button id="admin-lab-close" class="btn" type="button">Close</button>
-          </div>
-          <div id="admin-lab-grid" class="admin-grid"></div>
-          <p id="admin-lab-msg" class="hint"></p>
-        </div>
-      `.trim();
-      document.body.appendChild(modal);
-      modal.querySelector(".overlay")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-close")?.addEventListener("click", ()=> modal.classList.remove("open"));
-      modal.querySelector("#admin-lab-refresh")?.addEventListener("click", loadAdminList);
-      return modal;
-    }
-
-    function cardHTML(it) {
-      const preview = (window.__toAPI ? __toAPI(it.image || it.preview || it.png || it.url || "") : (it.image || it.preview || it.png || it.url || ""));
-      const owner  = (it.user?.displayName || it.user?.email || it.ns || "").toString();
-      return `
-        <div class="card" data-id="${it.id}" data-ns="${it.ns}">
-          <div class="thumb"><img loading="lazy" src="${preview}" alt="${owner}'s submission"/></div>
-          <div class="meta">
-            <div class="owner">${owner}</div>
-            <div class="id">${it.id}</div>
-          </div>
-        </div>
-      `.trim();
-    }
-
-    async function loadAdminList() {
-      const modal = ensureAdminModal();
-      const grid  = modal.querySelector("#admin-lab-grid");
-      const msg   = modal.querySelector("#admin-lab-msg");
-      grid.innerHTML = ""; msg.textContent = "Loading…";
-
-      try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        const r = await fetch(new URL("/api/admin/audlab/all", base), { credentials: "include" });
-        const j = await r.json().catch(()=> ({}));
-        const items = Array.isArray(j?.items) ? j.items : [];
-        if (!items.length) { grid.innerHTML = `<div class="empty">No submissions</div>`; msg.textContent = ""; return; }
-        grid.innerHTML = items.map(cardHTML).join("");
-        msg.textContent = "";
-
-        grid.addEventListener("click", (e) => {
-          const card = e.target.closest(".card");
-          if (!card) return;
-          const ns = card.dataset.ns, id = card.dataset.id;
-          selectSubmission(ns, id);
-        }, { once: true }); // 첫 선택 후 모달 닫히면 다음 열기 때 다시 바인딩
-      } catch (e) {
-        msg.textContent = "Load failed";
-      }
-    }
-
-    function openAdminModal() {
-      const m = ensureAdminModal();
-      m.classList.add("open");
-      loadAdminList();
-    }
-
     // ---------- Wire ----------
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas(); drawStatic(); ensureAcceptButton();
 
     btnPlay     && btnPlay.addEventListener("click", togglePlay);
-    btnViewList && btnViewList.addEventListener("click", openAdminModal);
+    btnViewList && btnViewList.addEventListener("click", openAdminLabModal);
   })();
 
   function renderProfile({ name, displayName, email, avatarUrl }) {

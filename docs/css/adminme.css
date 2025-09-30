@@ -544,9 +544,11 @@ header.nav{
   transform: translateY(8px);
   transition: transform .18s ease, opacity .18s ease;
   opacity: .98;
+  position: relative;
+  z-index: 1;
 }
 .modal.open .sheet{ transform: translateY(0); opacity: 1; }
-.modal .overlay{ position: fixed; inset: 0; background: transparent; border: 0; cursor: default; }
+.modal .overlay{ position: fixed; inset: 0; background: transparent; border: 0; cursor: default; z-index: 0; }
 .modal .title{ font-size: 20px; font-weight: 800; margin: 2px 4px 14px; }
 .form-row{ display: grid; gap: 6px; margin: 10px 4px; }
 .form-row > label{ font-size: 13px; font-weight: 700; color: #222; }
