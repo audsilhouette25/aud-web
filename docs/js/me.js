@@ -2026,7 +2026,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         "audio/webm";
       mediaRecorder = new MediaRecorder(recDest.stream, {
         mimeType: mtype,
-        audioBitsPerSecond: 128000
+        audioBitsPerSecond: 256000
       });
       mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
       mediaRecorder.onstop = ()=>{
@@ -2035,7 +2035,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         recChunks = [];
       };
     }
-    if (mediaRecorder.state !== "recording") mediaRecorder.start(1000); // 1s 청크
+    if (mediaRecorder.state !== "recording") mediaRecorder.start();
   }
 
   function stopRecorder(){
@@ -2259,12 +2259,18 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       // 2) 녹음 마무리(재생 중이면 일시정지 → stopRecorder)
       if (playing) { togglePlay(); }   // 내부에서 stopRecorder 호출됨
       // stop 이벤트가 비동기라 아주 잠깐 대기
-      await new Promise(r => setTimeout(r, 120));
+      await new Promise(r => setTimeout(r, 260));
 
       // 3) 마지막 녹음 → dataURL (없으면 빈 문자열)
       let audioDataURL = "";
       if (lastRecording && lastRecording.size > 0) {
         audioDataURL = await blobToDataURL(lastRecording);
+      } else {
+        // (옵션) 레코더 미지원/실패시 WAV fallback
+        try {
+          const wavBlob = await renderWavFromStrokes(strokes, W, H, { sampleRate: 44100 });
+          if (wavBlob && wavBlob.size) audioDataURL = await blobToDataURL(wavBlob);
+        } catch {}
       }
 
       // 4) 페이로드 구성 (이메일 userns만 허용)
@@ -2327,6 +2333,55 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     } finally {
       if (btnSubmit) btnSubmit.disabled = strokes.length===0;
     }
+  }
+
+  // --- WAV fallback: OfflineAudioContext로 합성 후 PCM16 WAV 인코딩
+  async function renderWavFromStrokes(strokes, W, H, { sampleRate=44100 }={}){
+    if (!Array.isArray(strokes) || !strokes.length) return null;
+    // 길이 추정: 마지막 포인트 시간 + 여유 150ms
+    const tMax = Math.max(...strokes.map(st => (st.points?.at(-1)?.t ?? 0)));
+    const durSec = Math.max(0.2, (tMax / 1000) + 0.15);
+    const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(sampleRate*durSec), sampleRate);
+    const master = ctx.createGain(); master.gain.value = 0.0; master.connect(ctx.destination);
+    const osc = ctx.createOscillator(); osc.type = "sine"; osc.connect(master);
+    const startAt = 0.05; const port = 0.012;
+    const pts = strokes.flatMap(st => st.points||[]);
+    if (!pts.length) return null;
+    const t0 = pts[0].t ?? 0;
+    const freqFromY = (y)=>{ const yy = Math.min(1, Math.max(0, y)); const f0=120, f1=1000; return f0*Math.pow(f1/f0, 1-yy); };
+    let lastGainEnd = startAt;
+    for (const p of pts){
+      const at = startAt + Math.max(0, ((p.t??t0)-t0)/1000);
+      const fq = Math.max(40, freqFromY(p.y));
+      osc.frequency.cancelScheduledValues(at);
+      osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+      const a=0.01, r=0.08;
+      master.gain.cancelScheduledValues(at);
+      master.gain.setValueAtTime(0.0, at);
+      master.gain.linearRampToValueAtTime(0.8, at + a);
+      master.gain.linearRampToValueAtTime(0.0, at + a + r);
+      lastGainEnd = at + a + r;
+    }
+    osc.start(0); osc.stop(Math.min(durSec, lastGainEnd + 0.1));
+    const buf = await ctx.startRendering();
+    // PCM16 WAV 인코딩
+    const ch = 1, frames = buf.length, sr = buf.sampleRate;
+    const wavBytes = 44 + frames * ch * 2;
+    const out = new DataView(new ArrayBuffer(wavBytes));
+    // RIFF header
+    writeASCII(out, 0, "RIFF"); out.setUint32(4, wavBytes - 8, true);
+    writeASCII(out, 8, "WAVE"); writeASCII(out, 12, "fmt "); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, sr, true);
+    out.setUint32(28, sr * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
+    writeASCII(out, 36, "data"); out.setUint32(40, frames * ch * 2, true);
+    const chData = buf.getChannelData(0);
+    let off = 44;
+    for (let i=0;i<frames;i++){
+      const s = Math.max(-1, Math.min(1, chData[i])) * 0.95; // headroom
+      out.setInt16(off, (s < 0 ? s * 0x8000 : s * 0x7FFF) | 0, true); off += 2;
+    }
+    return new Blob([out.buffer], { type:"audio/wav" });
+    function writeASCII(vw, o, s){ for(let i=0;i<s.length;i++) vw.setUint8(o+i, s.charCodeAt(i)); }
   }
 
   document.addEventListener("visibilitychange", () => {

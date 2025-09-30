@@ -25,12 +25,12 @@
     if (/^https?:\/\//i.test(s)) return s; // 절대 URL은 통과
 
     const p = s.replace(/^\/+/, "/"); // 정규화
-    const isAPI     = p.startsWith("/api/") || p.startsWith("auth/");
+    const isAPI     = p.startsWith("/api/") || p.startsWith("/auth/");
     const isUploads = p.startsWith("/uploads/");
-
+    // ⚠️ uploads는 백엔드(public/uploads)에서 서빙되므로 API_BASE를 사용
     const base =
       isAPI     ? (window.API_BASE    || location.origin + "/") :
-      isUploads ? (window.STATIC_BASE || location.origin + "/") :
+      isUploads ? (window.API_BASE    || location.origin + "/") :
                   (window.STATIC_BASE || location.origin + "/");
 
     return new URL(p.replace(/^\/+/, ""), base).toString();
