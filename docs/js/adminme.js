@@ -1317,11 +1317,19 @@
     if (btnUndo)  btnUndo.style.display  = "none";
     if (btnClear) btnClear.style.display = "none";
     let b = document.getElementById("lab-accept");
-    if (b) return b;
+    if (b) {
+      if (!b.__bound) { b.addEventListener("click", acceptSelected); b.__bound = true; }
+      return b;
+    }
     b = document.createElement("button");
-    b.id = "lab-accept"; b.className = "btn ghost"; b.type = "button"; b.textContent = "Accept"; b.disabled = true;
+    b.id = "lab-accept";
+    b.className = "btn primary"; // ← HTML과 톤 통일(ghost→primary)
+    b.type = "button";
+    b.textContent = "Accept";
+    b.disabled = true;
     btnViewList?.parentElement?.insertBefore(b, btnViewList);
     b.addEventListener("click", acceptSelected);
+    b.__bound = true;
     return b;
   }
   async function acceptSelected() {
