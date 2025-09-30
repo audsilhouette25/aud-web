@@ -2107,35 +2107,73 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       });
     }
 
+    // File: public/js/me.js  (aud laboratory IIFE 안) 
+    // === REPLACE the whole function: stopAndUploadRecording ===
     async function stopAndUploadRecording(note = null) {
+      // 녹화 메타 없으면 업로드 시도하지 않음
       if (!__rec.meta) return null;
-      await stopRecorderAsync();
 
-      const blob = new Blob(__rec.chunks, { type: __rec.mime || "video/webm" });
+      // 1) MediaRecorder 종료 및 스트림 정리
+      await stopRecorderAsync().catch(() => {});
+      const blob = new Blob(__rec.chunks || [], { type: __rec.mime || "video/webm" });
       __rec.chunks = [];
-      // ★ 스트림 정리
-      try {
-        __rec.stream?.getTracks?.().forEach(t => t.stop());
-      } catch {}
+      try { __rec.stream?.getTracks?.().forEach(t => t.stop()); } catch {}
       __rec.stream = null;
 
-      // 이메일 NS만 허용(기존 규칙 유지)
+      // 2) 타이밍 계산 (지역에서 보장)
+      //    - 캔버스 녹화 시작 시 넣은 __rec.meta.startedAt 우선
+      //    - strokes 배열에 t가 있으면 더 정확한 범위 사용
+      const nowTs = Date.now();
+      let startedAt = Number(__rec.meta?.startedAt) || nowTs;
+      let endedAt   = nowTs;
+
+      try {
+        // strokes: [{ points:[{t,x,y}, ...] }, ...]
+        const ts = [];
+        if (Array.isArray(strokes)) {
+          for (const st of strokes) {
+            const pts = Array.isArray(st?.points) ? st.points : [];
+            for (const p of pts) {
+              const t = Number(p?.t);
+              if (Number.isFinite(t)) ts.push(t);
+            }
+          }
+        }
+        if (ts.length) {
+          ts.sort((a,b)=>a-b);
+          // 녹화 시작 메타와 strokes 타임이 모두 있을 때, 더 이른 것을 시작 시각으로 사용
+          startedAt = Math.min(startedAt, ts[0] || startedAt);
+          endedAt   = Math.max(endedAt,   ts[ts.length - 1] || endedAt);
+        }
+      } catch { /* 안전 폴백: nowTs 사용 */ }
+
+      const durationMs = Math.max(0, endedAt - startedAt);
+
+      // 3) 이메일 NS 검증
       const ns = (typeof getNS === "function" ? getNS() : "").trim().toLowerCase();
-      if (typeof isEmailNS === "function") {
-        if (!isEmailNS(ns)) throw new Error("ns_required");
-      } else {
-        if (!/^[^@]+@[^@]+\.[^@]+$/.test(ns)) throw new Error("ns_required");
+      if (typeof isEmailNS === "function" ? !isEmailNS(ns) : !/^[^@]+@[^@]+\.[^@]+$/.test(ns)) {
+        throw new Error("ns_required");
       }
 
+      // 4) 업로드(form-data)
       const fd = new FormData();
       fd.append("ns", ns);
-      fd.append("meta", JSON.stringify({ ...__rec.meta, endedAt, note }));
-      fd.append("record", blob, `${__rec.meta.id}.webm`);
+      fd.append("meta", JSON.stringify({
+        ...(__rec.meta || {}),
+        startedAt,
+        endedAt,
+        durationMs,
+        note
+      }));
+      if (blob && blob.size) fd.append("record", blob, `${(__rec.meta?.id || Date.now())}.webm`);
 
-      const url = (typeof window.__toAPI === "function") ? window.__toAPI("/api/audlab/record")
-                                                        : new URL("/api/audlab/record", location.origin).toString();
+      const url = (typeof window.__toAPI === "function")
+        ? window.__toAPI("/api/audlab/record")
+        : new URL("/api/audlab/record", location.origin).toString();
+
       await ensureCSRF();
       const resp = await fetch(url, await withCSRF({ method: "POST", credentials: "include", body: fd }));
+
       if (!resp.ok) {
         let j = null; try { j = await resp.json(); } catch {}
         throw new Error(`upload_failed:${j?.error || resp.status}`);
