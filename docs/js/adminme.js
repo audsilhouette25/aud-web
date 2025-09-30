@@ -1059,7 +1059,7 @@
           emailLocal ||
           ownerId || "—";
 
-        const rawImg = src.image || src.preview || src.png || "";
+        const rawImg = src.previewDataURL || src.image || src.preview || src.png || "";
         const preview =
           (rawImg && typeof window.__toAPI === "function")
             ? window.__toAPI(rawImg)
