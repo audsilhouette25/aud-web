@@ -1969,208 +1969,215 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     bindDeleteButtonForMe();
   }
 
-  // ================================
-  // File: public/js/me.js  (aud laboratory block ONLY)
-  // Replace the whole "aud laboratory" IIFE with this one
-  // ================================
+  /* ========================================================================
+  * path: /public/js/me.js
+  * desc: aud laboratory — draw → collect path → submit paths only
+  * ===================================================================== */
   (() => {
-    const $ = (s, r = document) => r.querySelector(s);
-    const cvs = $("#aud-canvas");
-    if (!cvs) return;
+    "use strict";
 
-    // DOM
-    const btnPlay   = $("#lab-play");
-    const btnUndo   = $("#lab-undo");
-    const btnClear  = $("#lab-clear");
-    const btnSubmit = $("#lab-submit");
-    const spanStk   = $("#lab-strokes");
-    const spanPts   = $("#lab-points");
+    // ---------- DOM ----------
+    const cvs = document.getElementById("aud-canvas");
+    const ctx = cvs.getContext("2d");
+    const btnPlay   = document.getElementById("lab-play");
+    const btnUndo   = document.getElementById("lab-undo");
+    const btnClear  = document.getElementById("lab-clear");
+    const btnSubmit = document.getElementById("lab-submit");
 
-    // API helper
-    const API = (path) => {
-      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      return new URL(String(path).replace(/^\/+/, ""), base).toString();
-    };
+    const elStrokeCount = document.getElementById("lab-strokes");
+    const elPointCount  = document.getElementById("lab-points");
 
-    // Canvas
-    const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    let W = 900, H = 500;
-    const ctx = cvs.getContext("2d", { desynchronized: true, alpha: false });
-
-    /** @typedef {{x:number,y:number,t:number}} Point */
-    /** @typedef {{points: Point[]}} Stroke */
-    const strokes = [];
-    let cur = null;
-    let drawing = false;
-
-    // Audio (preview)
-    let AC = null, master = null, osc = null;
+    // ---------- State ----------
+    let W = 800, H = 500;
     let playing = false;
-    let lastNoteAt = 0;
+    let curStroke = null;
+    const strokes = [];
 
-    // Recorder (optional)
-    let recDest = null, mediaRecorder = null, recChunks = [], lastRecording = null;
+    // Audio (sine synth only, no recording upload)
+    let AC = null, master = null, osc = null;
+    const port = 0.02; // portamento
 
-    // ---------- draw helpers ----------
-    function resizeCanvas(){
-      const r = cvs.getBoundingClientRect();
-      W = Math.max(16, Math.floor(r.width));
-      H = Math.max(16, Math.floor(r.height));
-      cvs.width  = Math.floor(W * DPR);
-      cvs.height = Math.floor(H * DPR);
-      ctx.setTransform(DPR,0,0,DPR,0,0);
-      drawAll();
+    function freqFromY(y01) {
+      // y: 0(top)~1(bottom) → freq: 880~110 (A5~A2-ish). Why: 더 직관적 음높이
+      const y = Math.min(1, Math.max(0, y01));
+      const fTop = 880, fBot = 110;
+      return fTop + (fBot - fTop) * y;
     }
-    function bg(){ ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H); }
-    function drawAll(){
-      bg();
-      ctx.lineJoin = "round"; ctx.lineCap="round"; ctx.lineWidth = 2.5; ctx.strokeStyle = "#222";
-      for (const s of strokes){
-        const pts = s.points||[];
-        if (pts.length<2) continue;
+
+    function startAudio() {
+      if (!AC) {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
+        master = AC.createGain();
+        master.gain.value = 0.0; // 대기 중 무음
+        master.connect(AC.destination);
+      }
+      if (!osc) {
+        osc = AC.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = 440;
+        osc.connect(master);
+        osc.start();
+      }
+    }
+    function noteOn(freq) {
+      if (!AC || !osc || !master) return;
+      const t = AC.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.linearRampToValueAtTime(0.15, t + 0.01); // 짧은 attack
+      osc.frequency.cancelScheduledValues(t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq), t + port);
+    }
+    function noteOff() {
+      if (!AC || !master) return;
+      const t = AC.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.linearRampToValueAtTime(0.0001, t + 0.05);
+    }
+
+    // ---------- Canvas ----------
+    function resizeCanvas() {
+      const r = cvs.getBoundingClientRect();
+      W = Math.max(300, Math.floor(r.width));
+      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
+      cvs.width = W; cvs.height = H;
+      redraw();
+    }
+    function clearAll() {
+      strokes.length = 0;
+      curStroke = null;
+      redraw();
+      updateCounters();
+    }
+    function undoStroke() {
+      strokes.pop();
+      curStroke = null;
+      redraw();
+      updateCounters();
+    }
+    function redraw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+
+      for (const s of strokes) {
+        const pts = s.points || [];
+        if (pts.length < 2) continue;
         ctx.beginPath();
-        ctx.moveTo(pts[0].x*W, pts[0].y*H);
-        for (let i=1;i<pts.length;i++){ const p=pts[i]; ctx.lineTo(p.x*W, p.y*H); }
+        ctx.moveTo(pts[0].x * W, pts[0].y * H);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x * W, pts[i].y * H);
+        }
+        ctx.stroke();
+      }
+      if (curStroke && curStroke.points.length >= 1) {
+        const p = curStroke.points;
+        ctx.beginPath();
+        ctx.moveTo(p[0].x * W, p[0].y * H);
+        for (let i = 1; i < p.length; i++) ctx.lineTo(p[i].x * W, p[i].y * H);
         ctx.stroke();
       }
     }
-    function updateCounters(){
-      const pc = strokes.reduce((a,s)=>a+(s.points?.length||0),0);
-      if (spanStk) spanStk.textContent = String(strokes.length);
-      if (spanPts) spanPts.textContent = String(pc);
-      if (btnSubmit) btnSubmit.disabled = strokes.length===0;
-      if (btnUndo)   btnUndo.disabled   = strokes.length===0;
-      if (btnClear)  btnClear.disabled  = strokes.length===0;
+    function updateCounters() {
+      const s = strokes.length;
+      const pts = strokes.reduce((n, st) => n + (st.points?.length || 0), 0);
+      if (elStrokeCount) elStrokeCount.textContent = String(s);
+      if (elPointCount)  elPointCount.textContent  = String(pts);
+      btnSubmit && (btnSubmit.disabled = s === 0);
+      btnUndo   && (btnUndo.disabled   = s === 0);
+      btnClear  && (btnClear.disabled  = s === 0);
     }
 
-    // ---------- audio helpers ----------
-    function startAudio(){
-      if (!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
-      if (!master){ master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination); }
-      if (!osc){ osc = AC.createOscillator(); osc.type="sine"; osc.connect(master); osc.start(); }
+    // ---------- Pointer drawing ----------
+    function beginStroke(e) {
+      if (!playing) return; // why: Play 눌러야 녹화/발음 시작
+      const rect = cvs.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top)  / rect.height;
+      curStroke = { points: [{ x, y, t: performance.now() }] };
+      noteOn(freqFromY(y));
+      redraw();
     }
-    function noteOn(y){
-      const fMin=110,fMax=1760; // A2~A6
-      const fq = fMin * Math.pow(fMax/fMin, 1 - Math.max(0,Math.min(1,y)));
-      const now = AC.currentTime;
-      osc.frequency.cancelScheduledValues(now);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(40, fq), now + 0.04);
-      master.gain.cancelScheduledValues(now);
-      master.gain.setValueAtTime(0.0, now);
-      master.gain.linearRampToValueAtTime(0.85, now + 0.012);
-      master.gain.linearRampToValueAtTime(0.0, now + 0.1);
-      lastNoteAt = now;
+    function moveStroke(e) {
+      if (!playing || !curStroke) return;
+      const rect = cvs.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top)  / rect.height;
+      curStroke.points.push({ x, y, t: performance.now() });
+      noteOn(freqFromY(y));
+      redraw();
     }
-    function noteOff(){ try { master && (master.gain.value = 0); } catch {} }
-
-    // ---------- pointer drawing ----------
-    function norm(e){
-      const r = cvs.getBoundingClientRect();
-      return { x: (e.clientX - r.left)/r.width, y: (e.clientY - r.top)/r.height };
-    }
-    function begin(e){
-      drawing = true;
-      cur = { points: [] };
-      const t = performance.now();
-      const {x,y} = norm(e);
-      cur.points.push({ x, y, t });
-      strokes.push(cur);
-      startAudio();
-      noteOn(y);
-      updateCounters();
-    }
-    function move(e){
-      if (!drawing || !cur) return;
-      const {x,y} = norm(e);
-      cur.points.push({ x, y, t: performance.now() });
-      drawAll();
-      noteOn(y);
-      updateCounters();
-    }
-    function end(){
-      if (!drawing) return;
-      drawing = false;
-      cur = null;
-      if (!playing) noteOff();
-      updateCounters();
-    }
-
-    // ---------- transport ----------
-    function startRecorder(){
-      if (!AC) return;
-      if (!recDest) recDest = AC.createMediaStreamDestination();
-      if (master && recDest && !master.__recWired){
-        master.connect(recDest); master.__recWired = true; // why: capture preview audio only
+    function endStroke() {
+      if (!playing || !curStroke) return;
+      noteOff();
+      if (curStroke.points.length >= 2) {
+        strokes.push(curStroke);
+        updateCounters();
       }
-      if (!mediaRecorder){
-        const mt = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
-              : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")  ? "audio/ogg;codecs=opus"
-              : "audio/webm";
-        mediaRecorder = new MediaRecorder(recDest.stream, { mimeType: mt, audioBitsPerSecond: 128000 });
-        mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) recChunks.push(ev.data); };
-        mediaRecorder.onstop = ()=>{
-          try { lastRecording = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" }); } catch { lastRecording=null; }
-          recChunks = [];
-        };
-      }
-      if (mediaRecorder.state!=="recording") mediaRecorder.start(1000);
+      curStroke = null;
+      redraw();
     }
-    function stopRecorder(){ if (mediaRecorder?.state==="recording") mediaRecorder.stop(); }
 
-    function togglePlay(){
+    // ---------- Controls ----------
+    function togglePlay() {
       playing = !playing;
-      if (btnPlay){ btnPlay.setAttribute("aria-pressed", String(playing)); btnPlay.textContent = playing?"Pause":"Play"; }
-      if (playing){ startAudio(); startRecorder(); } else { noteOff(); stopRecorder(); }
+      btnPlay?.setAttribute("aria-pressed", String(playing));
+      btnPlay && (btnPlay.textContent = playing ? "Pause" : "Play");
+      if (playing) startAudio(); else noteOff();
     }
 
-    // ---------- submit ----------
-    function blobToDataURL(blob){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); }); }
-    async function submitLab(){
-      if (btnSubmit) btnSubmit.disabled = true;
+    async function submitLab() {
       try {
-        const dataURL = cvs.toDataURL("image/png", 0.92);
-        if (playing) togglePlay();
-        await new Promise(r=>setTimeout(r,260));
+        btnSubmit && (btnSubmit.disabled = true);
+        // 1) Preview image
+        const previewDataURL = cvs.toDataURL("image/png", 0.9);
 
-        // Path 중심으로 제출(오디오/프리뷰는 선택)
-        const nsEmail = (typeof window.getNS==="function" ? window.getNS() : "").toString().trim().toLowerCase();
-        if (!(nsEmail && /\S+@\S+/.test(nsEmail))) { alert("로그인이 필요합니다."); if (btnSubmit) btnSubmit.disabled=false; return; }
+        // 2) Normalize ns (email)
+        const nsEmail = (window.getNS ? String(window.getNS()).toLowerCase().trim() : "");
+        if (!/^[^@]+@[^@]+$/.test(nsEmail)) throw new Error("need_login");
 
-        const payload = { ns: nsEmail, width: W, height: H, strokes, previewDataURL: dataURL };
-        const res = await fetch(API("/api/audlab/submit"), {
-          method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" }, credentials:"include", body: JSON.stringify(payload)
+        // 3) Send ONLY paths
+        const payload = {
+          ns: nsEmail,
+          width: W,
+          height: H,
+          strokes,
+          previewDataURL,   // path snapshot only
+        };
+
+        const res = await fetch((window.__toAPI ? __toAPI("/api/audlab/submit") : "/api/audlab/submit"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(payload),
         });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.ok) throw new Error(j?.error || `HTTP_${res.status}`);
 
-        if (!res.ok) throw new Error(`submit_api_${res.status}`);
-        const j = await res.json().catch(()=>null);
-        if (!j?.ok) throw new Error("submit_failed");
-
-        if (btnSubmit){ btnSubmit.textContent = "Submitted ✓"; setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200); }
+        btnSubmit && (btnSubmit.textContent = "Submitted ✓");
+        setTimeout(() => { if (btnSubmit) btnSubmit.textContent = "Submit"; }, 900);
       } catch (e) {
-        alert("제출 실패: " + (e?.message || e));
+        alert("Submit 실패: " + (e?.message || e));
       } finally {
-        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+        btnSubmit && (btnSubmit.disabled = strokes.length === 0);
       }
     }
 
-    // ---------- wire ----------
+    // ---------- Wire ----------
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas(); updateCounters();
 
-    cvs.addEventListener("pointerdown", (e)=>{ try{ cvs.setPointerCapture(e.pointerId);}catch{} begin(e); });
-    cvs.addEventListener("pointermove", move);
-    cvs.addEventListener("pointerup",   (e)=>{ try{ cvs.releasePointerCapture(e.pointerId);}catch{} end(); });
-    cvs.addEventListener("pointercancel", end);
+    cvs.addEventListener("pointerdown", (e) => { try { cvs.setPointerCapture(e.pointerId); } catch {} beginStroke(e); });
+    cvs.addEventListener("pointermove", moveStroke);
+    cvs.addEventListener("pointerup",   (e) => { try { cvs.releasePointerCapture(e.pointerId); } catch {} endStroke(); });
+    cvs.addEventListener("pointercancel", endStroke);
     cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
 
-    btnPlay?.addEventListener("click", togglePlay);
-    btnUndo?.addEventListener("click", ()=>{ if (!strokes.length) return; strokes.pop(); drawAll(); updateCounters(); });
-    btnClear?.addEventListener("click", ()=>{ strokes.length=0; drawAll(); updateCounters(); });
-    btnSubmit?.addEventListener("click", submitLab);
-
-    // a11y: space toggles play when canvas focused
-    cvs.tabIndex = 0;
-    cvs.addEventListener("keydown", (e)=>{ if (e.code==="Space"){ e.preventDefault(); togglePlay(); } });
+    btnPlay  && btnPlay.addEventListener("click", togglePlay);
+    btnUndo  && btnUndo.addEventListener("click", undoStroke);
+    btnClear && btnClear.addEventListener("click", clearAll);
+    btnSubmit&& btnSubmit.addEventListener("click", submitLab);
   })();
 
 })();
