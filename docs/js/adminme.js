@@ -2453,27 +2453,31 @@ function wireCardActions(root){
     }
   })();
 
-  // File: public/js/adminme.js
-  // ─────────────────────────────────────────────────────────────
-  // [aud laboratory] — Admin replay/list/accept only (clean, modular)
-  // Paste at the bottom of adminme.js and remove previous aud-lab block(s).
-  // ─────────────────────────────────────────────────────────────
+  /* File: public/js/adminme.js  */
+  /* === REPLACE the existing "[aud laboratory] — Admin replay/list/accept only" IIFE === */
   (() => {
     "use strict";
 
-    const $ = (s, r=document) => r.querySelector(s);
-    const UI = {
-      list: $("#audlist"),
-      canvas: $("#audlab-replay"),
-      play: $("#replay-play"),
-      pause: $("#replay-pause"),
-      meta: $("#replay-meta"),
-    };
-    if (!UI.list || !UI.canvas || !UI.canvas.getContext) return;
+    const $  = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
+    // HTML과 실제로 맞춘 셀렉터들
+    const UI = {
+      canvas: $("#aud-canvas"),
+      btnPlay: $("#lab-play"),
+      btnAccept: $("#lab-accept"),
+      btnOpenList: $("#lab-view-list"),
+      modal: $("#admin-lab"),
+      grid: $("#admin-lab-grid"),
+    };
+    // 캔버스가 없으면 조용히 종료
+    if (!UI.canvas || !UI.canvas.getContext) return;
+
+    // API base
     const API_BASE = window.PROD_BACKEND || window.API_BASE || location.origin;
     const toAPI = (p) => (typeof window.__toAPI === "function") ? window.__toAPI(p) : String(p || "");
 
+    // --- Admin API shim (이미 파일에 있는 클래스를 쓰되, 이 IIFE에 최소 사본 유지) ---
     class AudLabAPI {
       async all(limit = 100) {
         const u = new URL("/api/admin/audlab/all", API_BASE);
@@ -2482,7 +2486,7 @@ function wireCardActions(root){
         const j = await r.json().catch(()=> ({}));
         const items = Array.isArray(j?.items) ? j.items : [];
         return items
-          .filter(it => this.#pickUrl(it))
+          .filter(it => (it?.videoUrl || it?.webm || it?.video || it?.media))
           .sort((a,b) => (new Date(b.createdAt||0)) - (new Date(a.createdAt||0)))
           .slice(0, limit);
       }
@@ -2494,19 +2498,8 @@ function wireCardActions(root){
         if (!r.ok) throw new Error(`item_${r.status}`);
         const j = await r.json().catch(()=> ({}));
         if (!j?.ok) throw new Error("item_invalid");
-        // server가 안 줄 경우를 대비한 안전 추정 경로
-        let jsonUrl  = j.jsonUrl  || "";
-        if (!jsonUrl) {
-          const base = window.STATIC_BASE || location.origin;
-          jsonUrl = new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, base).toString();
-        }
-        return {
-          id, ns,
-          createdAt: j.createdAt || null,
-          meta: j.meta || {},
-          audioUrl: j.audioUrl || "",   // 있으면 파일 재생
-          jsonUrl,                      // 없으면 strokes 합성
-        };
+        let jsonUrl = j.jsonUrl || new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, window.STATIC_BASE || location.origin).toString();
+        return { id, ns, createdAt: j.createdAt || null, meta: j.meta || {}, audioUrl: j.audioUrl || "", jsonUrl };
       }
       async accept(ns, id) {
         const r = await fetch(new URL("/api/admin/audlab/accept", API_BASE), {
@@ -2520,369 +2513,183 @@ function wireCardActions(root){
         if (!j?.ok) throw new Error("accept_invalid");
         return j;
       }
-      #pickUrl(it) { return toAPI(it?.videoUrl || it?.webm || it?.video || it?.media || ""); }
     }
 
+    // --- Replay (기존 adminme.js 클래스와 동일 동작: 배경 밴드, 펜, 오디오 합성/파일 재생) ---
     class AudLabReplay {
-
-      #paintBands(W, H) {
-        const ctx = this.ctx;
-        ctx.fillStyle = "#eef2f7";
-        ctx.fillRect(0, 0, W, H);
-        const bands = 8;
-        for (let i = 0; i < bands; i++) {
-          const yStart = Math.floor(i * H / bands);
-          const yEnd   = Math.floor((i + 1) * H / bands);
-          ctx.fillStyle = (i % 2) ? "#f7f9fb" : "#f1f4f9";
-          ctx.fillRect(0, yStart, W, yEnd - yStart);
-          if (i % 2) {
-            const y0 = Math.floor((i + 0.5) * H / bands);
-            ctx.fillStyle = "rgba(0,0,0,.03)";
-            ctx.fillRect(0, y0, W, 1);
-          }
-        }
-      }
-
-      constructor({ canvas, playBtn, pauseBtn, metaEl }) {
+      constructor({ canvas }) {
         this.cvs = canvas;
         this.ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
-        this.metaEl = metaEl;
-
-        // 재생 상태
         this._strokes = [];
-        this._t0 = 0;
-        this._T = 0;
-        this._raf = 0;
-        this._playing = false;
-        this._startedAt = 0;
-        this._pauseAtMs = 0;
-
-        // 오디오
-        this._audioUrl = "";
-        this._audioEl = null;
-        this._ac = null;      // AudioContext (합성용)
-        this._osc = null;
-        this._gain = null;
-
-        playBtn?.addEventListener("click", () => this.play());
-        pauseBtn?.addEventListener("click", () => this.pause());
+        this._t0 = 0; this._T = 0;
+        this._raf = 0; this._playing = false;
+        this._startedAt = 0; this._pauseAtMs = 0;
+        this._audioUrl = ""; this._audioEl = null;
+        this._ac = null; this._osc = null; this._gain = null;
         document.addEventListener("visibilitychange", () => { if (document.hidden) this.pause(); });
       }
-
       async load(item) {
-        // 이전 상태 정리
         this.stop();
-
-        // 메타 표시
-        this.#renderMeta(item);
-
-        // 데이터 준비
         this._audioUrl = item.audioUrl || "";
         const strokes = await this.#loadStrokes(item.jsonUrl);
         this._strokes = this.#flattenPoints(strokes);
-        if (!this._strokes.length) {
-          this.#blank();
-          throw new Error("no_strokes");
-        }
-
+        if (!this._strokes.length) { this.#blank(); throw new Error("no_strokes"); }
         this._t0 = this._strokes[0].t;
         this._T  = this._strokes[this._strokes.length - 1].t - this._t0;
         this._pauseAtMs = 0;
-
-        // 첫 프레임 미리 그림
         this.#drawProgress(0);
       }
-
       play() {
-        if (!this._strokes.length) return;
-
-        if (this._playing) return;
+        if (!this._strokes.length || this._playing) return;
         this._playing = true;
-
-        // 타임라인 시작점
         const offset = this._pauseAtMs > 0 ? this._pauseAtMs : 0;
         this._startedAt = performance.now() - offset;
-
-        // 오디오 시작
-        if (this._audioUrl) {
-          this.#ensureHTMLAudio();
-          try { this._audioEl.currentTime = offset / 1000; } catch {}
-          this._audioEl.play().catch(()=>{});
-        } else {
-          this.#startSynth(offset);
-        }
-
-        // 드로잉 루프
+        if (this._audioUrl) { this.#ensureHTMLAudio(); try { this._audioEl.currentTime = offset/1000; } catch {} this._audioEl.play().catch(()=>{}); }
+        else { this.#startSynth(offset); }
         const loop = () => {
           if (!this._playing) return;
-          const now = performance.now();
-          const elapsed = now - this._startedAt; // ms
+          const elapsed = performance.now() - this._startedAt;
           this.#drawProgress(elapsed);
-          if (elapsed >= this._T + 80) { // 여유
-            this.stop();
-            return;
-          }
+          if (elapsed >= this._T + 80) { this.stop(); return; }
           this._raf = requestAnimationFrame(loop);
         };
         this._raf = requestAnimationFrame(loop);
       }
-
       pause() {
         if (!this._playing) return;
         this._playing = false;
         cancelAnimationFrame(this._raf); this._raf = 0;
-
-        // 현재 위치 기억
         this._pauseAtMs = Math.min(this._T, performance.now() - this._startedAt);
-
-        // 오디오 정지
         if (this._audioEl) { try { this._audioEl.pause(); } catch {} }
-        this.#stopSynth(false); // context 유지(재개 대비)
+        this.#stopSynth(false);
       }
-
       stop() {
         this._playing = false;
         cancelAnimationFrame(this._raf); this._raf = 0;
         this._pauseAtMs = 0;
         if (this._audioEl) { try { this._audioEl.pause(); this._audioEl.currentTime = 0; } catch {} }
-        this.#stopSynth(true); // 완전 종료
+        this.#stopSynth(true);
       }
-
-      /* ───────── 내부 유틸 ───────── */
-
-      #blank() {
-        const W = this.cvs.width || 720, H = this.cvs.height || 480;
-        this.cvs.width = W; this.cvs.height = H;
-        this.#paintBands(W, H);
-      }
-
-      #renderMeta(it){
-        if (!this.metaEl) return;
-        const m = it?.meta || {};
-        const parts = [
-          `#${it.id}`,
-          it.createdAt ? new Date(it.createdAt).toLocaleString() : "",
-          m.durationMs ? `${(m.durationMs/1000).toFixed(1)}s` : ""
-        ].filter(Boolean);
-        this.metaEl.textContent = parts.join(" · ");
-      }
-
-      async #loadStrokes(url) {
-        if (!url) return [];
-        const u = (typeof window.__toAPI === "function") ? window.__toAPI(url) : url;
-        const r = await fetch(u, { credentials:"include", cache:"no-store" }).catch(()=>null);
-        const j = await r?.json?.().catch?.(()=>null);
-        const list = Array.isArray(j?.strokes) ? j.strokes : [];
-        return list;
-      }
-
-      #flattenPoints(strokes) {
-        const pts = [];
-        for (const st of (strokes || [])) {
-          const arr = Array.isArray(st?.points) ? st.points : [];
-          for (const p of arr) {
-            const t = Number(p.t || 0);
-            const x = Number(p.x || 0);
-            const y = Number(p.y || 0);
-            if (Number.isFinite(t)) pts.push({ t, x, y });
-          }
+      // --- helpers (배경/선 스타일은 me.js와 동일) ---
+      #paintBands(W, H){
+        const ctx = this.ctx;
+        ctx.fillStyle = "#eef2f7"; ctx.fillRect(0,0,W,H);
+        const bands = 8;
+        for (let i=0;i<bands;i++){
+          const y0 = Math.floor((i + 0.5) * H / bands);
+          ctx.fillStyle = (i%2) ? "#f7f9fb" : "#f1f4f9";
+          ctx.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
+          if (i%2) { ctx.fillStyle = "rgba(0,0,0,.03)"; ctx.fillRect(0, y0, W, 1); }
         }
-        pts.sort((a,b)=> a.t - b.t);
-        return pts;
       }
-      
-      #drawProgress(elapsedMs) {
-        // 캔버스 크기 확보
-        const W = this.cvs.width  || 720;
-        const H = this.cvs.height || 480;
-        if (!this.cvs.width || !this.cvs.height) { this.cvs.width = W; this.cvs.height = H; }
-
-        // me.js와 동일한 밴드 배경
-        this.#paintBands(W, H);
-
-        // 진행 시점(절대 ms)
-        const cutoff = this._t0 + elapsedMs;
-
-        // me.js 스타일의 펜 설정
-        this.ctx.lineJoin = "round";
-        this.ctx.lineCap  = "round";
-        this.ctx.strokeStyle = "#111";
-        this.ctx.lineWidth   = Math.max(2, Math.min(6, H * 0.006));
-
-        // me.js 좌표계: x,y ∈ [0..1] → (x*W, y*H)  ※ y 뒤집지 않음!
-        this.ctx.beginPath();
-        let started = false;
-        for (let i = 0; i < this._strokes.length; i++) {
-          const p = this._strokes[i];
-          if (p.t > cutoff) break;
-          const xx = Math.max(0, Math.min(1, p.x)) * W;
-          const yy = Math.max(0, Math.min(1, p.y)) * H;
-          if (!started) { this.ctx.moveTo(xx, yy); started = true; }
-          else { this.ctx.lineTo(xx, yy); }
-        }
+      #blank(){ const W=this.cvs.width||720,H=this.cvs.height||480; this.cvs.width=W; this.cvs.height=H; this.#paintBands(W,H); }
+      async #loadStrokes(url){ const r = await fetch(toAPI(url), { credentials:"include", cache:"no-store" }).catch(()=>null); const j = await r?.json?.().catch?.(()=>null); return Array.isArray(j?.strokes)?j.strokes:[]; }
+      #flattenPoints(strokes){ const pts=[]; for(const st of (strokes||[])){ for(const p of (st.points||[])){ const t=+p.t,x=+p.x,y=+p.y; if(Number.isFinite(t)) pts.push({t,x,y}); } } pts.sort((a,b)=>a.t-b.t); return pts; }
+      #drawProgress(elapsedMs){
+        const W=this.cvs.width||720,H=this.cvs.height||480; if(!this.cvs.width||!this.cvs.height){ this.cvs.width=W; this.cvs.height=H; }
+        this.#paintBands(W,H);
+        const cutoff=this._t0+elapsedMs;
+        this.ctx.lineJoin="round"; this.ctx.lineCap="round"; this.ctx.strokeStyle="#111"; this.ctx.lineWidth=Math.max(2,Math.min(6,H*0.006));
+        this.ctx.beginPath(); let started=false;
+        for(const p of this._strokes){ if(p.t>cutoff) break; const xx=Math.max(0,Math.min(1,p.x))*W; const yy=Math.max(0,Math.min(1,p.y))*H; if(!started){ this.ctx.moveTo(xx,yy); started=true; } else { this.ctx.lineTo(xx,yy); } }
         this.ctx.stroke();
       }
-
-      #ensureHTMLAudio() {
-        if (this._audioEl) return;
-        const src = (typeof window.__toAPI === "function") ? window.__toAPI(this._audioUrl) : this._audioUrl;
-        const a = document.createElement("audio");
-        a.src = src;
-        a.preload = "auto";
-        a.crossOrigin = "anonymous";
-        this._audioEl = a;
-      }
-
-      #startSynth(offsetMs = 0) {
-        if (!this._strokes.length) return;
-        // 간단한 합성기: 제출 코드의 매핑과 유사 (A2~A6)
-        const AC = new (window.AudioContext || window.webkitAudioContext)();
-        const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
-        const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
-
-        this._ac = AC; this._osc = osc; this._gain = master;
-
-        const fMin = 110, fMax = 1760;
-        const freqFromY = (y) => fMin * Math.pow(fMax / fMin, 1 - Math.max(0, Math.min(1, y)));
-
-        const t0 = this._strokes[0].t;
-        const startAt = AC.currentTime + 0.02; // 작은 여유
-        const port = 0.04;
-
-        // offset 적용: offset 이후 포인트만 스케줄
-        const fromIdx = this._strokes.findIndex(p => (p.t - t0) >= offsetMs);
-        const pts = (fromIdx >= 0) ? this._strokes.slice(fromIdx) : this._strokes;
-
-        let last = startAt;
-        for (const p of pts) {
-          const at = startAt + Math.max(0, (p.t - t0 - offsetMs) / 1000);
-          const fq = Math.max(40, freqFromY(p.y));
-          osc.frequency.cancelScheduledValues(at);
-          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
-
-          const a = 0.01, r = 0.08;
-          master.gain.cancelScheduledValues(at);
-          master.gain.setValueAtTime(0.0, at);
-          master.gain.linearRampToValueAtTime(0.85, at + a);
-          master.gain.linearRampToValueAtTime(0.0, at + a + r);
-          last = at + a + r;
-        }
-      }
-
-      #stopSynth(hard = false) {
-        try {
-          if (this._osc) { this._osc.stop(); this._osc.disconnect(); }
-          if (this._gain) this._gain.disconnect();
-          if (hard && this._ac) this._ac.close();
-        } catch {}
-        if (hard) { this._ac = null; this._osc = null; this._gain = null; }
-      }
-    }
-
-    class AudLabList {
-      constructor({ root, onPick, onAccept }) {
-        this.root = root;
-        this.onPick = onPick;
-        this.onAccept = onAccept;
-        root.addEventListener("click", (e) => this.#onClick(e));
-      }
-      render(items){
-        this.root.innerHTML = "";
-        for (const it of items) {
-          const when = it.meta?.startedAt ? new Date(it.meta.startedAt)
-                    : it.createdAt ? new Date(it.createdAt) : null;
-          const dur = it.meta?.durationMs ? Math.round(it.meta.durationMs/1000) : 0;
-          const row = document.createElement("div");
-          row.className = "audlab-row";
-          row.dataset.id = it.id;
-          row.dataset.ns = it.ns || it.owner?.ns || "";
-          row.innerHTML = `
-            <div class="info">
-              <strong>${when ? when.toLocaleString() : `#${it.id}`}</strong>
-              <small>${row.dataset.ns}</small>
-            </div>
-            <div class="meta">${dur ? `${dur}s` : ""}</div>
-            <div class="actions">
-              <button type="button" class="btn btn-sm act-play">Play</button>
-              <button type="button" class="btn btn-sm act-accept">Accept</button>
-            </div>
-          `.trim();
-          this.root.appendChild(row);
-        }
-      }
-      markAccepted(row){ row?.classList?.add("accepted"); }
-      #onClick(e){
-        const row = e.target.closest(".audlab-row"); if (!row) return;
-        const id = row.dataset.id, ns = row.dataset.ns;
-        if (e.target.closest(".act-accept")) { this.onAccept?.({ ns, id, row }); return; }
-        if (e.target.closest(".act-play"))   { this.onPick?.({ ns, id, row }); }
-      }
-    }
-
-    class AudLabController {
-      constructor() {
-        this.api = new AudLabAPI();
-        this.replay = new AudLabReplay({ canvas:UI.canvas, playBtn:UI.play, pauseBtn:UI.pause, metaEl:UI.meta });
-        this.list = new AudLabList({
-          root: UI.list,
-          onPick: (p) => this.#pick(p),
-          onAccept: (p) => this.#accept(p),
-        });
-        window.addEventListener("audlab:pick", (ev) => {
-          const { id, ns } = ev.detail || {};
-          if (id && ns) {
-            this.#pick({ id, ns });
-            try { closeAdminLabModal(); } catch {}
+      #ensureHTMLAudio(){ if(this._audioEl) return; const a=document.createElement("audio"); a.src=toAPI(this._audioUrl); a.preload="auto"; a.crossOrigin="anonymous"; this._audioEl=a; }
+      #startSynth(offsetMs=0){
+        if(!this._strokes.length) return;
+        const AC = new (window.AudioContext||window.webkitAudioContext)();
+        const gain = AC.createGain(); gain.gain.value=0.0; gain.connect(AC.destination);
+        const osc = AC.createOscillator(); osc.type="sine"; osc.connect(gain); osc.start();
+        this._ac=AC; this._osc=osc; this._gain=gain;
+        const fMin=110,fMax=1760, freqFromY=(y)=> fMin*Math.pow(fMax/fMin,1-Math.max(0,Math.min(1,y)));
+        let last=0;
+        const schedule = ()=>{
+          const t=AC.currentTime;
+          const ms=(performance.now()-this._startedAt);
+          const cut=this._t0+ms;
+          const pts=this._strokes;
+          for(let i=last;i<pts.length;i++){
+            const p=pts[i]; if(p.t>cut) break; last=i+1;
+            const legato=Math.max(0,Math.min(1,p.x)); const f=freqFromY(p.y);
+            osc.frequency.cancelScheduledValues(t);
+            osc.frequency.exponentialRampToValueAtTime(Math.max(40,f), t+0.02+0.18*legato);
+            gain.gain.cancelScheduledValues(t);
+            const a=0.003+0.020*legato, r=0.030+0.250*(1-legato);
+            gain.gain.linearRampToValueAtTime(0.15+0.75*legato, t+a);
+            gain.gain.linearRampToValueAtTime(0.0, t+a+r);
           }
-        });
-        this.items = [];
+          if(this._playing) setTimeout(schedule, 45);
+        };
+        schedule();
       }
-      async boot(){
-        let items = [];
-        try {
-          const isAdm = (typeof window.isAdmin === "function") ? await window.isAdmin() : true;
-          items = isAdm ? await this.api.all(100) : [];
-        } catch (e) {
-          console.warn("[audlab] list failed:", e);
-        }
-        if (!items.length) {
-          this.list.render([]);
-          UI.meta && (UI.meta.textContent = "No aud lab submissions.");
-          return;
-        }
-        this.items = items;
-        this.list.render(items);
-        try { await this.replay.load(items[0]); } catch {}
-      }
-      async #pick({ ns, id }){
-        try {
-          const item = await this.api.item(ns, id);
-          await this.replay.load(item);
-        } catch (e) {
-          console.warn("[audlab] pick failed:", e);
-          alert("재생 데이터를 불러오지 못했습니다.");
-        }
-      }
-      async #accept({ ns, id, row }){
-        try {
-          await this.api.accept(ns, id);
-          this.list.markAccepted(row);
-        } catch (e) {
-          console.warn("[audlab] accept failed:", e);
-          alert("승인에 실패했습니다.");
-        }
+      #stopSynth(hard){
+        try{
+          if(this._gain){ this._gain.gain.cancelScheduledValues(this._ac.currentTime); this._gain.gain.value=0; }
+          if(hard){ this._osc?.stop?.(); this._ac?.close?.(); this._osc=this._ac=this._gain=null; }
+        }catch{}
       }
     }
 
-    function init(){
-      const ctl = new AudLabController();
-      ctl.boot().catch(()=>{});
-      window.AudLabAdmin = ctl; // debugging hook
-    }
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init, { once:true });
-    } else {
-      init();
-    }
+    // --- Wire up ---
+    const api = new AudLabAPI();
+    const replay = new AudLabReplay({ canvas: UI.canvas });
+    let current = null;  // { ns, id }
+
+    // 목록 모달 열기
+    UI.btnOpenList?.addEventListener("click", () => {
+      // 모달 열고(HTML에 이미 스타일/구조 존재) 서버에서 목록 불러와 grid 채우는 기존 로직 사용
+      // 이 프로젝트는 선택 시 window.dispatchEvent(new CustomEvent('audlab:pick', {detail:{ns,id}})) 를 쏘도록 되어 있습니다.
+      // (모달 내부 카드 클릭 핸들러는 기존 코드 그대로 사용)
+      UI.modal?.classList.add("show");
+    });
+
+    // 모달에서 항목 선택 시(기존 이벤트 프로토콜)
+    window.addEventListener("audlab:pick", async (ev) => {
+      const { ns, id } = ev.detail || {};
+      if (!ns || !id) return;
+      current = { ns, id };
+      try {
+        const item = await api.item(ns, id);
+        await replay.load(item);
+        UI.btnAccept?.removeAttribute("disabled");
+        UI.btnAccept && (UI.btnAccept.hidden = false);
+      } finally {
+        UI.modal?.classList.remove("show");
+      }
+    });
+
+    // 재생 버튼(토글처럼: 재생 중이면 일시정지, 아니면 재생)
+    UI.btnPlay?.addEventListener("click", (e) => {
+      e.preventDefault();
+      // 간단 토글: 내부 상태에 따라 play/pause
+      // (레이블 변경은 HTML 쪽에서 aria-pressed 등으로 제어 가능)
+      try {
+        // `replay`는 내부적으로 _playing 상태를 가짐
+        replay.play(); // play() 중복 호출은 내부에서 무시
+      } catch {}
+    });
+
+    // Accept 버튼
+    UI.btnAccept?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!current) return;
+      UI.btnAccept.disabled = true;
+      try {
+        await api.accept(current.ns, current.id);
+        const txt = UI.btnAccept.textContent;
+        UI.btnAccept.textContent = "Accepted ✓";
+        setTimeout(() => { UI.btnAccept.textContent = txt || "Accept"; }, 900);
+      } catch (err) {
+        alert("Accept 실패: " + (err?.message || err));
+      } finally {
+        UI.btnAccept.disabled = false;
+      }
+    });
+
+    // 탭 전환 시 안전 일시정지
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) replay.pause();
+    });
   })();
+
 })();
