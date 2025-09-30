@@ -813,7 +813,6 @@
    * 8) Quick Panel Lists (Labels & Jibbitz) — unchanged
    * ──────────────────────────────────────────────────────────────────────────── */
   (function QuickPanelLinks(){
-    "use strict";
     const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;
     if (!Array.isArray(LABELS) || !LABELS.length) throw new Error("APP_CONFIG.LABELS missing");
     const JIBS   = (window.APP_CONFIG && window.APP_CONFIG.JIBBITZ) || window.ALL_JIBS;
