@@ -2426,126 +2426,68 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     async function submitLab(){
       if (btnSubmit) btnSubmit.disabled = true;
 
-      // 내부 유틸: strokes → 타이밍 계산
-      function computeAudTimingFromStrokes(strokesArr){
-        // why: 서버 측 endedAt 요구. 비어도 안전값 보장.
-        let startedAt = Date.now();
-        let endedAt = startedAt;
-        try {
-          const ts = [];
-          if (Array.isArray(strokesArr)) {
-            for (const st of strokesArr) {
-              const pts = Array.isArray(st?.points) ? st.points : [];
-              for (const p of pts) {
-                const t = Number(p?.t);
-                if (Number.isFinite(t)) ts.push(t);
-              }
-            }
-          }
-          if (ts.length) {
-            ts.sort((a,b)=>a-b);
-            startedAt = ts[0];
-            endedAt   = ts[ts.length-1];
-          }
-        } catch {}
-        const durationMs = Math.max(0, Number(endedAt) - Number(startedAt));
-        return { startedAt, endedAt, durationMs };
+      // 0) 방어: strokes 비었으면 거절
+      const totalPts = strokes.reduce((n,s)=> n + (Array.isArray(s.points) ? s.points.length : 0), 0);
+      if (totalPts === 0) {
+        alert("그림이 없습니다. 먼저 캔버스에 그려주세요.");
+        if (btnSubmit) btnSubmit.disabled = false;
+        return;
       }
 
+      // 1) 이메일 NS 검증
+      const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
+        .toString().trim().toLowerCase();
+      const isEmail = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(nsEmail);
+      if (!isEmail) {
+        alert("로그인이 필요합니다(이메일 계정).");
+        if (btnSubmit) btnSubmit.disabled = false;
+        return;
+      }
+
+      // 2) 타이밍 메타(재생 용도)
+      const ts = [];
+      for (const st of strokes) {
+        for (const p of (st.points || [])) {
+          const t = +p.t; if (Number.isFinite(t)) ts.push(t);
+        }
+      }
+      ts.sort((a,b)=>a-b);
+      const startedAt = ts.length ? ts[0] : Date.now();
+      const endedAt   = ts.length ? ts[ts.length-1] : startedAt;
+      const durationMs = Math.max(0, endedAt - startedAt);
+
+      // 3) 미리보기 PNG (옵션)
+      const previewDataURL = cvs.toDataURL("image/png", 0.92);
+
+      // 4) 전송
+      const payload = {
+        ns: nsEmail,
+        width: W,
+        height: H,
+        strokes,              // ← path만 저장
+        previewDataURL,       // ← 썸네일
+        startedAt, endedAt, durationMs,
+        createdAt: Date.now(),
+        v: 2
+      };
+
       try {
-        try { stopRecorder(); } catch {}
-        // 1) 우선 WebM 업로드 시도
-        const note = (document.getElementById("aud-note")?.value || "").trim() || null;
-        const up = await stopAndUploadRecording(note);
-        if (up && up.ok) {
-          if (btnSubmit){
-            btnSubmit.textContent = "Submitted ✓";
-            setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1000);
-          }
-          return;
-        }
-
-        // 2) 폴백: 프리뷰/오디오 생성
-        const dataURL = cvs.toDataURL("image/png", 0.92);
-        if (playing) { togglePlay(); }
-        await stopRecorderAsync().catch(()=>{});
-        let audioDataURL = "";
-        if (lastRecording && lastRecording.size) {
-          audioDataURL = await blobToDataURL(lastRecording);
-        } else {
-          const wavBlob = await renderWavFromStrokes(strokes, W, H, { sampleRate: 44100 });
-          if (wavBlob && wavBlob.size) audioDataURL = await blobToDataURL(wavBlob);
-        }
-
-        // 3) NS 검증(이메일)
-        const nsEmail = (typeof window.getNS === "function" ? window.getNS() : "")
-          .toString().trim().toLowerCase();
-        if (typeof isEmailNS === "function" ? !isEmailNS(nsEmail) : !/^[^@]+@[^@]+\.[^@]+$/.test(nsEmail)) {
-          alert("로그인이 필요합니다(이메일 기반 계정을 확인할 수 없습니다).");
-          if (btnSubmit) btnSubmit.disabled = false;
-          return;
-        }
-
-        // 4) 타이밍 계산(핵심 수정)
-        const { startedAt, endedAt, durationMs } = computeAudTimingFromStrokes(strokes);
-
-        // 5) 페이로드
-        const payload = {
-          ns: nsEmail,
-          width: W,
-          height: H,
-          strokes,
-          previewDataURL: dataURL,
-          audioDataURL,
-          startedAt,           // ← 추가
-          endedAt,             // ← 추가
-          durationMs,          // ← 추가
-          points: strokes.reduce((n,s)=> n + (Array.isArray(s.points)? s.points.length : 0), 0), // why: 서버 통계용(있으면)
-          createdAt: Date.now(),
-          v: 1
-        };
-
-        // 6) 전송
         await ensureCSRF();
         const res = await fetch(API("/api/audlab/submit"), await withCSRF({
           method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          headers: { "Content-Type":"application/json","Accept":"application/json" },
           credentials: "include",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload)
         }));
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+        const j = await res.json().catch(()=>null);
+        if (!j?.ok) throw new Error(j?.error || "submit_failed");
 
-        // 7) 응답 처리
-        const ct = res.headers.get("content-type") || "";
-        const isJSON = /\bapplication\/json\b/i.test(ct);
-        let j = null, text = null;
-        if (!res.ok) {
-          text = await res.text().catch(()=> "");
-          const hint = text && !text.trim().startsWith("<") ? `: ${text.slice(0,160)}` : "";
-          throw new Error(`submit_api_${res.status}${hint}`);
-        }
-        j = isJSON ? await res.json().catch(()=>null) : null;
-        if (!j || j.ok === false) {
-          if (!j && !isJSON) j = (window.parseJSON ? parseJSON(text, null) : null);
-          throw new Error(j?.error || "submit_failed");
-        }
-
-        if (btnSubmit){
-          btnSubmit.textContent = "Submitted ✓";
-          setTimeout(()=>{ btnSubmit.textContent="Submit"; btnSubmit.disabled = strokes.length===0; }, 1200);
-        }
+        btnSubmit && (btnSubmit.textContent = "Submitted ✓");
+        setTimeout(() => { btnSubmit.textContent = "Submit"; btnSubmit.disabled = false; }, 1000);
       } catch (e) {
-        const msg = String(e?.message || e);
-        if (msg.startsWith("submit_api_404")) {
-          alert("제출 실패: 서버에 제출 API(/api/audlab/submit)가 없습니다(404). 백엔드 경로/배포를 확인하세요.");
-        } else if (msg.startsWith("submit_api_401")) {
-          alert("제출 실패: 로그인이 필요합니다(401).");
-        } else if (msg.startsWith("submit_api_")) {
-          alert("제출 실패: 서버 오류 (" + msg.replace("submit_api_","HTTP ") + ")");
-        } else {
-          alert("제출 실패: " + msg);
-        }
-      } finally {
-        if (btnSubmit) btnSubmit.disabled = strokes.length===0;
+        alert("제출 실패: " + (e?.message || e));
+        if (btnSubmit) btnSubmit.disabled = false;
       }
     }
 

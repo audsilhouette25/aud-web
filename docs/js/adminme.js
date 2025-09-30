@@ -2453,10 +2453,12 @@ function wireCardActions(root){
     }
   })();
 
+  // ─────────────────────────────────────────────────────────────
   // File: public/js/adminme.js
+  // “View submissions → 썸네일 모달 → 항목 선택 → 캔버스 준비 → Play로 합성 재생”
+  // ─────────────────────────────────────────────────────────────
   (() => {
     "use strict";
-
     const $  = (s, r=document) => r.querySelector(s);
     const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
@@ -2467,284 +2469,188 @@ function wireCardActions(root){
       btnOpenList: $("#lab-view-list"),
       modal: $("#admin-lab"),
       grid: $("#admin-lab-grid"),
-      counter: $("#aud-counter"), // optional
     };
     if (!UI.canvas || !UI.canvas.getContext) return;
 
-    const API_BASE    = window.PROD_BACKEND || window.API_BASE || location.origin;
-    const STATIC_BASE = window.STATIC_BASE  || location.origin;
-    const toAPI   = (p) => (typeof window.__toAPI === "function") ? window.__toAPI(p) : String(p || "");
-    const ensureCSRF = window.ensureCSRF || window.auth?.ensureCSRF || (async () => {});
-    const withCSRF   = window.withCSRF   || window.auth?.withCSRF   || (async (opt) => opt);
+    const API_BASE = window.PROD_BACKEND || window.API_BASE || location.origin;
+    const toAPI = (p) => (typeof window.__toAPI === "function") ? window.__toAPI(p) : String(p || "");
+    const ensureCSRF = window.auth?.ensureCSRF || (async () => {});
+    const withCSRF   = window.auth?.withCSRF   || (async (opt) => opt);
 
-    // ── Admin API
-    class AudLabAPI {
-      async all(limit = 100) {
-        const u = new URL("/api/admin/audlab/all", API_BASE);
-        const r = await fetch(u, { credentials:"include", cache:"no-store" });
-        if (!r.ok) throw new Error(`admin_list_${r.status}`);
-        const j = await r.json().catch(()=> ({}));
-        const items = Array.isArray(j?.items) ? j.items : [];
-        return items
-          .filter(it => (it?.id && it?.ns))
-          .sort((a,b) => (new Date(b.createdAt||0)) - (new Date(a.createdAt||0)))
-          .slice(0, limit);
-      }
-      async item(ns, id) {
-        const u = new URL("/api/admin/audlab/item", API_BASE);
-        u.searchParams.set("ns", ns);
-        u.searchParams.set("id", id);
-        const r = await fetch(u, { credentials:"include", cache:"no-store" });
-        if (!r.ok) throw new Error(`item_${r.status}`);
-        const j = await r.json().catch(()=> ({}));
-        if (!j?.ok) throw new Error("item_invalid");
-        const jsonUrl = j.jsonUrl || new URL(`/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`, STATIC_BASE).toString();
-        return { id, ns, createdAt: j.createdAt || null, meta: j.meta || {}, audioUrl: j.audioUrl || "", jsonUrl };
-      }
-      async accept(ns, id) {
-        await ensureCSRF(); // why: 서버 CSRF 보호
-        const r = await fetch(new URL("/api/admin/audlab/accept", API_BASE),
-          await withCSRF({
-            method: "POST",
-            headers: { "Content-Type":"application/json", "Accept":"application/json" },
-            credentials: "include",
-            body: JSON.stringify({ ns, id }),
-          })
-        );
-        if (!r.ok) throw new Error(`accept_${r.status}`);
-        const j = await r.json().catch(()=> ({}));
-        if (!j?.ok) throw new Error("accept_invalid");
-        return j;
-      }
+    // ── Data access (strokes-only)
+    async function listAll(limit=100){
+      const u = new URL("/api/admin/audlab/all", API_BASE);
+      u.searchParams.set("limit", String(limit));
+      const r = await fetch(u, { credentials:"include", cache:"no-store" });
+      if (!r.ok) throw new Error("list_failed");
+      const j = await r.json().catch(()=>({items:[]}));
+      return Array.isArray(j.items) ? j.items : [];
+    }
+    async function getItem(ns, id){
+      const u = new URL("/api/admin/audlab/item", API_BASE);
+      u.searchParams.set("ns", ns);
+      u.searchParams.set("id", id);
+      const r = await fetch(u, { credentials:"include", cache:"no-store" });
+      if (!r.ok) throw new Error("item_failed");
+      const j = await r.json().catch(()=>null);
+      if (!j?.ok) throw new Error("item_invalid");
+      return { jsonUrl: j.jsonUrl, previewUrl: j.previewUrl || "", createdAt: j.createdAt || 0, ns, id };
     }
 
-    // ── Replay(Canvas)
-    class AudLabReplay {
-      constructor({ canvas }) {
+    // ── Replay (draw + synth)
+    class Replay {
+      constructor(canvas){
         this.cvs = canvas;
         this.ctx = canvas.getContext("2d", { alpha:false, desynchronized:true });
-        this._strokes = [];
-        this._t0 = 0; this._T = 0;
-        this._raf = 0; this._playing = false;
-        this._startedAt = 0; this._pauseAtMs = 0;
-        this._audioUrl = ""; this._audioEl = null;
-        this._ac = null; this._osc = null; this._gain = null;
-        this.#blank();
-        document.addEventListener("visibilitychange", () => { if (document.hidden) this.pause(); });
-        window.addEventListener("resize", () => this.#redraw());
+        this.pts = [];
+        this.t0 = 0; this.T = 0;
+        this.playing = false; this.raf = 0; this.startedAt = 0;
+        this.AC = null; this.osc = null; this.gain = null;
+        document.addEventListener("visibilitychange", ()=>{ if (document.hidden) this.pause(); });
+        this.paintBg();
       }
-      async load(item) {
+      async loadFromJSON(url){
         this.stop();
-        this._audioUrl = item.audioUrl || "";
-        const strokes = await this.#loadStrokes(item.jsonUrl);
-        this._strokes = this.#flattenPoints(strokes);
-        if (!this._strokes.length) { this.#blank(); throw new Error("no_strokes"); }
-        this._t0 = this._strokes[0].t;
-        this._T  = this._strokes[this._strokes.length - 1].t - this._t0;
-        this._pauseAtMs = 0;
-        this.#draw(0);
-        this.#updateCounter();
-      }
-      play() {
-        if (!this._strokes.length || this._playing) return;
-        this._playing = true;
-        const offset = this._pauseAtMs > 0 ? this._pauseAtMs : 0;
-        this._startedAt = performance.now() - offset;
-        if (this._audioUrl) { this.#ensureAudio(); try { this._audioEl.currentTime = offset/1000; } catch {} this._audioEl.play().catch(()=>{}); }
-        else { this.#startSynth(); }
-        const loop = () => {
-          if (!this._playing) return;
-          const elapsed = performance.now() - this._startedAt;
-          this.#draw(elapsed);
-          if (elapsed >= this._T + 80) { this.stop(); return; }
-          this._raf = requestAnimationFrame(loop);
-        };
-        this._raf = requestAnimationFrame(loop);
-      }
-      pause() {
-        if (!this._playing) return;
-        this._playing = false;
-        cancelAnimationFrame(this._raf); this._raf = 0;
-        this._pauseAtMs = Math.min(this._T, performance.now() - this._startedAt);
-        if (this._audioEl) { try { this._audioEl.pause(); } catch {} }
-        this.#stopSynth(false);
-      }
-      stop() {
-        this._playing = false;
-        cancelAnimationFrame(this._raf); this._raf = 0;
-        this._pauseAtMs = 0;
-        if (this._audioEl) { try { this._audioEl.pause(); this._audioEl.currentTime = 0; } catch {} }
-        this.#stopSynth(true);
-        this.#draw(0);
-      }
-      #bands(W, H){
-        const ctx = this.ctx;
-        ctx.fillStyle = "#eef2f7"; ctx.fillRect(0,0,W,H);
-        const bands = 8;
-        for (let i=0;i<bands;i++){
-          const y0 = Math.floor((i + 0.5) * H / bands);
-          ctx.fillStyle = (i%2) ? "#f7f9fb" : "#f1f4f9";
-          ctx.fillRect(0, Math.floor(i*H/bands), W, Math.floor(H/bands));
-          if (i%2) { ctx.fillStyle = "rgba(0,0,0,.03)"; ctx.fillRect(0, y0, W, 1); }
+        const r = await fetch(toAPI(url), { credentials:"include", cache:"no-store" });
+        const j = await r.json();
+        const strokes = Array.isArray(j?.strokes) ? j.strokes : [];
+        const pts = [];
+        for (const st of strokes) for (const p of (st.points||[])) {
+          const t=+p.t,x=+p.x,y=+p.y; if (Number.isFinite(t)) pts.push({t,x,y});
         }
+        pts.sort((a,b)=>a.t-b.t);
+        if (!pts.length) throw new Error("no_points");
+        this.pts = pts;
+        this.t0  = pts[0].t;
+        this.T   = pts[pts.length-1].t - this.t0;
+        this.paintBg(); this.drawUntil(0);
       }
-      #blank(){ const W=this.cvs.clientWidth||720,H=Math.round(W*0.66); this.cvs.width=W; this.cvs.height=H; this.#bands(W,H); this.#updateCounter(0,0); }
-      async #loadStrokes(url){
-        const r = await fetch(toAPI(url), { credentials:"include", cache:"no-store" }).catch(()=>null);
-        const j = await r?.json?.().catch?.(()=>null);
-        return Array.isArray(j?.strokes)?j.strokes: (Array.isArray(j?.points)? [{points:j.points}] : []);
+      paintBg(){
+        const W=this.cvs.width=this.cvs.clientWidth||720;
+        const H=this.cvs.height=this.cvs.clientHeight||480;
+        const ctx=this.ctx;
+        ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); // admin 디자인 유지(스크린샷 기준)
       }
-      #flattenPoints(strokes){
-        const pts=[]; for(const st of (strokes||[])){ for(const p of (st.points||[])){
-          const t=+p.t,x=+p.x,y=+p.y; if(Number.isFinite(t)&&Number.isFinite(x)&&Number.isFinite(y)) pts.push({t,x,y});
-        }} pts.sort((a,b)=>a.t-b.t); return pts;
-      }
-      #draw(elapsedMs){
-        const W=this.cvs.clientWidth||720,H=Math.round(W*0.66);
-        if(this.cvs.width!==W||this.cvs.height!==H){ this.cvs.width=W; this.cvs.height=H; }
-        this.#bands(W,H);
-        const cutoff=this._t0+elapsedMs;
-        this.ctx.lineJoin="round"; this.ctx.lineCap="round"; this.ctx.strokeStyle="#111"; this.ctx.lineWidth=Math.max(2,Math.min(6,H*0.006));
-        this.ctx.beginPath(); let started=false; let points=0, strokes=0, breakNext=false;
-        for(const p of this._strokes){
-          if(p.t>cutoff) break;
-          const xx=Math.max(0,Math.min(1,p.x))*W; const yy=Math.max(0,Math.min(1,p.y))*H;
-          if(!started||breakNext){ this.ctx.moveTo(xx,yy); started=true; strokes++; breakNext=false; } else { this.ctx.lineTo(xx,yy); }
-          points++;
+      drawUntil(ms){
+        const W=this.cvs.width,H=this.cvs.height,ctx=this.ctx;
+        this.paintBg();
+        ctx.lineJoin="round"; ctx.lineCap="round"; ctx.strokeStyle="#fff";
+        ctx.lineWidth=Math.max(2,Math.min(6,H*0.006));
+        ctx.beginPath(); let started=false;
+        const cutoff=this.t0+ms;
+        for (const p of this.pts){
+          if (p.t>cutoff) break;
+          const x=Math.max(0,Math.min(1,p.x))*W;
+          const y=Math.max(0,Math.min(1,p.y))*H;
+          if (!started){ ctx.moveTo(x,y); started=true; } else { ctx.lineTo(x,y); }
         }
-        this.ctx.stroke();
-        this.#updateCounter(strokes, points);
+        ctx.stroke();
       }
-      #redraw(){ if(!this._strokes.length){ this.#blank(); return; } const ms=this._playing ? (performance.now()-this._startedAt) : this._pauseAtMs; this.#draw(ms); }
-      #ensureAudio(){ if(this._audioEl) return; const a=document.createElement("audio"); a.src=toAPI(this._audioUrl); a.preload="auto"; a.crossOrigin="anonymous"; this._audioEl=a; }
-      #startSynth(){
-        if(!this._strokes.length) return;
+      startAudio(){
+        if (this.AC) return;
         const AC = new (window.AudioContext||window.webkitAudioContext)();
-        const gain = AC.createGain(); gain.gain.value=0.0; gain.connect(AC.destination);
-        const osc = AC.createOscillator(); osc.type="sine"; osc.connect(gain); osc.start();
-        this._ac=AC; this._osc=osc; this._gain=gain;
-        const fMin=110,fMax=1760, freqFromY=(y)=> fMin*Math.pow(fMax/fMin,1-Math.max(0,Math.min(1,y)));
-        let last=0;
-        const tick = ()=>{
-          if(!this._playing) return;
-          const t=AC.currentTime;
-          const ms=(performance.now()-this._startedAt);
-          const cut=this._t0+ms;
-          const pts=this._strokes;
-          for(let i=last;i<pts.length;i++){
-            const p=pts[i]; if(p.t>cut) break; last=i+1;
-            const legato=Math.max(0,Math.min(1,p.x)); const f=Math.max(40,freqFromY(p.y));
-            osc.frequency.cancelScheduledValues(t);
-            osc.frequency.exponentialRampToValueAtTime(f, t+0.02+0.18*legato);
-            gain.gain.cancelScheduledValues(t);
-            const a=0.003+0.020*legato, r=0.030+0.250*(1-legato);
-            gain.gain.linearRampToValueAtTime(0.15+0.75*legato, t+a);
-            gain.gain.linearRampToValueAtTime(0.0, t+a+r);
-          }
-          setTimeout(tick, 45);
-        };
-        tick();
+        const g  = AC.createGain(); g.gain.value=0.0; g.connect(AC.destination);
+        const o  = AC.createOscillator(); o.type="sine"; o.connect(g); o.start();
+        this.AC=AC; this.osc=o; this.gain=g;
       }
-      #stopSynth(hard){
-        try{
-          if(this._gain){ this._gain.gain.cancelScheduledValues(this._ac.currentTime); this._gain.gain.value=0; }
-          if(hard){ this._osc?.stop?.(); this._ac?.close?.(); this._osc=this._ac=this._gain=null; }
-        }catch{}
+      tick = () => {
+        if (!this.playing) return;
+        const elapsed = performance.now()-this.startedAt;
+        this.drawUntil(elapsed);
+        this.scheduleAudio(elapsed);
+        if (elapsed >= this.T+80) { this.stop(); return; }
+        this.raf = requestAnimationFrame(this.tick);
       }
-      #updateCounter(strokes=0, points=0){ if (UI.counter) UI.counter.textContent = `${strokes} strokes · ${points} points`; }
+      scheduleAudio(ms){
+        this.startAudio();
+        const AC=this.AC, osc=this.osc, gain=this.gain;
+        const cut=this.t0+ms; let t=AC.currentTime;
+        // 다음 45ms 안의 포인트만 스케줄(간단)
+        const windowEnd = cut + 45;
+        const fMin=110,fMax=1760, fY=(y)=>fMin*Math.pow(fMax/fMin,1-Math.max(0,Math.min(1,y)));
+        for (const p of this.pts){
+          if (p.__done) continue;
+          if (p.t>windowEnd) break;
+          if (p.t<=cut) { p.__done=true; }
+          const at = t + Math.max(0,(p.t-(cut-ms))/1000);
+          const leg = Math.max(0,Math.min(1,p.x));
+          const fq  = Math.max(40,fY(p.y));
+          osc.frequency.cancelScheduledValues(at);
+          osc.frequency.exponentialRampToValueAtTime(fq, at + 0.02 + 0.18*leg);
+          gain.gain.cancelScheduledValues(at);
+          const a=0.003+0.020*leg, r=0.030+0.250*(1-leg);
+          gain.gain.linearRampToValueAtTime(0.15+0.75*leg, at + a);
+          gain.gain.linearRampToValueAtTime(0.0, at + a + r);
+        }
+      }
+      play(){
+        if (!this.pts.length || this.playing) return;
+        this.playing=true;
+        this.startedAt=performance.now();
+        this.tick();
+      }
+      pause(){ if (!this.playing) return; this.playing=false; cancelAnimationFrame(this.raf); }
+      stop(){
+        this.playing=false; cancelAnimationFrame(this.raf); this.raf=0;
+        this.pts.forEach(p=>delete p.__done);
+        if (this.gain) try{ this.gain.gain.value=0; }catch{}
+      }
     }
 
-    // ── Modal (이미지 선택만)
-    const api = new AudLabAPI();
-    const replay = new AudLabReplay({ canvas: UI.canvas });
+    const replay = new Replay(UI.canvas);
     let current = null;
 
-    function openModal() {
-      if (!UI.modal) return;
-      UI.modal.classList.add("open");            // 중요: 'open' 사용
-      if (UI.grid && !UI.grid.childElementCount) loadList().catch(()=>{});
-      trapFocus(UI.modal);
-    }
-    function closeModal() {
-      if (!UI.modal) return;
-      UI.modal.classList.remove("open");
-      releaseFocus(UI.modal);
-    }
-    async function loadList() {
-      if (!UI.grid) return;
-      UI.grid.innerHTML = "";
-      const items = await api.all(100);
-      if (!items.length) { UI.grid.innerHTML = `<div class="empty">No submissions.</div>`; return; }
-      for (const it of items) {
-        const card = document.createElement("button");
-        card.type = "button";
-        card.className = "lab-card";
-        const preview =
-          (typeof window.__toAPI === "function")
-            ? window.__toAPI(it.image || it.preview || it.png || it.thumbnail || "")
-            : (it.image || it.preview || it.png || it.thumbnail || "");
-        card.innerHTML = `
-          <img class="lab-thumb" alt="" src="${preview || ""}">
-          <div class="lab-caption"><strong>${it.id}</strong><span>${it.ns || ""}</span></div>
-        `;
-        card.addEventListener("click", () => {
-          window.dispatchEvent(new CustomEvent("audlab:pick", { detail: { ns: it.ns, id: it.id }}));
-        });
-        UI.grid.appendChild(card);
-      }
-    }
-    function trapFocus(el){
-      const f = $$('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])', el);
-      if (!f.length) return;
-      const first = f[0], last = f[f.length-1];
-      const key = (e)=>{
-        if (e.key !== "Tab") return;
-        if (e.shiftKey && document.activeElement === first){ last.focus(); e.preventDefault(); }
-        else if (!e.shiftKey && document.activeElement === last){ first.focus(); e.preventDefault(); }
-      };
-      el.__keytrap = key; el.addEventListener("keydown", key);
-      setTimeout(()=> first.focus(), 0);
-      el.addEventListener("click", (e)=>{ if (e.target.matches(".modal-close,[data-close],.overlay")) closeModal(); });
-    }
-    function releaseFocus(el){ if (el?.__keytrap) el.removeEventListener("keydown", el.__keytrap); }
-
-    // ── Wire-up
-    UI.btnOpenList?.addEventListener("click", openModal);
-
-    window.addEventListener("audlab:pick", async (ev) => {
-      const { ns, id } = ev.detail || {};
-      if (!ns || !id) return;
-      current = { ns, id };
+    // ── 모달 열기: 썸네일 로드
+    UI.btnOpenList?.addEventListener("click", async () => {
+      UI.modal?.classList.add("show");
+      UI.grid.innerHTML = `<div class="loading">Loading…</div>`;
       try {
-        const item = await api.item(ns, id);
-        await replay.load(item);                 // why: 선택 즉시 재현 준비
+        const items = await listAll(120);
+        UI.grid.innerHTML = items.map(it => `
+          <button class="card" data-id="${it.id}" data-ns="${it.ns}">
+            <img src="${toAPI(it.previewUrl||'')}" alt="">
+            <time>${new Date(it.createdAt||0).toLocaleString()}</time>
+          </button>
+        `).join("") || `<p class="empty">No submissions</p>`;
+      } catch {
+        UI.grid.innerHTML = `<p class="empty">Failed to load submissions</p>`;
+      }
+    });
+
+    // ── 썸네일 선택 → 준비 후 모달 닫기
+    UI.grid?.addEventListener("click", async (e) => {
+      const card = e.target.closest(".card"); if (!card) return;
+      const id = card.dataset.id, ns = card.dataset.ns;
+      try {
+        const it = await getItem(ns, id);
+        await replay.loadFromJSON(it.jsonUrl);
+        current = { ns, id };
         UI.btnAccept?.removeAttribute("disabled");
-        if (UI.btnAccept) UI.btnAccept.hidden = false;
-      } finally {
-        closeModal();                            // 요구사항: 선택 즉시 모달 닫힘
-      }
-    });
-
-    UI.btnPlay?.addEventListener("click", (e) => { e.preventDefault(); replay.play(); });
-
-    UI.btnAccept?.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (!current) return;
-      UI.btnAccept.disabled = true;
-      try {
-        await api.accept(current.ns, current.id);
-        const txt = UI.btnAccept.textContent;
-        UI.btnAccept.textContent = "Accepted ✓";
-        setTimeout(() => { UI.btnAccept.textContent = txt || "Accept"; }, 900);
       } catch (err) {
-        alert("Accept 실패: " + (err?.message || err));
+        alert("불러오기 실패: " + (err?.message||err));
       } finally {
-        UI.btnAccept.disabled = false;
+        UI.modal?.classList.remove("show");
       }
     });
 
-    document.addEventListener("visibilitychange", () => { if (document.hidden) replay.pause(); });
-  })();
+    UI.btnPlay?.addEventListener("click", () => replay.play());
+    UI.btnAccept?.addEventListener("click", async () => {
+      if (!current) return;
+      try {
+        await ensureCSRF();
+        const r = await fetch(new URL("/api/admin/audlab/accept", API_BASE),
+          await withCSRF({
+            method:"POST", credentials:"include",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(current)
+          }));
+        if (!r.ok) throw new Error(`HTTP_${r.status}`);
+        alert("Accepted ✓");
+      } catch (e) {
+        alert("Accept 실패: " + (e?.message||e));
+      }
+    });
 
+  })();
 
 })();
