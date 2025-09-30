@@ -7,6 +7,63 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 0) Utilities & Globals
    * ──────────────────────────────────────────────────────────────────────────── */
+// ➊ GitHub blob → raw URL 변환 + Pages 서브경로 보정
+function normalizeJsonUrl(url) {
+  if (!url) return url;
+
+  // blob → raw 변환
+  if (url.startsWith('https://github.com/') && url.includes('/blob/')) {
+    return url
+      .replace('https://github.com/', 'https://raw.githubusercontent.com/')
+      .replace('/blob/', '/');
+  }
+
+  // GitHub Pages 서브경로 보정: /aud-web/ 하위에 배포된 경우
+  // 예) 제공된 url이 'uploads/...' 또는 '/uploads/...' 처럼 상대/절대 혼재인 경우
+  try {
+    // url이 상대경로라면 현재 페이지를 기준으로 절대경로로 변환
+    const abs = new URL(url, document.baseURI).href;
+
+    // 내 사이트 도메인이면서, 최상위(/)로 잘못 가는 경우 /aud-web/을 붙여줌
+    // (정확히 맞추려면 'aud-web' → 본인 레포명으로 바꾸세요)
+    const PAGES_BASE = `${location.origin}/aud-web/`;
+    if (abs.startsWith(location.origin + '/') && !abs.startsWith(PAGES_BASE)) {
+      // '/uploads/...' → '/aud-web/uploads/...'
+      const path = abs.replace(location.origin + '/', '');
+      return PAGES_BASE + path; 
+    }
+    return abs;
+  } catch (e) {
+    return url; // URL 파싱 실패 시 원본 반환
+  }
+}
+
+// ➋ JSON 가져오기(진단 강화)
+async function fetchJsonStrict(jsonUrl) {
+  const url = normalizeJsonUrl(jsonUrl);
+  const res = await fetch(url, { cache: 'no-store' });
+
+  // 상태코드 체크
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`HTTP ${res.status} at ${url}\nFirst 120 chars: ${body.slice(0,120)}`);
+  }
+
+  // 콘텐츠 타입 점검(진단용)
+  const ct = res.headers.get('content-type') || '';
+  const text = await res.text();
+
+  // HTML로 보이는 응답 차단
+  if (text.trim().startsWith('<')) {
+    throw new Error(`Got HTML, not JSON at ${url}\nFirst 120 chars: ${text.slice(0,120)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON at ${url}\nFirst 120 chars: ${text.slice(0,120)}`);
+  }
+}
 
   // me.js 상단 유틸로 추가
 
@@ -2852,10 +2909,14 @@
         grid.innerHTML = items.map(cardHTML).join("");
         msg.textContent = "";
 
-        grid.addEventListener("click", (e) => {
+        grid.addEventListener("click", async (e) => {
           const card = e.target.closest(".card");
           if (!card) return;
           const ns = card.dataset.ns, id = card.dataset.id;
+          if (e.target.tagName === "IMG" || e.target.closest(".thumb")) {
+            await hearSubmission({ id, ns, card });
+            return;
+          }
           selectSubmission(ns, id);
         }, { once: true }); // 첫 선택 후 모달 닫히면 다음 열기 때 다시 바인딩
       } catch (e) {
