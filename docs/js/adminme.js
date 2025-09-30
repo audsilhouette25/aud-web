@@ -763,12 +763,14 @@
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
     }[c]));
 
+    const audioAttr = it.audio ? ` data-audio="${esc(it.audio)}"` : "";
+    const acceptedAttr = accepted ? ' data-accepted="1"' : '';
+
     return `
       <div class="card"
           data-id="${esc(it.id)}"
           data-ns="${esc(ns)}"
-          data-owner="${esc(ownerId)}"
-          ${accepted ? 'data-accepted="1"' : ''}>
+          data-owner="${esc(ownerId)}"${audioAttr}${acceptedAttr}>
         <img alt="" src="${esc(thumb)}" />
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
@@ -789,6 +791,10 @@
         const act = actEl?.dataset?.act;
         const id = card.dataset.id;
         const ns = card.dataset.ns;
+
+        if (!card.__audioUrl && card.dataset.audio) {
+          card.__audioUrl = card.dataset.audio;
+        }
 
         if (act === "hear") {
           try {
@@ -1026,12 +1032,15 @@
             ? window.__toAPI(src.image || src.preview || src.png || "")
             : (src.image || src.preview || src.png || "");
 
+        const audioPath = String(src.audio || src.audioUrl || src.audio_url || "");
+
         return {
           id: src.id,
           ns,
           ownerId: String(ownerId || ""),
           ownerName: String(ownerName || ""),
           preview,
+          audio: audioPath,
           createdAt: src.createdAt ?? src.created_at ?? null,
           accepted: !!src.accepted
         };

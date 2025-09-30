@@ -1993,9 +1993,20 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     let curStroke = null;
     const strokes = [];
 
-    // Audio (sine synth only, no recording upload)
+    // Audio & recording state
     let AC = null, master = null, osc = null;
     const port = 0.02; // portamento
+
+    let recordDest = null;
+    let recorder = null;
+    let recordChunks = [];
+    let recordMime = "audio/webm";
+    let recordDataURL = "";
+    let recordStartedAt = 0;
+    let recordEndedAt = 0;
+    let masterConnectedToOutput = false;
+    let masterConnectedToRecorder = false;
+    let recorderSupported = typeof window.MediaRecorder === "function";
 
     function freqFromY(y01) {
       // y: 0(top)~1(bottom) → freq: 880~110 (A5~A2-ish). Why: 더 직관적 음높이
@@ -2004,20 +2015,39 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       return fTop + (fBot - fTop) * y;
     }
 
-    function startAudio() {
+    function ensureAudioNodes() {
       if (!AC) {
         AC = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (AC && !master) {
         master = AC.createGain();
         master.gain.value = 0.0; // 대기 중 무음
-        master.connect(AC.destination);
       }
-      if (!osc) {
+      if (master && !masterConnectedToOutput) {
+        master.connect(AC.destination);
+        masterConnectedToOutput = true;
+      }
+      if (master && typeof AC?.createMediaStreamDestination === "function") {
+        if (!recordDest) {
+          try { recordDest = AC.createMediaStreamDestination(); }
+          catch { recordDest = null; recorderSupported = false; }
+        }
+        if (recordDest && !masterConnectedToRecorder) {
+          try { master.connect(recordDest); masterConnectedToRecorder = true; }
+          catch { masterConnectedToRecorder = false; }
+        }
+      }
+      if (master && !osc) {
         osc = AC.createOscillator();
         osc.type = "sine";
         osc.frequency.value = 440;
         osc.connect(master);
         osc.start();
       }
+    }
+
+    function startAudio() {
+      ensureAudioNodes();
     }
     function noteOn(freq) {
       if (!AC || !osc || !master) return;
@@ -2032,6 +2062,118 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       const t = AC.currentTime;
       master.gain.cancelScheduledValues(t);
       master.gain.linearRampToValueAtTime(0.0001, t + 0.05);
+    }
+
+    async function startRecording() {
+      ensureAudioNodes();
+      if (!recorderSupported || !recordDest) {
+        recordStartedAt = Date.now();
+        recordEndedAt = recordStartedAt;
+        recordDataURL = "";
+        return false;
+      }
+      if (recorder && recorder.state !== "inactive") {
+        return true;
+      }
+
+      recordChunks = [];
+      recordDataURL = "";
+      recordStartedAt = Date.now();
+      recordEndedAt = recordStartedAt;
+
+      const stream = recordDest.stream;
+      const candidates = [
+        { mimeType: "audio/webm;codecs=opus" },
+        { mimeType: "audio/webm" },
+        { mimeType: "audio/ogg;codecs=opus" },
+        {}
+      ];
+
+      let rec = null;
+      for (const opt of candidates) {
+        try {
+          rec = opt && opt.mimeType ? new MediaRecorder(stream, opt) : new MediaRecorder(stream);
+          recordMime = rec.mimeType || opt.mimeType || "audio/webm";
+          break;
+        } catch {
+          rec = null;
+        }
+      }
+
+      if (!rec) {
+        recorderSupported = false;
+        return false;
+      }
+
+      recorder = rec;
+      recorder.addEventListener("dataavailable", (ev) => {
+        if (ev?.data && ev.data.size) recordChunks.push(ev.data);
+      });
+      try { recorder.start(); }
+      catch { recorder = null; return false; }
+      return true;
+    }
+
+    function stopRecording() {
+      if (!recorder || recorder.state === "inactive") {
+        if (!recordEndedAt) recordEndedAt = Date.now();
+        return Promise.resolve(recordDataURL || "");
+      }
+
+      return new Promise((resolve) => {
+        const mime = recordMime || recorder.mimeType || "audio/webm";
+        const cleanup = () => {
+          recorder = null;
+          recordChunks = [];
+        };
+        recorder.addEventListener("stop", () => {
+          recordEndedAt = Date.now();
+          let blob = null;
+          try {
+            blob = recordChunks.length ? new Blob(recordChunks, { type: mime }) : null;
+          } catch {
+            blob = recordChunks.length ? new Blob(recordChunks) : null;
+          }
+          if (!blob || !blob.size) {
+            recordDataURL = "";
+            cleanup();
+            resolve("");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            recordDataURL = typeof reader.result === "string" ? reader.result : "";
+            cleanup();
+            resolve(recordDataURL);
+          };
+          reader.onerror = () => {
+            recordDataURL = "";
+            cleanup();
+            resolve("");
+          };
+          try { reader.readAsDataURL(blob); }
+          catch {
+            recordDataURL = "";
+            cleanup();
+            resolve("");
+          }
+        }, { once: true });
+
+        try {
+          recorder.stop();
+        } catch {
+          cleanup();
+          resolve(recordDataURL || "");
+        }
+      });
+    }
+
+    function finalizeRecording() {
+      if (recorder && recorder.state !== "inactive") {
+        return stopRecording();
+      }
+      if (!recordEndedAt) recordEndedAt = recordStartedAt || Date.now();
+      return Promise.resolve(recordDataURL || "");
     }
 
     // ---------- Canvas ----------
@@ -2120,16 +2262,31 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     }
 
     // ---------- Controls ----------
-    function togglePlay() {
+    async function togglePlay() {
       playing = !playing;
       btnPlay?.setAttribute("aria-pressed", String(playing));
-      btnPlay && (btnPlay.textContent = playing ? "Pause" : "Play");
-      if (playing) startAudio(); else noteOff();
+      if (btnPlay) btnPlay.textContent = playing ? "Pause" : "Play";
+      if (playing) {
+        startAudio();
+        await startRecording();
+      } else {
+        noteOff();
+        await stopRecording();
+      }
     }
 
     async function submitLab() {
       try {
         btnSubmit && (btnSubmit.disabled = true);
+        if (playing) {
+          playing = false;
+          btnPlay?.setAttribute("aria-pressed", "false");
+          if (btnPlay) btnPlay.textContent = "Play";
+          noteOff();
+        }
+
+        const audioDataURL = await finalizeRecording();
+
         // 1) Preview image
         const previewDataURL = cvs.toDataURL("image/png", 0.9);
 
@@ -2138,12 +2295,18 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
         if (!/^[^@]+@[^@]+$/.test(nsEmail)) throw new Error("need_login");
 
         // 3) Send ONLY paths
+        const endedAt = recordEndedAt || Date.now();
+        const startedAt = recordStartedAt || endedAt;
         const payload = {
           ns: nsEmail,
           width: W,
           height: H,
           strokes,
           previewDataURL,   // path snapshot only
+          ...(audioDataURL ? { audioDataURL } : {}),
+          startedAt,
+          endedAt,
+          durationMs: Math.max(0, endedAt - startedAt),
         };
 
         const res = await fetch((window.__toAPI ? __toAPI("/api/audlab/submit") : "/api/audlab/submit"), {
@@ -2174,7 +2337,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     cvs.addEventListener("pointercancel", endStroke);
     cvs.addEventListener("touchstart", (e)=>e.preventDefault(), { passive:false });
 
-    btnPlay  && btnPlay.addEventListener("click", togglePlay);
+    btnPlay  && btnPlay.addEventListener("click", () => { togglePlay().catch(()=>{}); });
     btnUndo  && btnUndo.addEventListener("click", undoStroke);
     btnClear && btnClear.addEventListener("click", clearAll);
     btnSubmit&& btnSubmit.addEventListener("click", submitLab);
