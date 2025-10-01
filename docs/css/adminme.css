@@ -731,12 +731,12 @@ header.nav{
   align-items:stretch;
   justify-items:stretch;
 }
-@media (max-width: 1024px){
+@media (max-width: 1000px){
   #admin-lab .admin-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 640px){
+@media (max-width: 505px){
   #admin-lab .admin-grid {
     grid-template-columns: 1fr;
   }
