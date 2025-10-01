@@ -219,7 +219,19 @@ header.nav{
   transform: translateY(1px);
   box-shadow: none;
 }
-.btn.is-icon{ width: 40px; height: 40px; padding: 0; display: grid; place-items: center; }
+.btn.is-icon{
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.btn.is-icon .gh-icon{
+  width: 18px;
+  height: 18px;
+  display: block;
+}
 .btn.is-icon .gh-icon{
   width: 18px;
   height: 18px;
