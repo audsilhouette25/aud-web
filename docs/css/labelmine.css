@@ -330,8 +330,6 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   .labelmine-body .title{ font-size:30px; }
   .labelmine-body .subtitle{ font-size:18px; }
   .labelmine-body .sdf-wrap{ height:440px; }
-  .labelmine-body .sdf-toolbar{ bottom:10px; }
-  .labelmine-body .sdf-toolbar-inner{ width:240px; }
   .labelmine-body .gh-thumb{ height:150px; }
 }
 /* =====================================================================
