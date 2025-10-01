@@ -485,15 +485,6 @@ header.nav{
   .modal, .modal .sheet{ transition: none; }
 }
 
-body.modal-open{
-  overflow-y: hidden;
-}
-@media (max-width: 400px){
-  body.modal-open{
-    overflow-x: auto;
-  }
-}
-
 /* =====================================================================
    12) Responsive (global)
 ===================================================================== */
@@ -704,12 +695,11 @@ body.modal-open{
   inset: 0;
   background: transparent;
   z-index: 0;
-  touch-action: pan-x pan-y;
 }
 #admin-lab .sheet{
   position: relative;
   max-width: var(--sheet-w-max, 960px);
-  width: clamp(400px, 96vw, var(--sheet-w-max, 960px));
+  width: clamp(350px, 86vw, var(--sheet-w-max, 960px));
   max-height: 92dvh;
   border-radius: 16px;
   background: var(--panel, #fff);
@@ -720,17 +710,11 @@ body.modal-open{
   justify-self: center;
   z-index: 1;
   gap: 13px;
-  transform: translate3d(calc(-1 * var(--admin-lab-scroll-x, 0px)), 8px, 0);
 }
-#admin-lab.modal{
-  --admin-lab-scroll-x: 0px;
-}
-#admin-lab.modal.open .sheet{
-  transform: translate3d(calc(-1 * var(--admin-lab-scroll-x, 0px)), 0, 0);
-}
+
 @media (max-width: 400px){
   #admin-lab .sheet{
-    width: 400px;
+    width: 350px;
   }
 }
 
