@@ -290,9 +290,14 @@
       if (now - lastAnyTs < DEBOUNCE_MS) return;
       lastAnyTs = now;
 
-      const uid = parseAdvToUID(evt);
+      let uid = parseAdvToUID(evt);
+      if (!uid && typeof evt?.uid === "string") uid = normalizeUid(evt.uid);
+      const label = typeof evt?.label === "string" ? evt.label : null;
+
       if (uid) {
-        handleUID(uid, null);
+        handleUID(uid, label);
+      } else if (evt?.idle) {
+        log("ble(idle)");
       } else {
         // IDLE이거나 UID 없음 → 무시
         log("ble(no UID):", evt);
@@ -304,8 +309,10 @@
       const now = Date.now();
       if (now - lastAnyTs < DEBOUNCE_MS) return;
       lastAnyTs = now;
-      const uid = parseAdvToUID(evt);
-      if (uid) handleUID(uid, null);
+      let uid = parseAdvToUID(evt);
+      if (!uid && typeof evt?.uid === "string") uid = normalizeUid(evt.uid);
+      const label = typeof evt?.label === "string" ? evt.label : null;
+      if (uid) handleUID(uid, label);
     });
 
     // 3) 기존 'nfc' 채널(이미 사용 중일 가능성)
