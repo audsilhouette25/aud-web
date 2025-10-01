@@ -706,10 +706,38 @@ header.nav{
 #admin-lab .admin-toolbar .spacer { flex:1; }
 #admin-lab .nsbar { display:flex; flex-wrap:wrap; gap:6px; }
 #admin-lab .admin-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(260px,1fr));
-  gap:12px;
-  justify-items:center;
+  display: grid;
+  gap: 40px;
+  justify-content: center;
+  padding: 25px 10px 45px;
+}
+
+@media (min-width: 1100px) {
+  #admin-lab .admin-grid {
+    grid-template-columns: repeat(3, 260px);
+    gap: 55px;
+    padding: 60px 10px 50px;
+  }
+  #admin-lab .card { max-width: 260px; }
+}
+
+@media (min-width: 625px) and (max-width: 1099px) {
+  #admin-lab .admin-grid {
+    grid-template-columns: repeat(2, minmax(230px, 1fr));
+    gap: 48px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 50px 10px 50px;
+  }
+}
+
+@media (max-width: 624px) {
+  #admin-lab .admin-grid {
+    grid-template-columns: minmax(200px, 1fr);
+    gap: 36px;
+    max-width: 420px;
+    margin: 0 auto;
+  }
 }
 #admin-lab .card {
   position: relative;
@@ -717,7 +745,7 @@ header.nav{
   border-radius:12px;
   padding:14px 16px 72px;
   background:#fff;
-  width:260px;
+  width:100%;
   box-sizing: border-box;
   cursor: pointer;
 }
