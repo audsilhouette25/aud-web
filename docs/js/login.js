@@ -200,6 +200,63 @@
     errEl.classList.toggle("is-on", has);
   }
 
+  // enforce ASCII/Latin input + password visibility toggles
+  const NON_LATIN_RX = /[^\x20-\x7E]/g;
+  const sanitizeLatin = (value = "") => String(value).replace(NON_LATIN_RX, "");
+
+  function enforceLatinInput(inputEl){
+    if (!inputEl || inputEl.dataset.enforceLatin === "1") return;
+    inputEl.dataset.enforceLatin = "1";
+    const handler = () => {
+      const value = inputEl.value ?? "";
+      const cleaned = sanitizeLatin(value);
+      if (cleaned === value) return;
+      const selStart = inputEl.selectionStart ?? cleaned.length;
+      const leftClean = sanitizeLatin(value.slice(0, selStart));
+      inputEl.value = cleaned;
+      requestAnimationFrame(() => {
+        try { inputEl.setSelectionRange(leftClean.length, leftClean.length); } catch {}
+      });
+    };
+    on(inputEl, "input", handler);
+    on(inputEl, "blur", handler);
+  }
+
+  function setupPasswordField(root){
+    if (!root || root.__pwBound) return;
+    const input = root.querySelector('input');
+    const toggle = root.querySelector('.pw-toggle');
+    if (!input || !toggle) return;
+    root.__pwBound = true;
+
+    const applyState = (visible) => {
+      input.type = visible ? "text" : "password";
+      toggle.dataset.state = visible ? "visible" : "hidden";
+      toggle.setAttribute("aria-pressed", visible ? "true" : "false");
+      toggle.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+    };
+
+    applyState(false);
+
+    toggle.addEventListener("click", () => {
+      const willShow = toggle.dataset.state !== "visible";
+      applyState(willShow);
+      if (willShow) {
+        try {
+          input.focus({ preventScroll: true });
+          input.setSelectionRange(input.value.length, input.value.length);
+        } catch {}
+      }
+    });
+
+    toggle.addEventListener("mousedown", (ev) => ev.preventDefault());
+  }
+
+  function initPasswordUtilities(){
+    [els.loginPw, els.signupPw, els.signupPw2].forEach(enforceLatinInput);
+    document.querySelectorAll('.pw-field').forEach(setupPasswordField);
+  }
+
   function showError(errEl, msg){
     if (!errEl) return;
     const has = !!msg;
@@ -529,6 +586,7 @@
     } catch {}
 
     mountErrorPlaceholders();
+    initPasswordUtilities();
 
     // Form submits (if panels are forms)
     on(els.panelLogin,  "submit", onSubmitLogin);

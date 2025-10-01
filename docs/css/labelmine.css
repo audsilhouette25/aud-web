@@ -143,8 +143,23 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .labelmine-body .sdf-dot{ width:4px; height:4px; border-radius:50%; background:#d1d5db; display:block; }
 .labelmine-body .sdf-tools{ display:flex; align-items:center; gap:6px; height:calc(var(--TB-H) - var(--TB-PAD-V) * 2); overflow:hidden; }
 .labelmine-body .sdf-divider{ width:1px; height:24px; background:#e5e7eb; margin:0 4px; }
-.labelmine-body .sdf-circle-btn{ width:var(--TB-ITEM); height:var(--TB-ITEM); display:grid; place-items:center; border:1px solid #e5e7eb; border-radius:var(--radius-xx); background:#f9fafb; }
-.labelmine-body .sdf-circle-btn.is-active{ background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+.labelmine-body .sdf-circle-btn{
+  width:var(--TB-ITEM);
+  height:var(--TB-ITEM);
+  display:grid;
+  place-items:center;
+  border:1px solid #e5e7eb;
+  border-radius:50%;
+  background:#f9fafb;
+  color:#111;
+  transition:background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.labelmine-body .sdf-circle-btn svg{ width:calc(var(--TB-ITEM)*0.55); height:calc(var(--TB-ITEM)*0.55); display:block; }
+.labelmine-body .sdf-circle-btn.is-active{
+  background:#111;
+  color:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.12);
+}
 
 /* 5-1) Color Picker */
 :is(.labelmine-body, body:has(.labelmine-body)) .sdf-color-panel{

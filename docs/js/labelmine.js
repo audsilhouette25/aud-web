@@ -606,7 +606,7 @@ function createHeartSVG({ filled, color = "#777" }){
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
   const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-    path.setAttribute("d","M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z");
+    path.setAttribute("d","M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z");
   path.setAttribute("fill", filled ? color : "none");
   path.setAttribute("stroke", filled ? color : "#777");
   path.setAttribute("stroke-width", filled ? "0" : "1.5");
@@ -958,19 +958,42 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
     }
     function imp(size=18, { strokeWidth=2 }={}){
       const svg = mk(size); const p=document.createElementNS(ns,"path");
-      p.setAttribute("d","M12 11v5m0 0 2-2m-2 2-2-2M3 6v1a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1Zm2 2v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8H5Z");
+      p.setAttribute("d","m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z");
       p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width",String(strokeWidth)); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); svg.append(p); return svg;
     }
-    function pen(size=18, { strokeWidth=2 }={}){
-      const svg = mk(size); const p1=document.createElementNS(ns,"path"), p2=document.createElementNS(ns,"path");
-      p1.setAttribute("d","M12 20h9"); p1.setAttribute("stroke","currentColor"); p1.setAttribute("stroke-width",String(strokeWidth)); p1.setAttribute("stroke-linecap","round");
-      p2.setAttribute("d","M16.5 3.5l4 4L8 20l-4 1 1-4 11.5-13.5z"); p2.setAttribute("stroke","currentColor"); p2.setAttribute("stroke-width",String(strokeWidth)); p2.setAttribute("stroke-linejoin","round"); svg.append(p1,p2); return svg;
+    function pen(size=18, { strokeWidth=2, filled=false }={}){
+      const svg = mk(size);
+      if (filled) {
+        const p = document.createElementNS(ns,"path");
+        p.setAttribute("d","M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 14.025a18.76 18.76 0 0 0 1.896-1.207 8.026 8.026 0 0 0-4.513-4.513A18.75 18.75 0 0 0 8.475 11.7l-.278.5a5.26 5.26 0 0 1 3.601 3.602l.502-.278ZM6.75 13.5A3.75 3.75 0 0 0 3 17.25a1.5 1.5 0 0 1-1.601 1.497.75.75 0 0 0-.7 1.123 5.25 5.25 0 0 0 9.8-2.62 3.75 3.75 0 0 0-3.75-3.75Z");
+        p.setAttribute("fill","currentColor");
+        p.setAttribute("fill-rule","evenodd");
+        p.setAttribute("clip-rule","evenodd");
+        svg.append(p);
+      } else {
+        const p = document.createElementNS(ns,"path");
+        p.setAttribute("d","M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42");
+        p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width",String(strokeWidth)); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round");
+        svg.append(p);
+      }
+      return svg;
     }
-    function eraser(size=18, { strokeWidth=2 }={}){
-      const svg = mk(size); const p1=document.createElementNS(ns,"path"), p2=document.createElementNS(ns,"path");
-      p1.setAttribute("d","M3 17l8-8 6 6-5 5H7z"); p2.setAttribute("d","M12 9l3-3 5 5-3 3");
-      for (const p of [p1,p2]){ p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width",String(strokeWidth)); p.setAttribute("stroke-linejoin","round"); }
-      svg.append(p1,p2); return svg;
+    function eraser(size=18, { strokeWidth=2, filled=false }={}){
+      const svg = mk(size);
+      if (filled) {
+        const p = document.createElementNS(ns,"path");
+        p.setAttribute("d","M2.515 10.674a1.875 1.875 0 0 0 0 2.652L8.89 19.7c.352.351.829.549 1.326.549H19.5a3 3 0 0 0 3-3V6.75a3 3 0 0 0-3-3h-9.284c-.497 0-.974.198-1.326.55l-6.375 6.374ZM12.53 9.22a.75.75 0 1 0-1.06 1.06L13.19 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06l1.72-1.72 1.72 1.72a.75.75 0 1 0 1.06-1.06L15.31 12l1.72-1.72a.75.75 0 1 0-1.06-1.06l-1.72 1.72-1.72-1.72Z");
+        p.setAttribute("fill","currentColor");
+        p.setAttribute("fill-rule","evenodd");
+        p.setAttribute("clip-rule","evenodd");
+        svg.append(p);
+      } else {
+        const p = document.createElementNS(ns,"path");
+        p.setAttribute("d","M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z");
+        p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width",String(strokeWidth)); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round");
+        svg.append(p);
+      }
+      return svg;
     }
     function x(size=16){ const svg=mk(size); const p=document.createElementNS(ns,"path"); p.setAttribute("d","M6 6l12 12M18 6L6 18"); p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width","1.5"); p.setAttribute("stroke-linecap","round"); svg.append(p); return svg; }
 
@@ -1433,7 +1456,13 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         injectToolbarIcons();
       }
 
-      function setMode(m){ mode = m; btnPen?.classList.toggle("is-active", m==="pen"); btnEraser?.classList.toggle("is-active", m==="eraser"); updateCursor(); }
+      function setMode(m){
+        mode = m;
+        btnPen?.classList.toggle("is-active", m === "pen");
+        btnEraser?.classList.toggle("is-active", m === "eraser");
+        injectToolbarIcons();
+        updateCursor();
+      }
 
       function zoomAtCenter(scale){ const rect = wrap.getBoundingClientRect(); zoomAtPoint(scale, rect.left + rect.width/2, rect.top + DEFAULTS.heightPx/2, wrap); }
 
@@ -1524,7 +1553,24 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         if (placing.active && placing.img){ const tl = worldToLocal(placing.wx, placing.wy); sctx.save(); sctx.globalAlpha = 0.5; sctx.drawImage(placing.img, tl.x, tl.y, placing.w * zoom, placing.h * zoom); sctx.restore(); }
       }
 
-      function injectToolbarIcons(){ try { const bPen = document.getElementById("sdf-pen"); const bEra = document.getElementById("sdf-eraser"); if (bPen){ bPen.innerHTML = ""; bPen.append(Icons.pen?.(24,{ strokeWidth:2 }) || document.createTextNode("Pen")); } if (bEra){ bEra.innerHTML = ""; bEra.append(Icons.eraser?.(24,{ strokeWidth:2 }) || document.createTextNode("Eraser")); } } catch {} }
+      function injectToolbarIcons(){
+        try {
+          const bPen = document.getElementById("sdf-pen");
+          const bEra = document.getElementById("sdf-eraser");
+          if (bPen){
+            const isActive = mode === "pen" || bPen.classList.contains("is-active");
+            bPen.innerHTML = "";
+            bPen.append(Icons.pen?.(24,{ strokeWidth:2, filled:isActive }) || document.createTextNode("Pen"));
+            bPen.setAttribute("aria-pressed", isActive ? "true" : "false");
+          }
+          if (bEra){
+            const isActive = mode === "eraser" || bEra.classList.contains("is-active");
+            bEra.innerHTML = "";
+            bEra.append(Icons.eraser?.(24,{ strokeWidth:2, filled:isActive }) || document.createTextNode("Eraser"));
+            bEra.setAttribute("aria-pressed", isActive ? "true" : "false");
+          }
+        } catch {}
+      }
 
       function resolveEffectiveLabel() {
         try {
@@ -1848,22 +1894,14 @@ const btnReset   = document.getElementById("sdf-reset-btn");
     };
 
     const SVG_TRASH = `
-    <svg class="gh-icon gh-icon--trash" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <polyline points="3 6 5 6 21 6"></polyline>
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-      <path d="M10 11v6"></path>
-      <path d="M14 11v6"></path>
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-6">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
     </svg>
     `.trim();
 
     const SVG_DOWNLOAD = `
-    <svg class="gh-icon" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-      <polyline points="7 10 12 15 17 10"></polyline>
-      <line x1="12" y1="15" x2="12" y2="3"></line>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-6">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
     </svg>
     `.trim();
 

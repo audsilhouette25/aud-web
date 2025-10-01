@@ -124,6 +124,36 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   transition: border-color .15s, box-shadow .15s;
 }
 
+.pw-field{
+  position: relative;
+}
+.pw-field .input-lg{
+  padding-right: 48px;
+}
+.pw-toggle{
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: none;
+  color: #666;
+  cursor: pointer;
+}
+.pw-toggle:hover{ color:#111; }
+.pw-toggle:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,0,0,.14);
+  border-radius: 999px;
+}
+.pw-toggle svg{ width: 20px; height: 20px; display: none; }
+.pw-toggle[data-state="hidden"] .icon-eye-open{ display:block; }
+.pw-toggle[data-state="visible"] .icon-eye-closed{ display:block; }
+
 .input-lg::placeholder{ color:#aaa; }
 .input-lg:focus{
   outline:none; border-color:#111;
@@ -183,4 +213,3 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 .auth-slot .btn:hover{ opacity:.92; }
 .auth-slot .link{ font-size:14px; text-decoration:none; opacity:.85; }
 .auth-slot .link.muted{ opacity:.65; }
-
