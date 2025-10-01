@@ -294,6 +294,7 @@ header.nav{
   pointer-events: none;
 
   background-color: currentColor; }
+  
 /* =====================================================================
    Cards (shared): Collection / aud lab / Leaderboard 공용 스킨
    ※ KPI 스타일 제거와 무관하게 유지되어야 함
