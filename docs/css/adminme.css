@@ -188,43 +188,69 @@ header.nav{
 /* =====================================================================
    6) Buttons
 ===================================================================== */
-/* 공통 버튼 베이스 유지 */
-.btn{
-  appearance:none;border:1px solid rgba(0,0,0,.12);border-radius:9999px;
-  padding:10px 16px;font-weight:700;line-height:1;cursor:pointer;
-  background:#fff;color:#111;transition:transform .15s ease,box-shadow .15s ease,filter .15s ease,opacity .15s ease;
-}
-.btn:hover{ transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,.08); }
-.btn[aria-busy="true"]{ opacity:.7; pointer-events:none; }
+/* ================================
+   adminme.css — icon delete button
+   Scope: adminme page only
+   ================================ */
 
-/* Danger 테마 */
-.btn.danger{ background:#fef2f2; color:#b91c1c; border-color:rgba(220,38,38,.25); }
-.btn.danger:hover{ background:#fee2e2; box-shadow:0 6px 16px rgba(220,38,38,.18); }
-.btn.danger:active{ transform:translateY(1px); box-shadow:none; }
-
-/* === 원형 아이콘 버튼 (inline SVG를 중앙에) === */
-.btn.is-icon{
-  inline-size:48px; block-size:48px; border-radius:50%; padding:0;
-  display:inline-grid; place-items:center;         /* why: 정확한 중앙 정렬 */
-  line-height:0;                                   /* 텍스트 라인박스 간섭 제거 */
+/* 페이지 루트에 .adminme 클래스가 없다면, 적절한 상위 컨테이너로 바꾸세요 */
+.adminme .card .card-footer{
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10px;
 }
 
-/* JS가 넣는 <svg class="gh-icon ..."> 크기/정렬 고정 */
-.btn.is-icon .gh-icon{
-  width:22px; height:22px; display:block;          /* why: 인라인 공간/여백 제거 */
-  /* stroke='currentColor' 가 JS SVG에 이미 있으므로 색상은 버튼 color를 따릅니다 */
+/* 원형 아이콘 버튼(삭제) — 컨테이너 중앙정렬 + 절대 중앙 기준 */
+.adminme .btn.danger.is-icon.card-delete{
+  inline-size: 48px;
+  block-size: 48px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  position: relative;            /* why: 자식 svg 절대 중앙 기준 */
+  line-height: 0;                /* why: 라인박스 간섭 차단 */
+  vertical-align: middle;
 }
 
-/* 필요시 큰 사이즈 변형 */
-.btn.is-icon.size-sm .gh-icon{ width:18px; height:18px; }
-.btn.is-icon.size-lg{ inline-size:56px; block-size:56px; }
-.btn.is-icon.size-lg .gh-icon{ width:24px; height:24px; }
+/* 아이콘 SVG를 기하학적 중앙에 고정 */
+.adminme .btn.danger.is-icon.card-delete > .gh-icon,
+.adminme .btn.danger.is-icon.card-delete > svg{
+  position: absolute;
+  inset: 0;
+  margin: auto;                  /* why: 박스 자체를 정확히 중앙 */
+  display: block;                /* why: 인라인 여백 제거 */
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  /* 필요 시 미세 보정:
+     transform: translateY(0.5px);
+  */
+}
 
-/* 접근성 포커스 */
-.btn.is-icon:focus{ outline:none; box-shadow:0 0 0 3px rgba(185,28,28,.25); }
+/* 테마(위험) — 기존 색을 유지, currentColor로 stroke */
+.adminme .btn.danger.is-icon.card-delete{
+  background: #fef2f2;
+  color: #b91c1c;                /* SVG stroke='currentColor'에 전달 */
+  border: 1px solid rgba(220,38,38,.25);
+  box-shadow: 0 3px 6px rgba(220,38,38,.10);
+}
+.adminme .btn.danger.is-icon.card-delete:hover{
+  background: #fee2e2;
+  box-shadow: 0 6px 16px rgba(220,38,38,.18);
+}
+.adminme .btn.danger.is-icon.card-delete:active{
+  transform: translateY(1px);
+  box-shadow: none;
+}
 
-/* (선택) 기존 클래스 매핑: .btn-delete -> .btn.danger.is-icon 로 통일 */
-.btn-delete{ all: unset; } /* 과거 스타일 잔여물 무효화용(선택) */
+/* 접근성: 포커스 링 */
+.adminme .btn.danger.is-icon.card-delete:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(185,28,28,.25);
+}
 
 /* =====================================================================
    Cards (shared): Collection / aud lab / Leaderboard 공용 스킨
