@@ -771,6 +771,30 @@ header.nav{
   color: #6b7280;
   line-height: 1.3;
 }
+#admin-lab .card .status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #eef2ff;
+  color: #1e3a8a;
+  border: 1px solid rgba(30,58,138,.12);
+  width: fit-content;
+}
+#admin-lab .card .status-pill.status-developing {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: rgba(146,64,14,.16);
+}
+#admin-lab .card .status-pill.status-developed {
+  background: #dcfce7;
+  color: #166534;
+  border-color: rgba(22,101,52,.18);
+}
 #admin-lab .card .meta,
 #admin-lab .card .meta > * {
   min-width: 0;

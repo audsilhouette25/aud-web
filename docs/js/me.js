@@ -232,7 +232,7 @@
 
   // In-memory state
   let MY_UID   = null;
-  let ME_STATE = { displayName: "member", email: "", avatarUrl: "" };
+  let ME_STATE = { displayName: "member", email: "", avatarUrl: "", badges: {} };
 
   // JSON & list normalization
   const parseJSON = (s, d = null) => { try { return JSON.parse(s); } catch { return d; } };
@@ -746,6 +746,35 @@
     try { AC.close(); } catch {}
   }
   
+  function updateGradeBadge() {
+    const badgeEl = document.getElementById("me-grade");
+    if (!badgeEl) return;
+    const hasBadge = !!(ME_STATE.badges && ME_STATE.badges.audLabDeveloped);
+    if (hasBadge) {
+      badgeEl.textContent = "audor(e)";
+      badgeEl.hidden = false;
+    } else {
+      badgeEl.textContent = "";
+      badgeEl.hidden = true;
+    }
+  }
+
+  function applyBadges(badgeMap = {}) {
+    if (!badgeMap || typeof badgeMap !== "object") return;
+    const merged = { ...(ME_STATE.badges || {}) };
+    let changed = false;
+    for (const [k, v] of Object.entries(badgeMap)) {
+      if (typeof v === "boolean" && merged[k] !== v) {
+        merged[k] = v;
+        changed = true;
+      }
+    }
+    if (changed) {
+      ME_STATE.badges = merged;
+      updateGradeBadge();
+    }
+  }
+
   // [REPLACE] 기존 renderProfile(...) 전체를 아래로 교체
   function renderProfile({ name, displayName, email, avatarUrl }) {
     const nm =
@@ -776,6 +805,8 @@
       clearAvatarImg();
       paintAvatar(nm || email || "member");
     }
+
+    updateGradeBadge();
   }
 
   function renderQuick({ labels = 0, jibs = 0, posts = 0 /* authed unused */ }) {
@@ -854,10 +885,16 @@
     const jibsArr   = extractJibListFromState(st);
 
     // 아무 것도 못 읽으면 null (로컬에 맡김)
+    const badges = (st && typeof st.badges === "object") ? st.badges : null;
     const hasAny = (labelsArr.length + jibsArr.length) > 0;
-    if (!hasAny) return null;
+    if (!hasAny && !badges) return null;
 
-    return { labels: labelsArr.length, jibs: jibsArr.length, source: "server" };
+    return {
+      labels: labelsArr.length,
+      jibs: jibsArr.length,
+      badges: badges || null,
+      source: "server"
+    };
   }
 
   // 3) 병합 로직: 로컬 먼저 계산 → 서버가 유효하면만 덮어쓰기
@@ -867,6 +904,14 @@
     try { localCounts = await settleInitialCounts(1000, 40); }
     catch { localCounts = { labels: readLabels().length, jibs: readJibs().length }; }
 
+    if (!localCounts || typeof localCounts !== "object") {
+      localCounts = { labels: readLabels().length, jibs: readJibs().length };
+    }
+
+    const fallbackBadges = (ME_STATE.badges && typeof ME_STATE.badges === "object")
+      ? { ...ME_STATE.badges }
+      : {};
+
     // 로그인 상태면 서버도 시도
     if (sessionAuthed()) {
       const ns = getNS();
@@ -875,10 +920,16 @@
         // 규칙: 서버값이 명확히 유효(>=0)하되, **0은 덮어쓰지 않음**(로컬 보존)
         const labels = (typeof s.labels === "number" && s.labels > 0) ? s.labels : localCounts.labels;
         const jibs   = (typeof s.jibs   === "number" && s.jibs   > 0) ? s.jibs   : localCounts.jibs;
-        return { labels, jibs, source: s.source };
+        const badges = (s.badges && typeof s.badges === "object") ? s.badges : fallbackBadges;
+        return { labels, jibs, badges, source: s.source };
       }
     }
-    return localCounts;
+    return {
+      labels: localCounts.labels || 0,
+      jibs: localCounts.jibs || 0,
+      badges: fallbackBadges,
+      source: "local"
+    };
   }
 
   let __countsBusy = false;
@@ -906,6 +957,9 @@
       }
 
       const counts = await getQuickCounts();
+      if (counts?.badges && typeof counts.badges === "object") {
+        applyBadges(counts.badges);
+      }
       renderQuick({
         labels: counts.labels || 0,
         jibs:   counts.jibs   || 0,
@@ -1634,6 +1688,9 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       const c = await getQuickCounts();
       quick.labels = c.labels || 0;
       quick.jibs   = c.jibs   || 0;
+      if (c?.badges && typeof c.badges === "object") {
+        applyBadges(c.badges);
+      }
     } catch {
       quick.labels = readLabels().length;
       quick.jibs   = readJibs().length;

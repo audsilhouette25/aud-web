@@ -754,6 +754,9 @@
     const thumb = (typeof window.__toAPI === "function") ? window.__toAPI(raw) : raw;
     const when  = it.createdAt ? new Date(it.createdAt).toLocaleString() : "";
     const accepted = !!it.accepted;
+    const statusRaw = it.status || (accepted ? "developing" : "submitted");
+    const status = String(statusRaw || "submitted").toLowerCase();
+    const statusLabel = status === "developed" ? "Developed" : (status === "developing" ? "Developing" : "");
 
     const ownerId   = String(it.ownerId || it.ns || "").trim();
     const ns        = String(it.ns || "").toLowerCase();
@@ -765,12 +768,16 @@
 
     const audioAttr = it.audio ? ` data-audio="${esc(it.audio)}"` : "";
     const acceptedAttr = accepted ? ' data-accepted="1"' : '';
+    const statusAttr = status ? ` data-status="${esc(status)}"` : '';
+    const statusMarkup = statusLabel
+      ? `<span class="status-pill status-${esc(status)}">${esc(statusLabel)}</span>`
+      : "";
 
     return `
       <div class="card"
           data-id="${esc(it.id)}"
           data-ns="${esc(ns)}"
-          data-owner="${esc(ownerId)}"${audioAttr}${acceptedAttr}>
+          data-owner="${esc(ownerId)}"${audioAttr}${acceptedAttr}${statusAttr}>
         <div class="preview-wrap">
           <img alt="" src="${esc(thumb)}" />
         </div>
@@ -779,6 +786,7 @@
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
+        ${statusMarkup}
         <div class="card-footer">
           <button class="btn danger is-icon card-delete" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
         </div>
@@ -1076,7 +1084,8 @@
           preview,
           audio: audioPath,
           createdAt: src.createdAt ?? src.created_at ?? null,
-          accepted: !!src.accepted
+          accepted: !!src.accepted,
+          status: src.status || (src.accepted ? "developing" : "submitted"),
         };
       }) : [];
 
@@ -1143,9 +1152,16 @@
     let rafId = 0;
 
     const state = {
-      selected: null,  // { ns, id, strokes, width, height, audioUrl? }
+      selected: null,  // { ns, id, strokes, width, height, audioUrl?, status }
       t0: 0,           // min timestamp across strokes
     };
+
+    const LAB_STATUS = Object.freeze({
+      SUBMITTED: "submitted",
+      DEVELOPING: "developing",
+      DEVELOPED: "developed",
+    });
+    let statusBusy = false;
 
     // --- Disable drawing inputs on admin page ---
     cvs.style.touchAction = "none";
@@ -1355,20 +1371,32 @@
         }
 
         state.selected = {
-          ns, id,
+          ns,
+          id,
           strokes,
           width,
           height,
         };
 
+        let status = typeof j.status === "string" ? j.status.toLowerCase() : "";
         try {
           const selector = `.card[data-ns="${ns.replace(/"/g, '\\"')}"][data-id="${id.replace(/"/g, '\\"')}"]`;
           const sel = document.querySelector(selector);
           if (sel) {
             sel.__jsonUrl = jsonUrlRaw || sel.__jsonUrl || "";
             sel.__strokes = strokes;
+            if (!status) {
+              status = String(sel.dataset.status || "").toLowerCase();
+            }
           }
         } catch {}
+
+        if (!status) {
+          status = LAB_STATUS.SUBMITTED;
+        }
+        state.selected.status = status;
+        state.selected.accepted = status !== LAB_STATUS.SUBMITTED;
+        patchCardStatus(ns, id, status);
 
         // show on canvas (static)
         updateCounters();
@@ -1377,9 +1405,8 @@
         // close modal if open
         closeAdminLabModal();
 
-        // enable accept
-        const b = ensureAcceptButton();
-        b.disabled = false;
+        ensureAcceptButton();
+        updateAcceptButtonState();
       } catch (e) {
         alert("불러오기 실패: " + (e?.message || e));
       }
@@ -1394,23 +1421,25 @@
 
     function ensureAcceptButton() {
       // hide undo/clear
-      btnUndo  && (btnUndo.style.display  = "none");
-      btnClear && (btnClear.style.display = "none");
+      if (btnUndo) btnUndo.style.display = "none";
+      if (btnClear) btnClear.style.display = "none";
 
-      // already created?
       let b = document.getElementById("lab-accept");
-      if (b) return b;
+      if (!b) {
+        b = document.createElement("button");
+        b.id = "lab-accept";
+        b.className = "btn ghost";
+        b.type = "button";
+        b.textContent = "Accept";
+        b.disabled = true;
+        btnViewList?.parentElement?.insertBefore(b, btnViewList);
+      }
 
-      // insert before View submissions
-      b = document.createElement("button");
-      b.id = "lab-accept";
-      b.className = "btn ghost";
-      b.type = "button";
-      b.textContent = "Accept";
-      b.disabled = true;
+      if (!b.__bound) {
+        b.addEventListener("click", handleLabPrimaryAction);
+        b.__bound = true;
+      }
 
-      btnViewList?.parentElement?.insertBefore(b, btnViewList);
-      b.addEventListener("click", acceptSelected);
       return b;
     }
 
@@ -1422,35 +1451,141 @@
       selectSubmission(ns, id);
     });
 
-    async function acceptSelected() {
+    function statusLabelFor(status) {
+      const s = String(status || "").toLowerCase();
+      if (s === LAB_STATUS.DEVELOPED) return "Developed";
+      if (s === LAB_STATUS.DEVELOPING) return "Developing";
+      return "";
+    }
+
+    function patchCardStatus(ns, id, status) {
+      try {
+        const selector = `.card[data-ns="${ns.replace(/"/g, '\\"')}"][data-id="${id.replace(/"/g, '\\"')}"]`;
+        const card = document.querySelector(selector);
+        if (!card) return;
+        if (status) {
+          card.dataset.status = status;
+          if (status !== LAB_STATUS.SUBMITTED) card.dataset.accepted = "1";
+          else delete card.dataset.accepted;
+        }
+
+        const label = statusLabelFor(status);
+        let pill = card.querySelector(".status-pill");
+        if (label) {
+          if (!pill) {
+            pill = document.createElement("span");
+            pill.className = "status-pill";
+            const footer = card.querySelector(".card-footer");
+            if (footer) card.insertBefore(pill, footer);
+            else card.appendChild(pill);
+          }
+          pill.textContent = label;
+          pill.className = `status-pill status-${status}`;
+        } else if (pill) {
+          pill.remove();
+        }
+      } catch {}
+    }
+
+    function updateAcceptButtonState() {
+      const btn = ensureAcceptButton();
+      const sel = state.selected;
+      const status = sel?.status || LAB_STATUS.SUBMITTED;
+      btn.dataset.status = status;
+
+      if (!sel) {
+        btn.textContent = "Accept";
+        btn.disabled = true;
+        btn.classList.add("ghost");
+        btn.classList.remove("primary");
+        return;
+      }
+
+      if (status === LAB_STATUS.DEVELOPED) {
+        btn.textContent = "Developed ✓";
+        btn.disabled = true;
+        btn.classList.add("primary");
+        btn.classList.remove("ghost");
+      } else if (status === LAB_STATUS.DEVELOPING) {
+        btn.textContent = "Developing";
+        btn.disabled = false;
+        btn.classList.add("primary");
+        btn.classList.remove("ghost");
+      } else {
+        btn.textContent = "Accept";
+        btn.disabled = false;
+        btn.classList.add("ghost");
+        btn.classList.remove("primary");
+      }
+    }
+
+    async function mutateSelectedStatus(nextStatus) {
+      const sel = state.selected;
+      if (!sel) throw new Error("NO_SELECTION");
+
+      const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
+      const headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {}),
+      };
+
+      const endpoint = nextStatus === LAB_STATUS.DEVELOPING
+        ? "/api/admin/audlab/accept"
+        : "/api/admin/audlab/status";
+
+      const payload = { ns: sel.ns, id: sel.id };
+      if (nextStatus !== LAB_STATUS.DEVELOPING) payload.status = nextStatus;
+
+      const resp = await fetch(new URL(endpoint, base), {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP_${resp.status}`);
+      }
+      return data;
+    }
+
+    async function handleLabPrimaryAction() {
+      if (statusBusy) return;
       const sel = state.selected;
       if (!sel) return;
+
+      const current = sel.status || LAB_STATUS.SUBMITTED;
+      if (current === LAB_STATUS.DEVELOPED) return;
+
+      const btn = ensureAcceptButton();
+      const originalLabel = btn.textContent;
+      const nextStatus = current === LAB_STATUS.SUBMITTED ? LAB_STATUS.DEVELOPING : LAB_STATUS.DEVELOPED;
+
+      statusBusy = true;
+      btn.disabled = true;
+      btn.textContent = nextStatus === LAB_STATUS.DEVELOPING ? "Accepting..." : "Finalizing...";
+
       try {
-        const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-        // read csrf cookie (server uses cookie-mode CSRF)
-        const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
-        const headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {})
-        };
-        const r = await fetch(new URL("/api/admin/audlab/accept", base), {
-          method: "POST",
-          credentials: "include",
-          headers,
-          body: JSON.stringify({ ns: sel.ns, id: sel.id }),
-        });
-        const j = await r.json().catch(()=> ({}));
-        if (!r.ok || !j.ok) throw new Error(j?.error || `HTTP_${r.status}`);
-        const b = document.getElementById("lab-accept");
-        if (b) { b.textContent = "Accepted ✓"; b.classList.add("ghost"); b.disabled = true; }
+        await mutateSelectedStatus(nextStatus);
+        sel.status = nextStatus;
+        sel.accepted = nextStatus !== LAB_STATUS.SUBMITTED;
+        patchCardStatus(sel.ns, sel.id, nextStatus);
       } catch (e) {
-        alert("Accept 실패: " + (e?.message || e));
+        btn.textContent = originalLabel;
+        alert("상태 업데이트 실패: " + (e?.message || e));
+      } finally {
+        statusBusy = false;
+        updateAcceptButtonState();
       }
     }
     // ---------- Wire ----------
     window.addEventListener("resize", resizeCanvas);
-    resizeCanvas(); drawStatic(); ensureAcceptButton();
+    resizeCanvas();
+    drawStatic();
+    ensureAcceptButton();
+    updateAcceptButtonState();
 
     btnPlay     && btnPlay.addEventListener("click", togglePlay);
     btnViewList && btnViewList.addEventListener("click", openAdminLabModal);
