@@ -729,7 +729,7 @@ header.nav{
   gap:10px;
   align-items:stretch;
   justify-items:stretch;
-  padding : 18px;
+  margin : 18px;
 }
 @media (max-width: 1000px){
   #admin-lab .admin-grid {
