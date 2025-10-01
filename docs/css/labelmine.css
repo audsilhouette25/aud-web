@@ -158,7 +158,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .labelmine-body .sdf-circle-btn.is-active{
   background:#fff;
   color:#333333;
-  border-color:#bdbdbd;
+  border:1px solid #e5e7eb;
   box-shadow:0 2px 6px rgba(0,0,0,0.08);
 }
 
