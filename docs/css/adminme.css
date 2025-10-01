@@ -704,8 +704,8 @@ header.nav{
   border-radius:12px;
   padding:12px 15px;
   background:#fff;
-  block-size: 400px;
-  height: 400px;
+  block-size: 350px;
+  height: 350px;
   box-sizing: border-box;
   cursor: pointer;
 }
