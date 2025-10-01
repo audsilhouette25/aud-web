@@ -651,7 +651,7 @@ header.nav{
   pointer-events: auto;                  /* ← 클릭 허용 */
   z-index: 1000;
   transition: opacity .18s ease;
-  background: transparent; 
+  background: rgba(17,17,17,.35);
 }
 
 /* overlay/button 레이어도 닫힌 동안은 반드시 비활성화 */
@@ -662,9 +662,10 @@ header.nav{
 
 /* 시트 및 오버레이 기본 */
 #admin-lab .overlay{
-  position: absolute; inset: 0;
-  grid-area: 1 / 1;
-  background: rgba(17,17,17,.35);
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 0;
 }
 #admin-lab .sheet{
   position: relative;
@@ -678,6 +679,7 @@ header.nav{
   grid-area: 1 / 1;
   align-self: center;
   justify-self: center;
+  z-index: 1;
 }
 
 
