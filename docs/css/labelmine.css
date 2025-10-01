@@ -302,7 +302,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .labelmine-body .gh-thumb{ width:100%; height:180px; object-fit:cover; border-radius:10px; display:block; user-select:none; }
 .labelmine-body .gh-deleteBtn,
 .labelmine-body .gh-downloadBtn{
-  position:absolute; top:10px; width:35px; height:35px; border:1px solid #e5e7eb; border-radius:var(--radius-xx); background:#fff;
+  position:absolute; top:10px; width:30px; height:30px; border:1px solid #e5e7eb; border-radius:var(--radius-xx); background:#fff;
   display:grid; place-items:center; box-shadow:0 3px 3px rgba(0,0,0,0.05); cursor:pointer;
   transition:opacity 140ms ease; opacity:0; pointer-events:none;
 }
@@ -320,7 +320,9 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .labelmine-body .gh-card.isTouch .gh-downloadBtn,
 .labelmine-body .gh-card.isTouch .gh-dateBadge{ opacity:1; pointer-events:auto; }
 .labelmine-body .gh-empty{ flex:0 0 auto; padding:40px 20px; }
-.labelmine-body .gh-icon, .labelmine-body .gh-icon--trash{ display:block; width:18px; height:18px; }
+.labelmine-body .gh-icon,
+.labelmine-body .gh-icon--trash,
+.labelmine-body .gh-icon--download{ display:block; width:16px; height:16px; }
 
 /* =====================================================================
    8) RESPONSIVE (stage/tooling)
