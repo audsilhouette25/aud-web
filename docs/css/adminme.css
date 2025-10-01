@@ -728,7 +728,7 @@ header.nav{
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:12px;
   align-items:stretch;
-  justify-items:stretch;
+  justify-items:center;
   margin: 18px 0;
   width: 100%;
 }
@@ -757,7 +757,7 @@ header.nav{
   height: 250px;
   box-sizing: border-box;
   cursor: pointer;
-  width: 100%;
+  width: min(100%, 640px);
 }
 #admin-lab .card img { width:100%; height:100%; border-radius:12px; display:block; background:#f3f4f6; object-fit: cover; }
 #admin-lab .card .meta {
