@@ -866,6 +866,7 @@ header.nav{
   background: #f3f4f6;
   display: grid;
   place-items: center;
+  margin-bottom: 12px;
 }
 #admin-lab .card .preview-wrap img {
   display: block;
@@ -879,7 +880,7 @@ header.nav{
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 10px 0 0;
+  margin: 0 0 24px;
   line-height: 1.3;
 }
 
