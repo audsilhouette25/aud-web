@@ -702,7 +702,7 @@ header.nav{
   gap: 15px;
   border:1px solid rgba(0,0,0,.08);
   border-radius:12px;
-  padding:14px 16px 72px;
+  padding:14px 16px;
   background:#fff;
   block-size: 250px;
   height: 250px;
