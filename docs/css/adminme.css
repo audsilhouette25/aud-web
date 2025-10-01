@@ -699,7 +699,7 @@ header.nav{
 #admin-lab .sheet{
   position: relative;
   max-width: var(--sheet-w-max, 960px);
-  width: clamp(350px, 85vw, var(--sheet-w-max, 960px));
+  width: clamp(0px, 85vw, var(--sheet-w-max, 960px));
   max-height: 92dvh;
   border-radius: 16px;
   background: var(--panel, #fff);
@@ -711,12 +711,6 @@ header.nav{
   z-index: 1;
   gap: 13px;
 }
-@media (max-width: 400px){
-  #admin-lab .sheet{
-    width: 350px;
-  }
-}
-
 
 /* 나머지 카드/툴바 스타일 동일 */
 #admin-lab .admin-toolbar { display:flex; align-items:center; gap:8px; margin:8px 0 14px; }
