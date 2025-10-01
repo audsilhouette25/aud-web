@@ -864,3 +864,62 @@ header.nav{
 #admin-lab.modal [role="button"] {
   pointer-events: auto !important; /* why: 전역 reset/오버레이 규칙으로 none 되는 것 차단 */
 }
+
+/* adminme — delete icon button only */
+
+/* 원형 버튼 컨테이너 */
+.card .card-footer .card-delete{
+  /* 사이즈/형태 */
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 50%;
+  padding: 0;
+  box-sizing: border-box;
+
+  /* 중앙 정렬 기준 */
+  position: relative;      /* why: 자식 svg 절대 중앙 기준점 */
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;          /* why: 라인박스 영향 제거 */
+
+  /* 테마(위험) */
+  background: #fef2f2;
+  color: #b91c1c;          /* SVG stroke='currentColor' */
+  border: 1px solid rgba(220,38,38,.25);
+  box-shadow: 0 3px 6px rgba(220,38,38,.10);
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease, transform .06s ease, opacity .18s ease;
+}
+.card .card-footer .card-delete:hover{
+  background: #fee2e2;
+  box-shadow: 0 6px 16px rgba(220,38,38,.18);
+}
+.card .card-footer .card-delete:active{
+  transform: translateY(1px);
+  box-shadow: none;
+}
+.card .card-footer .card-delete:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(185,28,28,.25);
+}
+
+/* 아이콘 SVG를 기하학적 중앙으로 고정 */
+.card .card-footer .card-delete > .gh-icon,
+.card .card-footer .card-delete > svg{
+  position: absolute;
+  inset: 0;
+  margin: auto;            /* 박스 자체를 정확히 중앙 */
+  display: block;          /* 인라인 여백 제거 */
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  /* 필요 시 미세 보정:
+     transform: translateY(.5px);
+  */
+}
+
+/* (옵션) 크기 변형 유틸 */
+.card .card-footer .card-delete.size-sm{ inline-size:40px; block-size:40px; }
+.card .card-footer .card-delete.size-sm > svg{ width:18px; height:18px; }
+.card .card-footer .card-delete.size-lg{ inline-size:56px; block-size:56px; }
+.card .card-footer .card-delete.size-lg > svg{ width:24px; height:24px; }
