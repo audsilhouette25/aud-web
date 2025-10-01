@@ -858,33 +858,3 @@ header.nav{
 .card .card-footer .card-delete.size-sm > svg{ width:18px; height:18px; }
 .card .card-footer .card-delete.size-lg{ inline-size:56px; block-size:56px; }
 .card .card-footer .card-delete.size-lg > svg{ width:24px; height:24px; }
-
-.sr-only{
-  position: absolute !important; inline-size: 1px; block-size: 1px;
-  padding: 0; margin: -1px; overflow: hidden;
-  clip: rect(0, 0, 1px, 1px); white-space: nowrap; border: 0;
-}
-
-/* ===== Footer (compact) ===== */
-.mine-footer{
-  margin-top: 48px;
-  padding: 24px 0 64px;
-  border-top: 1px solid rgba(0,0,0,.06);
-  background: transparent;
-}
-
-.mine-footer .footer-inner{
-  max-width: var(--container-max, 1500px);
-  padding: 0 var(--container-pad, 24px);
-  margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  gap: 12px;                 /* 버튼 간격은 gap으로만 관리 */
-}
-
-/* 로그아웃 버튼: 폭 줄이기(푸터 범위 한정) */
-.mine-footer .btn-logout{
-  min-width: auto;           /* 고정폭 해제 */
-  padding-inline: 18px;      /* 좌우 패딩 축소 */
-  white-space: nowrap;       /* 한 줄 유지 */
-}
