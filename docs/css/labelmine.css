@@ -151,14 +151,15 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   border:1px solid #e5e7eb;
   border-radius:50%;
   background:#f9fafb;
-  color:#111;
-  transition:background .18s ease, color .18s ease, box-shadow .18s ease;
+  color:#1a1a1a;
+  transition:background .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 .labelmine-body .sdf-circle-btn svg{ width:calc(var(--TB-ITEM)*0.55); height:calc(var(--TB-ITEM)*0.55); display:block; }
 .labelmine-body .sdf-circle-btn.is-active{
-  background:#111;
-  color:#fff;
-  box-shadow:0 1px 3px rgba(0,0,0,0.12);
+  background:#fff;
+  color:#111;
+  border-color:#bdbdbd;
+  box-shadow:0 2px 6px rgba(0,0,0,0.08);
 }
 
 /* 5-1) Color Picker */
