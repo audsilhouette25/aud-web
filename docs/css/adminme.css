@@ -709,6 +709,7 @@ header.nav{
   align-self: center;
   justify-self: center;
   z-index: 1;
+  gap: 13px;
 }
 @media (max-width: 400px){
   #admin-lab .sheet{
