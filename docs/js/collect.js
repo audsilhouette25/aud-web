@@ -59,6 +59,7 @@
   // 최근 수신 UID/라벨 캐시
   let lastSeen = { uid: null, label: null, ts: 0 };
   let lastResolved = { uid: null, label: null, ts: 0 };
+  let sessionUids = [];
 
   // "녹음→제출" 흐름에서 대기 중인 임시 값
   let pendingUid = null;
@@ -337,7 +338,9 @@
       const label = typeof evt?.label === "string" ? evt.label : null;
       if (!uid && !label) return;
       if (PREFER_NFC_EVENTS && uid) {
-        lastBleCandidate = { uid, label: label || lastBleCandidate.label || null, ts: now };
+        const resolvedLabel = label || labelFromUid(uid) || lastBleCandidate.label || null;
+        lastBleCandidate = { uid, label: resolvedLabel, ts: now };
+        sessionUids.push({ uid, label: resolvedLabel, ts: now });
       }
       handleUID(uid || null, label || null);
     });
@@ -431,6 +434,7 @@
       pendingUid=null; pendingLabel=null;
       hasSubmitted=false; lastResult=null; renderResult(); draw();
       isRecording=true;
+      sessionUids = [];
     }catch{
       cleanupAudio(); setButtonVisual(false);
       isRecording=false;
@@ -446,7 +450,10 @@
     let uid = null;
     let label = null;
 
-    if (lastResolved.uid && (now - lastResolved.ts <= RECENT_MS)) {
+    const candidate = sessionUids.length ? sessionUids[sessionUids.length - 1] : null;
+    if (candidate) {
+      ({ uid, label } = candidate);
+    } else if (lastResolved.uid && (now - lastResolved.ts <= RECENT_MS)) {
       uid = lastResolved.uid;
       label = lastResolved.label;
     } else {
@@ -477,6 +484,7 @@
     renderResult();
 
     pendingUid=null; pendingLabel=null;
+    sessionUids = [];
   }
 
   recBtn.addEventListener("click", ()=>{ isRecording?stopRecording():startRecording(); });
