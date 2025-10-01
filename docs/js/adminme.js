@@ -694,6 +694,12 @@
 
     return wrap;
   }
+  function syncAdminLabModalScroll(modal) {
+    const m = modal || document.querySelector("#admin-lab");
+    if (!m) return;
+    const x = Math.max(0, Math.round(window.scrollX || window.pageXOffset || 0));
+    m.style.setProperty("--admin-lab-scroll-x", `${x}px`);
+  }
   // 모달 열기: 포커스 트랩 시작 & inert 해제
   function openAdminLabModal(){
     const m = ensureAdminLabModal();
@@ -705,6 +711,16 @@
     m.classList.add("open");
     m.setAttribute("aria-hidden","false");
     document.body.classList.add("modal-open");
+
+    syncAdminLabModalScroll(m);
+    if (!m.__onScrollSync) {
+      m.__onScrollSync = () => syncAdminLabModalScroll(m);
+    }
+    if (!m.__scrollBound) {
+      window.addEventListener("scroll", m.__onScrollSync, { passive: true });
+      window.addEventListener("resize", m.__onScrollSync, { passive: true });
+      m.__scrollBound = true;
+    }
 
     // 첫 포커스 이동(시트나 닫기 버튼)
     const first =
@@ -740,6 +756,13 @@
     m.setAttribute("aria-hidden","true");
     m.setAttribute("inert", "");               // 포커스/탭 막기 (권고)
     document.body.classList.remove("modal-open");
+
+    if (m.__scrollBound && m.__onScrollSync) {
+      window.removeEventListener("scroll", m.__onScrollSync);
+      window.removeEventListener("resize", m.__onScrollSync);
+      m.__scrollBound = false;
+    }
+    m.style.removeProperty("--admin-lab-scroll-x");
 
     // 3) ESC 핸들러 해제
     if (m.__onEsc && m.__escAttached) {
