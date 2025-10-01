@@ -670,7 +670,7 @@ header.nav{
 #admin-lab .sheet{
   position: relative;
   max-width: var(--sheet-w-max, 960px);
-  width: min(96vw, var(--sheet-w-max, 960px));
+  width: min(86vw, var(--sheet-w-max, 960px));
   max-height: 92dvh;
   border-radius: 16px;
   background: var(--panel, #fff);
