@@ -1524,6 +1524,7 @@
       if (!sel) throw new Error("NO_SELECTION");
 
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
+      try { await ensureCSRF(); } catch {}
       const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
       const headers = {
         "Content-Type": "application/json",
