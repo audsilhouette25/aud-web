@@ -293,7 +293,7 @@ header.nav{
   margin: auto;                 /* 박스를 정확히 중앙으로 */
   pointer-events: none;
 
-  background-color: currentColor;
+  background-color: currentColor; }
 /* =====================================================================
    Cards (shared): Collection / aud lab / Leaderboard 공용 스킨
    ※ KPI 스타일 제거와 무관하게 유지되어야 함
