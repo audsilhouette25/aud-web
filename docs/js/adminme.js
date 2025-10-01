@@ -874,7 +874,7 @@
         const url = (typeof window.__toAPI === "function")
           ? window.__toAPI(jsonUrl)
           : jsonUrl;
-        const r = await fetch(url, { cache: "no-store" });
+        const r = await fetch(url, { credentials: "include", cache: "no-store" });
         const meta = await r.json();
         const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
         if (strokes.length) {
@@ -921,36 +921,40 @@
     const master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
     const osc = AC.createOscillator(); osc.type = "sine"; osc.connect(master); osc.start();
 
-    const fMin = 110, fMax = 1760; // A2 ~ A6
-    const freqFromY = (y) => fMin * Math.pow(fMax / fMin, 1 - Math.max(0, Math.min(1, y)));
+    const fMin = 110, fMax = 1760; // A2 ~ A6 (me.js와 동일)
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const freqFromY = (y) => {
+      const yy = clamp01(y);
+      return fMin * Math.pow(fMax / fMin, 1 - yy);
+    };
 
-    // 모든 포인트를 시간축으로 펴기
     const pts = [];
-    for (const st of strokes) {
+    for (const st of strokes || []) {
       const arr = Array.isArray(st?.points) ? st.points : [];
       for (const p of arr) {
-        const t = Number(p.t || 0);
-        const x = Number(p.x || 0);
-        const y = Number(p.y || 0);
-        if (Number.isFinite(t)) pts.push({ t, x, y });
+        const t = Number(p?.t ?? 0);
+        if (!Number.isFinite(t)) continue;
+        pts.push({
+          t,
+          x: Number(p?.x ?? 0),
+          y: Number(p?.y ?? 0),
+        });
       }
     }
-    if (!pts.length) { AC.close(); return; }
-    pts.sort((a,b)=> a.t - b.t);
+    if (!pts.length) { try { AC.close(); } catch {}; return; }
+
+    pts.sort((a, b) => a.t - b.t);
     const t0 = pts[0].t;
-    const T  = pts[pts.length-1].t - t0;
     const port = 0.04;
 
     const startAt = AC.currentTime + 0.05;
     let lastGainEnd = startAt;
-    for (let i=0; i<pts.length; i++) {
-      const p   = pts[i];
-      const at  = startAt + Math.max(0, (p.t - t0)/1000);
-      const fq  = Math.max(40, freqFromY(p.y));
+    for (const p of pts) {
+      const at = startAt + Math.max(0, (p.t - t0) / 1000);
+      const fq = Math.max(40, freqFromY(p.y));
       osc.frequency.cancelScheduledValues(at);
       osc.frequency.exponentialRampToValueAtTime(fq, at + port);
 
-      // 간단한 게이트(좌우로 legato 가정 없이 짧게)
       const a = 0.01, r = 0.08;
       master.gain.cancelScheduledValues(at);
       master.gain.setValueAtTime(0.0, at);
@@ -958,8 +962,8 @@
       master.gain.linearRampToValueAtTime(0.0, at + a + r);
       lastGainEnd = at + a + r;
     }
-    // 끝나면 종료
-    await new Promise((res)=> setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime)*1000 + 80)));
+
+    await new Promise((res) => setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime) * 1000 + 80)));
     try { AC.close(); } catch {}
   }
 
