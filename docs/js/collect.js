@@ -58,6 +58,7 @@
 
   // 최근 수신 UID/라벨 캐시
   let lastSeen = { uid: null, label: null, ts: 0 };
+  let lastResolved = { uid: null, label: null, ts: 0 };
 
   // "녹음→제출" 흐름에서 대기 중인 임시 값
   let pendingUid = null;
@@ -261,12 +262,16 @@
     lastSeen = { uid, label, ts: now };
     pendingUid = uid;
     pendingLabel = label || null;
+    if (uid && label) {
+      lastResolved = { uid, label, ts: now };
+    }
     // 서버 라벨 조회(로컬에 없을 때만) → 도착 즉시 대기값 갱신
     if (!pendingLabel && uid) {
       fetchServerLabel(uid).then((srvLabel) => {
         if (srvLabel && pendingUid === uid && !pendingLabel) {
           pendingLabel = srvLabel;
           lastSeen.label = srvLabel;
+          lastResolved = { uid, label: srvLabel, ts: Date.now() };
           try { window.dispatchEvent(new Event("pending:uid")); } catch {}
           try { renderResult?.(); } catch {}
         }
@@ -429,10 +434,17 @@
     const now = Date.now();
     const RECENT_MS = 8000;
     let uid = null;
-    if (pendingUid && (now - (lastSeen.ts||0) <= RECENT_MS)) uid = pendingUid;
-    else if (lastSeen.uid && (now - (lastSeen.ts||0) <= RECENT_MS)) uid = lastSeen.uid;
+    let label = null;
 
-    const label = pendingLabel || lastSeen.label || labelFromUid(uid);
+    if (lastResolved.uid && (now - lastResolved.ts <= RECENT_MS)) {
+      uid = lastResolved.uid;
+      label = lastResolved.label;
+    } else {
+      if (pendingUid && (now - (lastSeen.ts||0) <= RECENT_MS)) uid = pendingUid;
+      else if (lastSeen.uid && (now - (lastSeen.ts||0) <= RECENT_MS)) uid = lastSeen.uid;
+
+      label = pendingLabel || lastSeen.label || labelFromUid(uid);
+    }
     log("Submit resolved →", { uid, label });
 
     if (label) {
