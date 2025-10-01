@@ -290,13 +290,13 @@
   withSock((sock)=>{
     if (!sock) return;
 
-    let lastAnyTs = 0;
+    const lastTs = { ble: 0, beacon: 0, nfc: 0 };
 
     // 1) 새로 추가: 'ble' 채널(권장)
     sock.on("ble", (evt) => {
       const now = Date.now();
-      if (now - lastAnyTs < DEBOUNCE_MS) return;
-      lastAnyTs = now;
+      if (now - lastTs.ble < DEBOUNCE_MS) return;
+      lastTs.ble = now;
 
       let uid = parseAdvToUID(evt);
       if (uid) uid = normalizeUid(uid);
@@ -320,8 +320,8 @@
     // 2) 일부 게이트웨이는 'beacon' 채널을 씀
     sock.on("beacon", (evt) => {
       const now = Date.now();
-      if (now - lastAnyTs < DEBOUNCE_MS) return;
-      lastAnyTs = now;
+      if (now - lastTs.beacon < DEBOUNCE_MS) return;
+      lastTs.beacon = now;
       let uid = parseAdvToUID(evt);
       if (!uid && typeof evt?.uid === "string") uid = normalizeUid(evt.uid);
       const label = typeof evt?.label === "string" ? evt.label : null;
@@ -331,8 +331,8 @@
     // 3) 기존 'nfc' 채널(이미 사용 중일 가능성)
     sock.on("nfc", (evt) => {
       const now = Date.now();
-      if (now - lastAnyTs < DEBOUNCE_MS) return;
-      lastAnyTs = now;
+      if (now - lastTs.nfc < DEBOUNCE_MS) return;
+      lastTs.nfc = now;
 
       const uid = normalizeUid(evt?.id || evt?.uid || "");
       const label = typeof evt?.label === "string" ? evt.label : null;
