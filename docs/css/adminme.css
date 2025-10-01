@@ -805,8 +805,8 @@ header.nav{
 /* 원형 버튼 컨테이너 */
 .card .card-footer .card-delete{
   /* 사이즈/형태 */
-  inline-size: 48px;
-  block-size: 48px;
+  inline-size: 36px;
+  block-size: 36px;
   border-radius: 50%;
   padding: 0;
   box-sizing: border-box;
@@ -845,8 +845,8 @@ header.nav{
   inset: 0;
   margin: auto;            /* 박스 자체를 정확히 중앙 */
   display: block;          /* 인라인 여백 제거 */
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   pointer-events: none;
   /* 필요 시 미세 보정:
      transform: translateY(.5px);
@@ -858,7 +858,6 @@ header.nav{
 .card .card-footer .card-delete.size-sm > svg{ width:18px; height:18px; }
 .card .card-footer .card-delete.size-lg{ inline-size:56px; block-size:56px; }
 .card .card-footer .card-delete.size-lg > svg{ width:24px; height:24px; }
-
 
 .sr-only{
   position: absolute !important; inline-size: 1px; block-size: 1px;
