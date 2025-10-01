@@ -864,7 +864,33 @@
       } catch {}
     }
 
-    // 2) 녹음이 있으면 그것부터 재생
+    // 2) strokes 기반 합성 우선 (me 페이지와 동일한 방식)
+    if (!jsonUrl) {
+      jsonUrl = `/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`;
+    }
+
+    if (!cachedStrokes?.length && jsonUrl) {
+      try {
+        const url = (typeof window.__toAPI === "function")
+          ? window.__toAPI(jsonUrl)
+          : jsonUrl;
+        const r = await fetch(url, { cache: "no-store" });
+        const meta = await r.json();
+        const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
+        if (strokes.length) {
+          cachedStrokes = strokes;
+          card.__strokes = strokes;
+        }
+      } catch {}
+    }
+
+    if (cachedStrokes?.length) {
+      if (jsonUrl) card.__jsonUrl = jsonUrl;
+      await synthPlayFromStrokes(cachedStrokes);
+      return;
+    }
+
+    // 3) 폴백: 원본 녹음 재생 (여전히 제공되는 경우)
     if (audioUrl) {
       const url = (typeof window.__toAPI === "function") ? window.__toAPI(audioUrl) : audioUrl;
       await playHTMLAudioOnce(url, { card });
@@ -873,31 +899,7 @@
       return;
     }
 
-    // 3) 폴백: strokes 합성
-    if (!jsonUrl) {
-      jsonUrl = `/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`;
-    }
-
-    if (cachedStrokes?.length) {
-      await synthPlayFromStrokes(cachedStrokes);
-      card.__jsonUrl = jsonUrl;
-      return;
-    }
-
-    try {
-      const url = (typeof window.__toAPI === "function")
-        ? window.__toAPI(jsonUrl)
-        : jsonUrl;
-      const r = await fetch(url, { cache:"no-store" });
-      const meta = await r.json();
-      const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
-      if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
-      card.__strokes = strokes;
-      card.__jsonUrl = jsonUrl; // 캐시
-      await synthPlayFromStrokes(strokes);
-    } catch {
-      alert("재생 데이터(JSON)를 불러오지 못했습니다.");
-    }
+    alert("재생 가능한 데이터가 없습니다.");
   }
 
   function playHTMLAudioOnce(url, { card } = {}) {
