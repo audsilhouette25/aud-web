@@ -841,9 +841,10 @@
     // 1) 오디오 URL 우선
     let audioUrl = card.__audioUrl || "";
     let jsonUrl  = card.__jsonUrl  || "";
+    let cachedStrokes = Array.isArray(card?.__strokes) ? card.__strokes : null;
 
     // 카드에 없으면 서버에서 한 번 조회 (가벼운 단건 메타)
-    if (!audioUrl || !jsonUrl) {
+    if (!audioUrl || !jsonUrl || !cachedStrokes?.length) {
       try {
         const base = window.PROD_BACKEND || window.API_BASE || location.origin;
         const u = new URL("/api/admin/audlab/item", base);
@@ -854,6 +855,11 @@
         if (j?.ok) {
           audioUrl = j.audioUrl || "";
           jsonUrl  = j.jsonUrl  || jsonUrl || "";
+          const fetchedStrokes = Array.isArray(j.strokes) ? j.strokes : null;
+          if (fetchedStrokes?.length) {
+            cachedStrokes = fetchedStrokes;
+            card.__strokes = fetchedStrokes;
+          }
         }
       } catch {}
     }
@@ -863,14 +869,21 @@
       const url = (typeof window.__toAPI === "function") ? window.__toAPI(audioUrl) : audioUrl;
       await playHTMLAudioOnce(url, { card });
       card.__audioUrl = audioUrl; // 캐시
+      if (jsonUrl) card.__jsonUrl = jsonUrl;
       return;
     }
 
     // 3) 폴백: strokes 합성
-    // jsonUrl이 없으면 규칙대로 유추
     if (!jsonUrl) {
       jsonUrl = `/uploads/audlab/${encodeURIComponent(ns)}/${id}.json`;
     }
+
+    if (cachedStrokes?.length) {
+      await synthPlayFromStrokes(cachedStrokes);
+      card.__jsonUrl = jsonUrl;
+      return;
+    }
+
     try {
       const url = (typeof window.__toAPI === "function")
         ? window.__toAPI(jsonUrl)
@@ -879,8 +892,9 @@
       const meta = await r.json();
       const strokes = Array.isArray(meta?.strokes) ? meta.strokes : [];
       if (!strokes.length) { alert("재생할 데이터가 없습니다."); return; }
-      await synthPlayFromStrokes(strokes);
+      card.__strokes = strokes;
       card.__jsonUrl = jsonUrl; // 캐시
+      await synthPlayFromStrokes(strokes);
     } catch {
       alert("재생 데이터(JSON)를 불러오지 못했습니다.");
     }
@@ -1272,17 +1286,38 @@
         const j = await r.json().catch(()=> ({}));
         if (!r.ok || !j.ok) throw new Error(j?.error || "ITEM_FAIL");
 
-        // fetch strokes json
-        const jj = await fetch((window.__toAPI ? __toAPI(j.jsonUrl) : j.jsonUrl), { credentials: "include" })
-                    .then(r => r.json());
-        const strokes = Array.isArray(jj?.strokes) ? jj.strokes : [];
+        let strokes = Array.isArray(j.strokes) ? j.strokes : null;
+        let width = Number(j.width ?? j.meta?.width ?? 0);
+        let height = Number(j.height ?? j.meta?.height ?? 0);
+        const jsonUrlRaw = j.jsonUrl || j.json || "";
+
+        if (!strokes || !strokes.length) {
+          if (!jsonUrlRaw) throw new Error("STROKES_UNAVAILABLE");
+          const url = (typeof window.__toAPI === "function") ? window.__toAPI(jsonUrlRaw) : jsonUrlRaw;
+          const jsonResp = await fetch(url, { credentials: "include", cache: "no-store" });
+          if (!jsonResp.ok) throw new Error(`JSON_HTTP_${jsonResp.status}`);
+          const jj = await jsonResp.json();
+          strokes = Array.isArray(jj?.strokes) ? jj.strokes : [];
+          if (!strokes.length) throw new Error("EMPTY_STROKES");
+          width = Number(width || jj?.width || 0);
+          height = Number(height || jj?.height || 0);
+        }
 
         state.selected = {
           ns, id,
           strokes,
-          width:  Number(jj?.width || j?.meta?.width || 0),
-          height: Number(jj?.height|| j?.meta?.height|| 0),
+          width,
+          height,
         };
+
+        try {
+          const selector = `.card[data-ns="${ns.replace(/"/g, '\\"')}"][data-id="${id.replace(/"/g, '\\"')}"]`;
+          const sel = document.querySelector(selector);
+          if (sel) {
+            sel.__jsonUrl = jsonUrlRaw || sel.__jsonUrl || "";
+            sel.__strokes = strokes;
+          }
+        } catch {}
 
         // show on canvas (static)
         updateCounters();
