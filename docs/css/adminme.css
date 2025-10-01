@@ -698,7 +698,8 @@ header.nav{
 }
 #admin-lab .sheet{
   position: relative;
-  width: clamp(250px, 86vw, var(--sheet-w-max, 960px));
+  max-width: var(--sheet-w-max, 960px);
+  width: clamp(350px, 85vw, var(--sheet-w-max, 960px));
   max-height: 92dvh;
   border-radius: 16px;
   background: var(--panel, #fff);
@@ -710,10 +711,9 @@ header.nav{
   z-index: 1;
   gap: 13px;
 }
-
 @media (max-width: 400px){
   #admin-lab .sheet{
-    width: 250px;
+    width: 350px;
   }
 }
 
@@ -725,23 +725,20 @@ header.nav{
 #admin-lab .admin-grid {
   display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:12px;
-  width: min(85%, var(--sheet-w-max, 960px));
+  gap:10px;
+  align-items:stretch;
   justify-items:stretch;
-  margin: 18px auto;
 }
-
-@media (max-width: 1000px){
+@media (max-width: 1024px){
   #admin-lab .admin-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 550px){
+@media (max-width: 640px){
   #admin-lab .admin-grid {
     grid-template-columns: 1fr;
   }
 }
-
 #admin-lab .card {
   position: relative;
   display: flex;
@@ -755,7 +752,6 @@ header.nav{
   height: 250px;
   box-sizing: border-box;
   cursor: pointer;
-  width: 100%;
 }
 #admin-lab .card img { width:100%; height:100%; border-radius:12px; display:block; background:#f3f4f6; object-fit: cover; }
 #admin-lab .card .meta {
@@ -891,3 +887,4 @@ header.nav{
      transform: translateY(.5px);
   */
 }
+
