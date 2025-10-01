@@ -505,14 +505,14 @@ header.nav{
 }
 
 /* ===== Footer (compact) ===== */
-.mine-footer{
+.admin-footer{
   margin-top: 48px;
   padding: 24px 0 64px;
   border-top: 1px solid rgba(0,0,0,.06);
   background: transparent;
 }
 
-.mine-footer .footer-inner{
+.admin-footer .footer-inner{
   max-width: var(--container-max, 1500px);
   padding: 0 var(--container-pad, 24px);
   margin: 0 auto;
@@ -522,7 +522,7 @@ header.nav{
 }
 
 /* 로그아웃 버튼: 폭 줄이기(푸터 범위 한정) */
-.mine-footer .btn-logout{
+.admin-footer .btn-logout{
   min-width: auto;           /* 고정폭 해제 */
   padding-inline: 18px;      /* 좌우 패딩 축소 */
   white-space: nowrap;       /* 한 줄 유지 */
