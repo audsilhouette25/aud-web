@@ -189,7 +189,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   outline:none;
   padding:0;
   margin:0;
-  -moz-appearance:textfield;
+  appearance:textfield;
 }
 .labelmine-body .sdf-size-wrap input::-webkit-outer-spin-button,
 .labelmine-body .sdf-size-wrap input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
