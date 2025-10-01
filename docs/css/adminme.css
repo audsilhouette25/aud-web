@@ -839,7 +839,7 @@ header.nav{
   position: relative;
   border:1px solid rgba(0,0,0,.08);
   border-radius:12px;
-  padding:14px 16px 56px;
+  padding:14px 16px 72px;
   background:#fff;
   width:260px;
   box-sizing: border-box;
@@ -880,7 +880,7 @@ header.nav{
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 0 0 24px;
+  margin: 0 0 32px;
   line-height: 1.3;
 }
 
@@ -896,6 +896,7 @@ header.nav{
   position: absolute;
   bottom: 16px;
   right: 16px;
+  z-index: 2;
 }
 
 /* 터치 환경에서 조금 더 여유 */
