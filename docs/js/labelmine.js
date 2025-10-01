@@ -1217,6 +1217,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       const btnColor   = document.getElementById("sdf-color-btn");
       const chipColor  = document.getElementById("sdf-color-chip");
       const inputSize  = document.getElementById("sdf-size");
+      const btnSizeDec = document.getElementById("sdf-size-dec");
+      const btnSizeInc = document.getElementById("sdf-size-inc");
       let sctx = null;
 
       if (btnSave && !btnSave.type) btnSave.type = "button";           // 암묵적 submit 방지
@@ -1231,7 +1233,25 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       if (!portalRoot) { portalRoot = document.createElement("div"); portalRoot.id = "sdf-portal-root"; document.body.appendChild(portalRoot); }
 
       let mode = "pen";
-      let size = 12;
+      const SIZE_MIN = 1;
+      const SIZE_MAX = 120;
+      let size = clamp(+inputSize?.value || 12, SIZE_MIN, SIZE_MAX);
+      if (inputSize) inputSize.value = String(size);
+      function setStrokeSize(next, { fromInput = false, focusInput = false } = {}){
+        const numeric = Number(next);
+        const base = Number.isFinite(numeric) ? numeric : size;
+        const clamped = clamp(Math.round(base), SIZE_MIN, SIZE_MAX);
+        if (clamped !== size || fromInput){
+          size = clamped;
+          if (inputSize && inputSize.value !== String(clamped)) inputSize.value = String(clamped);
+          updateCursor();
+        }
+        if (focusInput && inputSize){
+          try { inputSize.focus({ preventScroll: true }); }
+          catch { inputSize.focus(); }
+        }
+      }
+      setStrokeSize(size, { fromInput:true });
       let color = "#111111";
       let pickerOpen = false;
       let repaintQueued = false;
@@ -1401,7 +1421,10 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       // ===== UI bindings =====
       btnPen?.addEventListener("click", ()=> setMode("pen"));
       btnEraser?.addEventListener("click", ()=> setMode("eraser"));
-      inputSize?.addEventListener("input", ()=>{ size = clamp(+inputSize.value||12, 1, 200); updateCursor(); });
+      inputSize?.addEventListener("input", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
+      inputSize?.addEventListener("change", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
+      btnSizeInc?.addEventListener("click", (e)=>{ e.preventDefault(); setStrokeSize(size + 1, { focusInput:true }); });
+      btnSizeDec?.addEventListener("click", (e)=>{ e.preventDefault(); setStrokeSize(size - 1, { focusInput:true }); });
 
       btnColor?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); pickerOpen ? closeColorPicker() : openColorPicker(); });
 
