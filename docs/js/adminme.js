@@ -915,6 +915,51 @@
     });
   }
 
+  function buildSynthPoints(strokes) {
+    const out = [];
+    const MAX_GAP_MS = 35;
+    const MAX_INSERTS = 16;
+
+    for (const st of strokes || []) {
+      const pts = Array.isArray(st?.points) ? st.points : [];
+      if (!pts.length) continue;
+
+      const norm = (pt) => ({
+        t: Number(pt?.t ?? 0),
+        x: Number(pt?.x ?? 0),
+        y: Number(pt?.y ?? 0)
+      });
+
+      let prev = norm(pts[0]);
+      if (!Number.isFinite(prev.t)) continue;
+      out.push(prev);
+
+      for (let i = 1; i < pts.length; i++) {
+        const cur = norm(pts[i]);
+        if (!Number.isFinite(cur.t)) continue;
+        const dt = cur.t - prev.t;
+        if (dt > MAX_GAP_MS) {
+          const steps = Math.min(MAX_INSERTS, Math.floor(dt / MAX_GAP_MS));
+          const dx = cur.x - prev.x;
+          const dy = cur.y - prev.y;
+          for (let k = 1; k <= steps; k++) {
+            const ratio = k / (steps + 1);
+            out.push({
+              t: prev.t + ratio * dt,
+              x: prev.x + dx * ratio,
+              y: prev.y + dy * ratio,
+            });
+          }
+        }
+        out.push(cur);
+        prev = cur;
+      }
+    }
+
+    out.sort((a, b) => a.t - b.t);
+    return out;
+  }
+
   // strokes 합성 재생기 (me 페이지 캔버스와 동일한 매핑 사용)
   async function synthPlayFromStrokes(strokes) {
     const AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -928,42 +973,38 @@
       return fMin * Math.pow(fMax / fMin, 1 - yy);
     };
 
-    const pts = [];
-    for (const st of strokes || []) {
-      const arr = Array.isArray(st?.points) ? st.points : [];
-      for (const p of arr) {
-        const t = Number(p?.t ?? 0);
-        if (!Number.isFinite(t)) continue;
-        pts.push({
-          t,
-          x: Number(p?.x ?? 0),
-          y: Number(p?.y ?? 0),
-        });
-      }
-    }
+    const pts = buildSynthPoints(strokes);
     if (!pts.length) { try { AC.close(); } catch {}; return; }
-
-    pts.sort((a, b) => a.t - b.t);
     const t0 = pts[0].t;
     const port = 0.04;
+    const attack = 0.01;
+    const release = 0.12;
+    const sustainGap = 0.12;
+    const sustainLevel = 0.7;
 
     const startAt = AC.currentTime + 0.05;
-    let lastGainEnd = startAt;
+    let releaseAt = startAt;
+    let prevAt = null;
     for (const p of pts) {
       const at = startAt + Math.max(0, (p.t - t0) / 1000);
       const fq = Math.max(40, freqFromY(p.y));
       osc.frequency.cancelScheduledValues(at);
       osc.frequency.exponentialRampToValueAtTime(fq, at + port);
 
-      const a = 0.01, r = 0.08;
       master.gain.cancelScheduledValues(at);
-      master.gain.setValueAtTime(0.0, at);
-      master.gain.linearRampToValueAtTime(0.8, at + a);
-      master.gain.linearRampToValueAtTime(0.0, at + a + r);
-      lastGainEnd = at + a + r;
+      if (prevAt == null || (at - prevAt) > sustainGap) {
+        master.gain.setValueAtTime(0.0, at);
+        master.gain.linearRampToValueAtTime(sustainLevel, at + attack);
+      } else {
+        master.gain.linearRampToValueAtTime(sustainLevel, at + 0.005);
+      }
+      releaseAt = at + release;
+      prevAt = at;
     }
 
-    await new Promise((res) => setTimeout(res, Math.max(0, (lastGainEnd - AC.currentTime) * 1000 + 80)));
+    master.gain.linearRampToValueAtTime(0.0, releaseAt);
+
+    await new Promise((res) => setTimeout(res, Math.max(0, (releaseAt - AC.currentTime) * 1000 + 120)));
     try { AC.close(); } catch {}
   }
 
@@ -1115,6 +1156,7 @@
     // ---------- Audio synth ----------
     let AC = null, master = null, osc = null;
     const port = 0.02;
+    const REPLAY_RELEASE_MS = 120;
     function freqFromY(y01) {
       const y = Math.min(1, Math.max(0, y01));
       const fTop = 880, fBot = 110;
@@ -1132,27 +1174,35 @@
     function scheduleSynth(strokes) {
       ensureAudio();
       if (!AC || !osc || !master) return;
-      const t0 = state.t0;
+      const pts = buildSynthPoints(strokes);
+      if (!pts.length) return;
+      const t0 = pts[0].t;
       const startAt = AC.currentTime + 0.06;
       const gain = master.gain;
+      const attack = 0.01;
+      const release = 0.12;
+      const sustainGap = 0.12;
+      const sustainLevel = 0.7;
 
-      // why: 짧은 게이트로 path 진행감을 살림 (프레임당 1~2개 포인트만 스냅)
-      for (const s of (strokes || [])) {
-        const pts = s.points || [];
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          const at = startAt + Math.max(0, (p.t - t0) / 1000);
-          const fq = Math.max(40, freqFromY(p.y));
-          osc.frequency.cancelScheduledValues(at);
-          osc.frequency.exponentialRampToValueAtTime(fq, at + port);
+      let prevAt = null;
+      let releaseAt = startAt;
+      for (const p of pts) {
+        const at = startAt + Math.max(0, (p.t - t0) / 1000);
+        const fq = Math.max(40, freqFromY(p.y));
+        osc.frequency.cancelScheduledValues(at);
+        osc.frequency.exponentialRampToValueAtTime(fq, at + port);
 
-          const a = 0.012, r = 0.06; // attack/release
-          gain.cancelScheduledValues(at);
+        gain.cancelScheduledValues(at);
+        if (prevAt == null || (at - prevAt) > sustainGap) {
           gain.setValueAtTime(0.0, at);
-          gain.linearRampToValueAtTime(0.18, at + a);
-          gain.linearRampToValueAtTime(0.0, at + a + r);
+          gain.linearRampToValueAtTime(sustainLevel, at + attack);
+        } else {
+          gain.linearRampToValueAtTime(sustainLevel, at + 0.005);
         }
+        releaseAt = at + release;
+        prevAt = at;
       }
+      if (releaseAt > startAt) gain.linearRampToValueAtTime(0.0, releaseAt);
     }
 
     // ---------- Canvas render ----------
@@ -1244,16 +1294,11 @@
       btnPlay && (btnPlay.textContent = "Pause");
 
       const strokes = state.selected.strokes;
-      state.t0 = computeT0(strokes);
-      const totalMs = (() => {
-        let t1 = 0;
-        for (const s of strokes) {
-          const pts = s.points || [];
-          if (!pts.length) continue;
-          t1 = Math.max(t1, pts[pts.length - 1].t);
-        }
-        return Math.max(0, t1 - state.t0);
-      })();
+      const synthPts = buildSynthPoints(strokes);
+      state.t0 = synthPts.length ? synthPts[0].t : computeT0(strokes);
+      const totalMs = synthPts.length
+        ? Math.max(0, synthPts[synthPts.length - 1].t - state.t0 + REPLAY_RELEASE_MS)
+        : 0;
 
       // schedule audio once
       scheduleSynth(strokes);
