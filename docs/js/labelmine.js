@@ -946,15 +946,23 @@ function canvasToBlob(canvas, type = 'image/png', quality) {
       s.setAttribute("aria-hidden","true");
       return s;
     };
-    function check(size=18){
+    function check(size=18, { strokeWidth=1.75 }={}){
       const svg = mk(size); const p = document.createElementNS(ns,"path");
-      p.setAttribute("d","M20 6L9 17l-5-5"); p.setAttribute("stroke","currentColor"); p.setAttribute("stroke-width","3"); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); svg.append(p); return svg;
+      p.setAttribute("d","m4.5 12.75 6 6 9-13.5");
+      p.setAttribute("stroke","currentColor");
+      p.setAttribute("stroke-width",String(strokeWidth));
+      p.setAttribute("stroke-linecap","round");
+      p.setAttribute("stroke-linejoin","round");
+      svg.append(p); return svg;
     }
-    function reset(size=18, { strokeWidth=2, clockwise=true }={}){
-      const svg = mk(size); const g = document.createElementNS(ns,"g");
-      g.setAttribute("stroke","currentColor"); g.setAttribute("stroke-width",String(strokeWidth)); g.setAttribute("stroke-linecap","round"); g.setAttribute("stroke-linejoin","round");
-      if(!clockwise) g.setAttribute("transform","scale(-1,1) translate(-24,0)");
-      const path=document.createElementNS(ns,"path"); path.setAttribute("d","M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4"); g.appendChild(path); svg.appendChild(g); return svg;
+    function reset(size=18, { strokeWidth=1.75 }={}){
+      const svg = mk(size); const p=document.createElementNS(ns,"path");
+      p.setAttribute("d","M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99");
+      p.setAttribute("stroke","currentColor");
+      p.setAttribute("stroke-width",String(strokeWidth));
+      p.setAttribute("stroke-linecap","round");
+      p.setAttribute("stroke-linejoin","round");
+      svg.append(p); return svg;
     }
     function imp(size=18, { strokeWidth=2 }={}){
       const svg = mk(size); const p=document.createElementNS(ns,"path");
@@ -1894,13 +1902,13 @@ const btnReset   = document.getElementById("sdf-reset-btn");
     };
 
     const SVG_TRASH = `
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-5">
       <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
     </svg>
     `.trim();
 
     const SVG_DOWNLOAD = `
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="size-5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
     </svg>
     `.trim();
@@ -3526,6 +3534,7 @@ function goMineAfterShare(label = getLabel()) {
   try { if (window.__SDF_SAVING_TS && performance.now() - window.__SDF_SAVING_TS < 600) return; } catch {}
 
     try {
+      try { sessionStorage.removeItem(cropArKey()); } catch {}
       // 1) 갤러리에서 고르기
       let sel = await openGalleryPicker(); // { blob, w, h }
 
