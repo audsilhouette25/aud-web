@@ -771,17 +771,15 @@
           data-id="${esc(it.id)}"
           data-ns="${esc(ns)}"
           data-owner="${esc(ownerId)}"${audioAttr}${acceptedAttr}>
-        <img alt="" src="${esc(thumb)}" />
+        <div class="preview-wrap">
+          <img alt="" src="${esc(thumb)}" />
+        </div>
         <div class="meta">
           <span class="owner" title="${esc(ownerId)}">${esc(ownerName)}</span>
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
-        <div class="row row--spaced">
-          <button class="btn" data-act="hear" type="button">Hear</button>
-          <button class="btn primary" data-act="accept" type="button">Accept</button>
-          <button class="btn danger is-icon" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
-        </div>
+        <button class="btn danger is-icon card-delete" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
       </div>
     `.trim();
   }
@@ -798,51 +796,10 @@
           card.__audioUrl = card.dataset.audio;
         }
 
-        if (act === "hear") {
-          try {
-            if (actEl instanceof HTMLButtonElement) actEl.disabled = true;
-            await hearSubmission({ id, ns, card });
-          } finally {
-            if (actEl instanceof HTMLButtonElement) actEl.disabled = false;
-          }
-          return;
-        }
-
-        if (act === "accept") {
-          const btn = actEl instanceof HTMLButtonElement ? actEl : null;
-          if (btn) btn.disabled = true;
-          try {
-            const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-            const csrfRes = await fetch(new URL("/auth/csrf", base), { credentials: "include" }).catch(() => null);
-            const csrf = await csrfRes?.json?.().catch(() => null);
-            const headers = {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-              ...(csrf?.csrfToken ? { "X-CSRF-Token": csrf.csrfToken } : {})
-            };
-            const r = await fetch(new URL("/api/admin/audlab/accept", base), {
-              method: "POST",
-              credentials: "include",
-              headers,
-              body: JSON.stringify({ ns, id })
-            });
-            const j = await r.json().catch(() => ({}));
-            if (!r.ok || !j.ok) throw new Error(j?.error || "accept_failed");
-            if (btn) {
-              btn.textContent = "Accepted ✓";
-              btn.classList.remove("primary");
-              btn.classList.add("ghost");
-            }
-            card.setAttribute("data-accepted", "1");
-          } catch (err) {
-            alert("Accept 실패: " + (err?.message || err));
-            if (btn) btn.disabled = false;
-          }
-          return;
-        }
-
         if (act === "delete") {
           const btn = actEl instanceof HTMLButtonElement ? actEl : null;
+          if (btn) btn.blur();
+          e.stopPropagation();
           if (!window.confirm("정말로 이 항목을 삭제할까요?")) return;
           if (btn) btn.disabled = true;
           try {
@@ -867,25 +824,6 @@
           } catch (err) {
             alert("Delete 실패: " + (err?.message || err));
             if (btn) btn.disabled = false;
-          }
-          return;
-        }
-
-        if (act === "copy-owner") {
-          const btn = actEl instanceof HTMLButtonElement ? actEl : null;
-          const owner = card.dataset.owner || card.querySelector(".owner")?.textContent || ns || "";
-          if (!owner) { alert("owner id가 없습니다."); return; }
-          try {
-            await navigator.clipboard.writeText(owner);
-            if (btn) {
-              const prev = btn.textContent;
-              btn.textContent = "Copied!";
-              btn.disabled = true;
-              setTimeout(() => { btn.textContent = prev; btn.disabled = false; }, 900);
-            }
-          } catch {
-            // 환경에 따라 clipboard 권한이 없을 수 있음 → fallback
-            prompt("Copy this owner id:", owner);
           }
           return;
         }
