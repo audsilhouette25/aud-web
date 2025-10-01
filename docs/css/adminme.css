@@ -631,6 +631,8 @@ header.nav{
   inset: 0;
   display: grid;
   place-items: center;
+  justify-content: center;
+  align-content: center;
   /* 기본은 비활성 상태로 시작 */
   opacity: 0;
   visibility: hidden;
@@ -659,7 +661,8 @@ header.nav{
 
 /* 시트 및 오버레이 기본 */
 #admin-lab .overlay{
-  position: fixed; inset: 0;
+  position: absolute; inset: 0;
+  grid-area: 1 / 1;
   background: rgba(17,17,17,.35);
 }
 #admin-lab .sheet{
@@ -671,6 +674,9 @@ header.nav{
   background: var(--panel, #fff);
   box-shadow: var(--shadow-soft, 0 10px 30px rgba(0,0,0,.15));
   overflow: auto;
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
 }
 
 
@@ -702,7 +708,7 @@ header.nav{
   gap: 15px;
   border:1px solid rgba(0,0,0,.08);
   border-radius:12px;
-  padding:14px 16px;
+  padding:15px;
   background:#fff;
   block-size: 250px;
   height: 250px;
