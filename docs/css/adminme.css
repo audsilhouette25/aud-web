@@ -698,7 +698,7 @@ header.nav{
 }
 #admin-lab .sheet{
   position: relative;
-  width: clamp(308px, 86vw, var(--sheet-w-max, 960px));
+  width: clamp(250px, 86vw, var(--sheet-w-max, 960px));
   max-height: 92dvh;
   border-radius: 16px;
   background: var(--panel, #fff);
@@ -713,7 +713,7 @@ header.nav{
 
 @media (max-width: 400px){
   #admin-lab .sheet{
-    width: 308px;
+    width: 250px;
   }
 }
 
