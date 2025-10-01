@@ -246,6 +246,10 @@
    * ───────────────────────────── */
   const RATE_WINDOW_MS = 5000;
   const DEBOUNCE_MS    = 600;
+  const PREFER_NFC_EVENTS = true;   // BLE 노이즈가 심할 때 NFC 이벤트를 우선 사용
+  const NFC_FALLBACK_MS   = 800;    // NFC 이벤트가 늦을 때를 대비한 보조 딜레이
+  let bleFallbackTimer = null;
+  let lastBleCandidate = { uid: null, label: null, ts: 0 };
 
   function handleUID(uidFromEvt, labelHint){
     const now = Date.now();
@@ -296,15 +300,29 @@
       lastAnyTs = now;
 
       let uid = parseAdvToUID(evt);
+      if (uid) uid = normalizeUid(uid);
       if (!uid && typeof evt?.uid === "string") uid = normalizeUid(evt.uid);
       const label = typeof evt?.label === "string" ? evt.label : null;
+
+      if (PREFER_NFC_EVENTS) {
+        if (uid) {
+          lastBleCandidate = { uid, label: label || null, ts: now };
+          if (bleFallbackTimer) clearTimeout(bleFallbackTimer);
+          bleFallbackTimer = setTimeout(() => {
+            bleFallbackTimer = null;
+            if (!lastResolved.uid || lastResolved.uid !== lastBleCandidate.uid || lastResolved.ts < lastBleCandidate.ts) {
+              handleUID(lastBleCandidate.uid, lastBleCandidate.label);
+            }
+          }, NFC_FALLBACK_MS);
+        }
+        return;
+      }
 
       if (uid) {
         handleUID(uid, label);
       } else if (evt?.idle) {
         log("ble(idle)");
       } else {
-        // IDLE이거나 UID 없음 → 무시
         log("ble(no UID):", evt);
       }
     });
@@ -326,9 +344,13 @@
       if (now - lastAnyTs < DEBOUNCE_MS) return;
       lastAnyTs = now;
 
-      const uid = String(evt?.id || evt?.uid || "");
+      const uid = normalizeUid(evt?.id || evt?.uid || "");
       const label = typeof evt?.label === "string" ? evt.label : null;
       if (!uid && !label) return;
+      if (PREFER_NFC_EVENTS && bleFallbackTimer && lastBleCandidate.uid === uid) {
+        clearTimeout(bleFallbackTimer);
+        bleFallbackTimer = null;
+      }
       handleUID(uid || null, label || null);
     });
   });
