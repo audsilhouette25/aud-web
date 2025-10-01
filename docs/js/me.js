@@ -753,9 +753,11 @@
     if (hasBadge) {
       badgeEl.textContent = "audor(e)";
       badgeEl.hidden = false;
+      badgeEl.style.display = "inline-block";
     } else {
       badgeEl.textContent = "";
       badgeEl.hidden = true;
+      badgeEl.style.display = "none";
     }
   }
 
