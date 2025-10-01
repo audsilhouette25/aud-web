@@ -1138,6 +1138,8 @@
     // ---------- DOM ----------
     const cvs = document.getElementById("aud-canvas");
     const ctx = cvs.getContext("2d");
+    const wrap = cvs?.parentElement;
+    const DEFAULT_CANVAS = { width: Number(cvs?.width) || 900, height: Number(cvs?.height) || 500 };
     const btnPlay  = document.getElementById("lab-play");
     const btnUndo  = document.getElementById("lab-undo");   // will hide
     const btnClear = document.getElementById("lab-clear");  // will hide
@@ -1147,7 +1149,8 @@
     const elPointCount  = document.getElementById("lab-points");
 
     // ---------- State ----------
-    let W = 800, H = 500;
+    let W = DEFAULT_CANVAS.width;
+    let H = DEFAULT_CANVAS.height;
     let replaying = false;
     let rafId = 0;
 
@@ -1222,11 +1225,44 @@
     }
 
     // ---------- Canvas render ----------
+    function currentAspect() {
+      const sel = state.selected;
+      const w = Number(sel?.width) || DEFAULT_CANVAS.width;
+      const h = Number(sel?.height) || DEFAULT_CANVAS.height;
+      const ratio = w / h;
+      return (Number.isFinite(ratio) && ratio > 0) ? ratio : (DEFAULT_CANVAS.width / DEFAULT_CANVAS.height);
+    }
+
+    function applyAspect(width, height) {
+      if (!wrap) return;
+      const w = Number(width);
+      const h = Number(height);
+      if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+        wrap.style.setProperty('--lab-aspect', `${w} / ${h}`);
+        return;
+      }
+      const ratio = currentAspect();
+      if (Number.isFinite(ratio) && ratio > 0) {
+        wrap.style.setProperty('--lab-aspect', String(ratio));
+      }
+    }
+
+    applyAspect(DEFAULT_CANVAS.width, DEFAULT_CANVAS.height);
+
     function resizeCanvas() {
-      const r = cvs.getBoundingClientRect();
-      W = Math.max(300, Math.floor(r.width));
-      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
-      cvs.width = W; cvs.height = H;
+      if (!cvs) return;
+      const ratio = currentAspect();
+      const rect = wrap?.getBoundingClientRect() || cvs.getBoundingClientRect();
+      let nextW = Math.floor(rect.width);
+      if (!Number.isFinite(nextW) || nextW <= 0) nextW = DEFAULT_CANVAS.width;
+      let nextH = Math.floor(nextW / ratio);
+      if (!Number.isFinite(nextH) || nextH <= 0) {
+        nextH = Math.floor(nextW / (DEFAULT_CANVAS.width / DEFAULT_CANVAS.height));
+      }
+      W = Math.max(1, nextW);
+      H = Math.max(1, nextH);
+      cvs.width = W;
+      cvs.height = H;
       drawStatic();
     }
     function drawStatic() {
@@ -1398,9 +1434,11 @@
         state.selected.accepted = status !== LAB_STATUS.SUBMITTED;
         patchCardStatus(ns, id, status);
 
+        applyAspect(width, height);
+        resizeCanvas();
+
         // show on canvas (static)
         updateCounters();
-        drawStatic();
 
         // close modal if open
         closeAdminLabModal();
@@ -1547,7 +1585,10 @@
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.ok) {
-        throw new Error(data?.error || `HTTP_${resp.status}`);
+        const err = new Error(data?.error || `HTTP_${resp.status}`);
+        err.status = resp.status;
+        err.payload = data;
+        throw err;
       }
       return data;
     }
@@ -1575,7 +1616,13 @@
         patchCardStatus(sel.ns, sel.id, nextStatus);
       } catch (e) {
         btn.textContent = originalLabel;
-        alert("상태 업데이트 실패: " + (e?.message || e));
+        if (e?.status === 403) {
+          alert("관리자 권한이 필요합니다. 관리자 계정으로 다시 로그인하세요.");
+        } else if (e?.status === 401) {
+          alert("세션이 만료되었어요. 다시 로그인한 뒤 시도해주세요.");
+        } else {
+          alert("상태 업데이트 실패: " + (e?.message || e));
+        }
       } finally {
         statusBusy = false;
         updateAcceptButtonState();

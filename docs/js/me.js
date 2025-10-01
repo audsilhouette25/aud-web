@@ -2038,6 +2038,12 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     // ---------- DOM ----------
     const cvs = document.getElementById("aud-canvas");
     const ctx = cvs.getContext("2d");
+    const wrap = cvs?.parentElement;
+    const LAB_DEFAULT = {
+      width: Number(cvs?.width) || 900,
+      height: Number(cvs?.height) || 500,
+    };
+    const LAB_ASPECT = LAB_DEFAULT.width / LAB_DEFAULT.height;
     const btnPlay   = document.getElementById("lab-play");
     const btnUndo   = document.getElementById("lab-undo");
     const btnClear  = document.getElementById("lab-clear");
@@ -2047,7 +2053,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     const elPointCount  = document.getElementById("lab-points");
 
     // ---------- State ----------
-    let W = 800, H = 500;
+    let W = LAB_DEFAULT.width;
+    let H = LAB_DEFAULT.height;
     let playing = false;
     let curStroke = null;
     const strokes = [];
@@ -2242,11 +2249,20 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     }
 
     // ---------- Canvas ----------
+    if (wrap && Number.isFinite(LAB_ASPECT) && LAB_ASPECT > 0) {
+      wrap.style.setProperty('--lab-aspect', `${LAB_DEFAULT.width} / ${LAB_DEFAULT.height}`);
+    }
+
     function resizeCanvas() {
-      const r = cvs.getBoundingClientRect();
-      W = Math.max(300, Math.floor(r.width));
-      H = Math.max(200, Math.floor((r.height || (r.width * 0.6))));
-      cvs.width = W; cvs.height = H;
+      const rect = wrap?.getBoundingClientRect() || cvs.getBoundingClientRect();
+      let nextW = Math.floor(rect.width);
+      if (!Number.isFinite(nextW) || nextW <= 0) nextW = LAB_DEFAULT.width;
+      let nextH = Math.floor(nextW / LAB_ASPECT);
+      if (!Number.isFinite(nextH) || nextH <= 0) nextH = LAB_DEFAULT.height;
+      W = Math.max(1, nextW);
+      H = Math.max(1, nextH);
+      cvs.width = W;
+      cvs.height = H;
       redraw();
     }
     function clearAll() {
