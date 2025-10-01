@@ -887,9 +887,3 @@ header.nav{
      transform: translateY(.5px);
   */
 }
-
-/* (옵션) 크기 변형 유틸 */
-.card .card-footer .card-delete.size-sm{ inline-size:40px; block-size:40px; }
-.card .card-footer .card-delete.size-sm > svg{ width:18px; height:18px; }
-.card .card-footer .card-delete.size-lg{ inline-size:56px; block-size:56px; }
-.card .card-footer .card-delete.size-lg > svg{ width:24px; height:24px; }
