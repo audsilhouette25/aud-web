@@ -248,7 +248,7 @@
   const RATE_WINDOW_MS = 5000;
   const DEBOUNCE_MS    = 600;
   const PREFER_NFC_EVENTS = true;   // BLE 노이즈가 심할 때 NFC 이벤트를 우선 사용
-  let lastBleCandidate = { uid: null, label: null, ts: 0 };
+  let lastBleCandidate = { uid: null, label: null };
 
   function handleUID(uidFromEvt, labelHint){
     const now = Date.now();
@@ -339,8 +339,8 @@
       if (!uid && !label) return;
       if (PREFER_NFC_EVENTS && uid) {
         const resolvedLabel = label || labelFromUid(uid) || lastBleCandidate.label || null;
-        lastBleCandidate = { uid, label: resolvedLabel, ts: now };
-        sessionUids.push({ uid, label: resolvedLabel, ts: now });
+        lastBleCandidate = { uid, label: resolvedLabel };
+        sessionUids.push({ uid, label: resolvedLabel });
       }
       handleUID(uid || null, label || null);
     });
@@ -591,11 +591,23 @@
 // [HOTFIX A] wiretap: 모든 소켓 이벤트/메시지 로깅
 (function wiretap(){
   const log = window.__collect_log__ || (()=>{});
+  const sanitize = (payload) => {
+    if (!payload || typeof payload !== "object") return payload;
+    if (payload.uid != null || payload.label != null) {
+      const out = {};
+      if (payload.uid != null) out.uid = payload.uid;
+      if (payload.label != null) out.label = payload.label;
+      if (payload.source != null) out.source = payload.source;
+      return out;
+    }
+    return payload;
+  };
   if (window.sock) {
     // Socket.IO ?
     if (typeof window.sock.onAny === "function") {
       window.sock.onAny((event, ...args) => {
-        log("onAny:", event, ...args.slice(0,1));
+        const first = args[0];
+        log("onAny:", event, sanitize(first));
         // 들어오는 페이로드를 전부 파서에 태워 UID를 시도 추출 (자동 분류)
         try { args.forEach((x)=> window.__tryParseUIDFromAny?.(x)); } catch {}
       });
