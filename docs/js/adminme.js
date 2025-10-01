@@ -779,7 +779,9 @@
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
-        <button class="btn danger is-icon card-delete" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
+        <div class="card-footer">
+          <button class="btn danger is-icon card-delete" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
+        </div>
       </div>
     `.trim();
   }
