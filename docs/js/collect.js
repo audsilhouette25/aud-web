@@ -247,8 +247,6 @@
   const RATE_WINDOW_MS = 5000;
   const DEBOUNCE_MS    = 600;
   const PREFER_NFC_EVENTS = true;   // BLE 노이즈가 심할 때 NFC 이벤트를 우선 사용
-  const NFC_FALLBACK_MS   = 800;    // NFC 이벤트가 늦을 때를 대비한 보조 딜레이
-  let bleFallbackTimer = null;
   let lastBleCandidate = { uid: null, label: null, ts: 0 };
 
   function handleUID(uidFromEvt, labelHint){
@@ -305,16 +303,7 @@
       const label = typeof evt?.label === "string" ? evt.label : null;
 
       if (PREFER_NFC_EVENTS) {
-        if (uid) {
-          lastBleCandidate = { uid, label: label || null, ts: now };
-          if (bleFallbackTimer) clearTimeout(bleFallbackTimer);
-          bleFallbackTimer = setTimeout(() => {
-            bleFallbackTimer = null;
-            if (!lastResolved.uid || lastResolved.uid !== lastBleCandidate.uid || lastResolved.ts < lastBleCandidate.ts) {
-              handleUID(lastBleCandidate.uid, lastBleCandidate.label);
-            }
-          }, NFC_FALLBACK_MS);
-        }
+        if (uid) lastBleCandidate = { uid, label: label || null, ts: now };
         return;
       }
 
@@ -347,9 +336,8 @@
       const uid = normalizeUid(evt?.id || evt?.uid || "");
       const label = typeof evt?.label === "string" ? evt.label : null;
       if (!uid && !label) return;
-      if (PREFER_NFC_EVENTS && bleFallbackTimer && lastBleCandidate.uid === uid) {
-        clearTimeout(bleFallbackTimer);
-        bleFallbackTimer = null;
+      if (PREFER_NFC_EVENTS && uid) {
+        lastBleCandidate = { uid, label: label || lastBleCandidate.label || null, ts: now };
       }
       handleUID(uid || null, label || null);
     });
