@@ -1408,7 +1408,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       if (btnImport) {
         if (btnImport.tagName === "BUTTON") btnImport.type = "button";
         if (!btnImport.classList.contains("sdf-import-btn")) btnImport.classList.add("sdf-import-btn");
-        btnImport.innerHTML = ""; btnImport.append(Icons.import?.(24, { strokeWidth: 2 }) || document.createTextNode("Import"));
+        btnImport.innerHTML = ""; btnImport.append(Icons.import?.(22, { strokeWidth: 1.75 }) || document.createTextNode("Import"));
         const onImportClick = (e) => { e.preventDefault(); e.stopPropagation(); openImport(); };
         btnImport.addEventListener("pointerdown", (e)=>e.stopPropagation());
         btnImport.addEventListener("click", onImportClick, { passive:false });
