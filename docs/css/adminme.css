@@ -726,9 +726,9 @@ header.nav{
   display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:12px;
-  align-items:stretch;
+  width: min(85%, var(--sheet-w-max, 960px));
   justify-items:stretch;
-  margin: 18px 0;
+  margin: 18px auto;
 }
 
 @media (max-width: 1000px){
