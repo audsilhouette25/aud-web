@@ -505,14 +505,14 @@ header.nav{
 }
 
 /* ===== Footer (compact) ===== */
-.admin-footer{
+.mine-footer{
   margin-top: 48px;
   padding: 24px 0 64px;
   border-top: 1px solid rgba(0,0,0,.06);
   background: transparent;
 }
 
-.admin-footer .footer-inner{
+.mine-footer .footer-inner{
   max-width: var(--container-max, 1500px);
   padding: 0 var(--container-pad, 24px);
   margin: 0 auto;
@@ -521,8 +521,34 @@ header.nav{
   gap: 12px;                 /* 버튼 간격은 gap으로만 관리 */
 }
 
+/* 로그아웃 버튼 공통 스타일 */
+.btn-logout{
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 160px;
+  padding: 12px 20px;
+  line-height: 1;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  border: 1px solid rgba(0,0,0,.14);
+  border-radius: 9999px;
+  background: #e9e9ec;
+  color: #111;
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease, transform .06s ease, color .18s ease, opacity .18s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.btn-logout:hover{ background: #dedee2; }
+.btn-logout:focus{ outline: none; box-shadow: 0 0 0 3px rgba(255,167,101,.25); }
+.btn-logout:active{ background: var(--accent); color:#111; transform: translateY(1px); }
+.btn-logout[aria-busy="true"]{ background: var(--accent); color:#111; opacity: .95; pointer-events: none; }
+
 /* 로그아웃 버튼: 폭 줄이기(푸터 범위 한정) */
-.admin-footer .btn-logout{
+.mine-footer .btn-logout{
   min-width: auto;           /* 고정폭 해제 */
   padding-inline: 18px;      /* 좌우 패딩 축소 */
   white-space: nowrap;       /* 한 줄 유지 */
