@@ -1251,7 +1251,6 @@ const btnReset   = document.getElementById("sdf-reset-btn");
           catch { inputSize.focus(); }
         }
       }
-      setStrokeSize(size, { fromInput:true });
       let color = "#111111";
       let pickerOpen = false;
       let repaintQueued = false;
@@ -1261,6 +1260,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       let importItems = [];
 
       let dpr = 1, viewW = 0, zoom = 1, scrollX = 0, scrollY = 0;
+      setStrokeSize(size, { fromInput:true });
       let isDrawing = false, lastWorld = null;
       let offscreen = null;
       let offSize = { w: OFF_INIT_SAFE, h: OFF_INIT_SAFE };
