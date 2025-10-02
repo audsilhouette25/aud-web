@@ -157,6 +157,31 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   color:#333333;
   transition:background .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
+.labelmine-body .sdf-tools .sdf-color-btn{
+  width:var(--TB-ITEM);
+  height:var(--TB-ITEM);
+  flex:0 0 var(--TB-ITEM);
+  aspect-ratio:1/1;
+  display:grid;
+  place-items:center;
+  box-sizing:border-box;
+  border-radius:50%;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  padding:0;
+  transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.labelmine-body .sdf-tools .sdf-color-btn:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(39,89,153,.18);
+}
+.labelmine-body .sdf-tools .sdf-color-chip{
+  width:18px;
+  height:18px;
+  border-radius:9999px;
+  border:1px solid rgba(0,0,0,0.08);
+  box-shadow:inset 0 1px 0 rgba(0,0,0,.04);
+}
 .labelmine-body .sdf-circle-btn svg{ width:calc(var(--TB-ITEM)*0.55); height:calc(var(--TB-ITEM)*0.55); display:block; }
 .labelmine-body .sdf-circle-btn.is-active{
   background:#fff;
