@@ -786,8 +786,8 @@
           ${ns && ownerId && ns !== ownerId ? `<span class="ns" title="${esc(ns)}">${esc(ns)}</span>` : ""}
           <span class="time">${esc(when)}</span>
         </div>
-        ${statusMarkup}
         <div class="card-footer">
+          ${statusMarkup}
           <button class="btn danger is-icon card-delete" data-act="delete" type="button" aria-label="Delete">${SVG_TRASH}</button>
         </div>
       </div>
@@ -1514,7 +1514,7 @@
             pill = document.createElement("span");
             pill.className = "status-pill";
             const footer = card.querySelector(".card-footer");
-            if (footer) card.insertBefore(pill, footer);
+            if (footer) footer.insertBefore(pill, footer.firstChild);
             else card.appendChild(pill);
           }
           pill.textContent = label;

@@ -778,7 +778,7 @@ header.nav{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 0 0 4px 0;
+  margin: 0 auto 0 0;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 11px;
