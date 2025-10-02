@@ -1591,13 +1591,13 @@ const btnReset   = document.getElementById("sdf-reset-btn");
           if (bPen){
             const isActive = mode === "pen" || bPen.classList.contains("is-active");
             bPen.innerHTML = "";
-            bPen.append(Icons.pen?.() || document.createTextNode("Pen"));
+            bPen.append(Icons.pen?.(undefined, { filled: isActive }) || document.createTextNode("Pen"));
             bPen.setAttribute("aria-pressed", isActive ? "true" : "false");
           }
           if (bEra){
             const isActive = mode === "eraser" || bEra.classList.contains("is-active");
             bEra.innerHTML = "";
-            bEra.append(Icons.eraser?.() || document.createTextNode("Eraser"));
+            bEra.append(Icons.eraser?.(undefined, { filled: isActive }) || document.createTextNode("Eraser"));
             bEra.setAttribute("aria-pressed", isActive ? "true" : "false");
           }
         } catch {}
