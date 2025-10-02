@@ -414,7 +414,7 @@ progress#m-rate-bar::-webkit-progress-value{
 @container (max-width: 980px){
   .pm.sheet{ grid-template-columns: 1fr; }
 }
-@media (max-width: 1000px){
+@media (max-width: 795px){
   .pm.sheet{ grid-template-columns: 1fr; }
 }
 .pm .left{ min-inline-size: 0; }
@@ -533,7 +533,7 @@ progress#m-rate-bar::-webkit-progress-value{
   gap: 16px;
   align-items: stretch;
 }
-@media (max-width: 1000px){
+@media (max-width: 795px){
   .lab-wrap{ grid-template-columns: 1fr; }
 }
 
@@ -543,10 +543,8 @@ progress#m-rate-bar::-webkit-progress-value{
   /* 가운데(캔버스) 행이 패딩을 제외한 남은 높이를 모두 차지 */
   grid-template-rows: auto minmax(0,1fr) auto;
   gap: 10px;
-  padding: 12px 14px;        /* ← 원하는 옆 패딩을 여기서 지정 */
-  --lab-head-h: 36px;        /* 제목줄 대략값 (참고용 토큰) */
-  --lab-controls-h: 52px;    /* 버튼줄 대략값 (참고용 토큰) */
-  --lab-gap: 20px;           /* 내부 gap 여유 */
+  padding: 12px 14px;
+  --lab-canvas-height: 360px;
 }
 
 .lab-head{
@@ -563,17 +561,20 @@ progress#m-rate-bar::-webkit-progress-value{
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
   width: 100%;
-  height: auto;
-  min-height: 0; /* 그리드 컨텍스트에서 콘텐츠가 넘치며 커지는 것 방지 */
-  aspect-ratio: var(--lab-aspect, 900 / 500);
+  height: var(--lab-canvas-height, 360px);
+  min-height: var(--lab-canvas-height, 360px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #aud-canvas{
   display: block;
-  width: 100%;
-  height: 100%;          /* 래퍼 높이에 꼭 맞춤 */
+  height: 100%;
+  width: auto;
+  max-width: none;
   touch-action: none;    /* 그리기용 포인터 이벤트 */
-  background: #e6ebf3;
+  background: #e6ebf3;   /* 기존 그라디언트의 가장 짙은 색상을 단색으로 사용 */
 }
 
 .lab-controls{
@@ -592,7 +593,7 @@ progress#m-rate-bar::-webkit-progress-value{
 #aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* ★ 넓은 화면(≥1001px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
-@media (min-width: 1001px){
+@media (min-width: 796px){
   .quick > .panel:first-child{
     display: flex;
     flex-direction: column;
@@ -618,7 +619,7 @@ progress#m-rate-bar::-webkit-progress-value{
 }
 
 /* ★ 좁은 화면(≤1000px, .quick이 세로 스택되는 순간부터) → Collection: 가로 3칸 */
-@media (max-width: 1000px){
+@media (max-width: 795px){
   .quick{
     grid-template-columns: 1fr;               /* 스택 */
   }
