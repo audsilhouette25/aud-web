@@ -138,7 +138,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 
   padding-block: var(--TB-PAD-V);
   padding-inline-start: 3px;
-  padding-inline-end: calc(var(--TB-PAD-H));
+  padding-inline-end: 3px;
 
   border: 1px solid #e5e7eb;
   border-radius: 9999px;
