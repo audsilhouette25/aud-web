@@ -756,6 +756,7 @@
     },
     getUser, login, signup, logout,
     getCSRF, getCSRFTokenSync,
+    ensureCSRF: getCSRF,
     ping: async () => { try { await fetch(toAPI("/auth/ping"), { credentials:"include" }); } catch {} },
     loadState, saveState,
     markNavigate,

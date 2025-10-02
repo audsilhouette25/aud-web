@@ -1616,8 +1616,16 @@
         patchCardStatus(sel.ns, sel.id, nextStatus);
       } catch (e) {
         btn.textContent = originalLabel;
+        const errorType = e?.payload?.error || "";
         if (e?.status === 403) {
-          alert("관리자 권한이 필요합니다. 관리자 계정으로 다시 로그인하세요.");
+          if (errorType === "user_not_found") {
+            console.error("[handleLabPrimaryAction] User not found in database. Session UID exists but user lookup failed.");
+            alert("사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.");
+          } else if (errorType === "not_admin") {
+            alert("관리자 권한이 없습니다. 관리자 계정으로 다시 로그인하세요.");
+          } else {
+            alert("관리자 권한이 필요합니다. 관리자 계정으로 다시 로그인하세요.");
+          }
         } else if (e?.status === 401) {
           alert("세션이 만료되었어요. 다시 로그인한 뒤 시도해주세요.");
         } else {
