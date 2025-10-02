@@ -1562,13 +1562,28 @@
       if (!sel) throw new Error("NO_SELECTION");
 
       const base = window.PROD_BACKEND || window.API_BASE || location.origin;
-      try { await ensureCSRF(); } catch {}
-      const csrf = (document.cookie.match(/(?:^|;\s*)(?:__Host-csrf|csrf)=([^;]+)/) || [])[1];
+
+      // CSRF 토큰 가져오기
+      let csrfToken = null;
+      try {
+        if (typeof window.auth?.getCSRF === "function") {
+          csrfToken = await window.auth.getCSRF();
+        } else {
+          await ensureCSRF();
+        }
+      } catch (e) {
+        console.warn("[mutateSelectedStatus] Failed to get CSRF token:", e);
+      }
+
       const headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {}),
       };
+
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+        headers["X-XSRF-Token"] = csrfToken;
+      }
 
       const endpoint = nextStatus === LAB_STATUS.DEVELOPING
         ? "/api/admin/audlab/accept"
