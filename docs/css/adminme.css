@@ -778,7 +778,7 @@ header.nav{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
+  margin: 0 0 4px 0;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 11px;
@@ -837,7 +837,7 @@ header.nav{
 
 #admin-lab .card .card-footer{
   display:flex;
-  justify-content:space-between;
+  justify-content:flex-end;
   align-items:center;
   margin-top:auto;
   padding-top: 8px;
