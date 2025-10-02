@@ -175,7 +175,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   align-items:center;
 }
 .labelmine-body #sdf-size{
-  width:58px;
+  width:55px;
   height:100%;
   padding:0 26px 0 12px;
   border:1px solid rgba(15,23,42,0.18);
