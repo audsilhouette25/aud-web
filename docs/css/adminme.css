@@ -578,6 +578,10 @@ header.nav{
   grid-template-rows: auto minmax(0,1fr) auto;
   gap: 10px;
   padding: 12px 14px;
+  --lab-canvas-height: 360px;
+}
+@media (max-width: 768px){
+  .panel.lab{ --lab-canvas-height: clamp(240px, 55vw, 360px); }
 }
 
 .lab-head{
@@ -594,17 +598,21 @@ header.nav{
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
   width: 100%;
-  height: auto;
-  min-height: 0;
-  aspect-ratio: var(--lab-aspect, 900 / 500);
+  height: var(--lab-canvas-height, 360px);
+  min-height: var(--lab-canvas-height, 360px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #aud-canvas{
   display: block;
-  width: 100%;
-  height: 100%;          /* 래퍼 높이에 꼭 맞춤 */
+  height: 100%;
+  width: auto;
+  max-width: none;
   touch-action: none;    /* 그리기용 포인터 이벤트 */
   background: #e6ebf3;   /* 기존 그라디언트의 가장 짙은 색상을 단색으로 사용 */
+  will-change: transform;
 }
 
 .lab-controls{
