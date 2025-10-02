@@ -1750,6 +1750,23 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     if (quick.authed) {
       computeAndRenderInsights().catch(() => {});
     }
+
+    // 11) 소켓 배지 이벤트 리스너
+    if (window.sock && quick.authed) {
+      try {
+        const userNS = getNS();
+        if (userNS) {
+          window.sock.emit("subscribe", { rooms: [`user:${userNS}`] });
+          window.sock.on("badge:granted", (data) => {
+            if (data?.badge === "audLabDeveloped" && data?.ns === userNS) {
+              applyBadges({ audLabDeveloped: true });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("[me.js] socket badge listener setup failed:", e);
+      }
+    }
   }
  
   if (document.readyState === "loading") {
