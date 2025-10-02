@@ -223,7 +223,7 @@ header.nav{
   gap: 16px;
   align-items: start;
 }
-@media (max-width: 1000px){
+@media (max-width: 795px){
   #lb-root{ grid-template-columns: 1fr; }
 }
 /* 카드 스킨(패널 톤 일치) */
@@ -488,7 +488,7 @@ header.nav{
 /* =====================================================================
    12) Responsive (global)
 ===================================================================== */
-@media (max-width: 1000px){
+@media (max-width: 795px){
   .insights{ grid-template-columns: 1fr; }
   .quick{ grid-template-columns: 1fr; }
   .profile-hero{ flex-direction: column; align-items: flex-start; }
@@ -567,7 +567,7 @@ header.nav{
   gap: 16px;
   align-items: stretch;
 }
-@media (max-width: 1000px){
+@media (max-width: 795px){
   .lab-wrap{ grid-template-columns: 1fr; }
 }
 
@@ -578,10 +578,6 @@ header.nav{
   grid-template-rows: auto minmax(0,1fr) auto;
   gap: 10px;
   padding: 12px 14px;
-  --lab-canvas-height: 360px;
-}
-@media (max-width: 768px){
-  .panel.lab{ --lab-canvas-height: clamp(240px, 55vw, 360px); }
 }
 
 .lab-head{
@@ -598,21 +594,17 @@ header.nav{
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.05);
   overflow: hidden;
   width: 100%;
-  height: var(--lab-canvas-height, 360px);
-  min-height: var(--lab-canvas-height, 360px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: var(--lab-aspect, 900 / 500);
 }
 
 #aud-canvas{
   display: block;
-  height: 100%;
-  width: auto;
-  max-width: none;
+  width: 100%;
+  height: 100%;          /* 래퍼 높이에 꼭 맞춤 */
   touch-action: none;    /* 그리기용 포인터 이벤트 */
   background: #e6ebf3;   /* 기존 그라디언트의 가장 짙은 색상을 단색으로 사용 */
-  will-change: transform;
 }
 
 .lab-controls{
@@ -630,8 +622,8 @@ header.nav{
 /* High-contrast focus for a11y */
 #aud-canvas:focus-visible{ outline: 3px solid var(--focus); outline-offset: 2px; }
 
-/* ★ 넓은 화면(≥1001px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
-@media (min-width: 1001px){
+/* ★ 넓은 화면(≥796px, .quick이 2열일 때) → Collection: 세로 1열 + 넓은 간격 */
+@media (min-width: 796px){
   .quick > .panel:first-child{
     display: flex;
     flex-direction: column;
@@ -648,8 +640,8 @@ header.nav{
   .quick > .panel:first-child .kpi span{ font-size: 13px; color: #777; }
 }
 
-/* ★ 좁은 화면(≤1000px) — quick 패널을 한 열로 스택 */
-@media (max-width: 1000px){
+/* ★ 좁은 화면(≤795px) — quick 패널을 한 열로 스택 */
+@media (max-width: 795px){
   .quick{
     grid-template-columns: 1fr;               /* 스택 */
   }
@@ -738,7 +730,7 @@ header.nav{
   align-items:stretch;
   justify-items:stretch;
 }
-@media (max-width: 1000px){
+@media (max-width: 795px){
   #admin-lab .admin-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
