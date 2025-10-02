@@ -223,7 +223,7 @@ header.nav{
   gap: 16px;
   align-items: start;
 }
-@media (max-width: 1099px){
+@media (max-width: 1000px){
   #lb-root{ grid-template-columns: 1fr; }
 }
 /* 카드 스킨(패널 톤 일치) */
@@ -488,7 +488,7 @@ header.nav{
 /* =====================================================================
    12) Responsive (global)
 ===================================================================== */
-@media (max-width: 860px){
+@media (max-width: 1000px){
   .insights{ grid-template-columns: 1fr; }
   .quick{ grid-template-columns: 1fr; }
   .profile-hero{ flex-direction: column; align-items: flex-start; }
