@@ -479,7 +479,7 @@ progress#m-rate-bar::-webkit-progress-value{
 /* =====================================================================
    13) Responsive (global)
 ===================================================================== */
-@media (max-width: 860px){
+@media (max-width: 795px){
   .insights{ grid-template-columns: 1fr; }
   .quick{ grid-template-columns: 1fr; }
   .profile-hero{ flex-direction: column; align-items: flex-start; }
