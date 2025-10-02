@@ -138,7 +138,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 
   padding-block: var(--TB-PAD-V);
   padding-inline-start: 3px;
-  padding-inline-end: calc(var(--TB-PAD-H) + 25px);
+  padding-inline-end: calc(var(--TB-PAD-H));
 
   border: 1px solid #e5e7eb;
   border-radius: 9999px;
@@ -146,7 +146,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
   box-shadow: 0 6px 14px rgba(0,0,0,0.08);
   overflow: hidden;
 
-  width: 300px;
+  width: 325px;
   transition: padding 160ms ease, width 160ms ease, gap 160ms ease, border-radius 160ms ease;
 }
 
