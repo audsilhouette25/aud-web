@@ -179,6 +179,15 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   visibility:hidden;
 }
 
+/* 필드 경고 (항상 표시) */
+.field-warning{
+  display:block;
+  min-height:16px;
+  margin:6px 0 0;
+  padding-bottom:4px;
+  color:var(--error);
+  font-size:13px;
+}
 
 /* 에러가 있을 때만 보이도록 */
 .field-error.is-on{

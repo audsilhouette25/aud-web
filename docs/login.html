@@ -140,14 +140,16 @@
         <label for="su-name">name</label>
         <input id="su-name" type="text" name="name" required
               autocomplete="name" class="input-lg"
-              aria-invalid="false" aria-describedby="su-err-name"/>
+              aria-invalid="false" aria-describedby="su-err-name su-name-warning"/>
         <p id="su-err-name" class="field-error" aria-live="polite"></p>
+        <p id="su-name-warning" class="field-warning">This cannot be changed later.</p>
 
         <label for="su-birthdate">birthdate</label>
         <input id="su-birthdate" type="date" name="birthdate" required
               class="input-lg"
-              aria-invalid="false" aria-describedby="su-err-birthdate"/>
+              aria-invalid="false" aria-describedby="su-err-birthdate su-birthdate-warning"/>
         <p id="su-err-birthdate" class="field-error" aria-live="polite"></p>
+        <p id="su-birthdate-warning" class="field-warning">This cannot be changed later.</p>
 
         <button class="btn-primary" type="submit">Sign up</button>
         <p id="signup-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
