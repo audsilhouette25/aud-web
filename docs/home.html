@@ -6,6 +6,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>aud:silhouette — A collection of what you hear</title>
 
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="AUD" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/home.css" />
   <!-- home.html의 </head> 직전에 추가 -->
@@ -142,6 +150,9 @@
 
 <!-- (페이지별 앱 스크립트들) -->
 <script type="module" src="./js/home.js"></script>
+
+<!-- PWA Service Worker -->
+<script src="./js/sw-register.js"></script>
 
 </body>
 </html>

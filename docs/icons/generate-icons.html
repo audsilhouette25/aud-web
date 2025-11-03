@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Icon Generator</title>
+</head>
+<body>
+  <canvas id="canvas192" width="192" height="192"></canvas>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+  <div>
+    <a id="download192">Download 192x192</a><br>
+    <a id="download512">Download 512x512</a>
+  </div>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      const radius = size * 0.234375; // 120/512 ratio
+
+      // Background with rounded corners
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, radius);
+      ctx.fill();
+
+      // Text
+      ctx.fillStyle = '#FFA765';
+      ctx.font = `700 ${size * 0.35}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('AUD', size / 2, size / 2);
+    }
+
+    // Draw icons
+    drawIcon(document.getElementById('canvas192'), 192);
+    drawIcon(document.getElementById('canvas512'), 512);
+
+    // Setup downloads
+    document.getElementById('download192').onclick = function() {
+      this.href = document.getElementById('canvas192').toDataURL();
+      this.download = 'icon-192.png';
+    };
+    document.getElementById('download512').onclick = function() {
+      this.href = document.getElementById('canvas512').toDataURL();
+      this.download = 'icon-512.png';
+    };
+  </script>
+</body>
+</html>
