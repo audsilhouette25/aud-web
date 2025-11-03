@@ -168,6 +168,19 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   box-shadow:0 0 0 3px rgba(0,0,0,.08);
 }
 
+/* Date input에서 값이 없을 때 placeholder 보이도록 */
+input[type="date"].input-lg:not(:focus):invalid{
+  color: #aaa;
+}
+input[type="date"].input-lg::before{
+  content: attr(data-placeholder);
+  color: #aaa;
+}
+input[type="date"].input-lg:focus::before,
+input[type="date"].input-lg:valid::before{
+  content: none;
+}
+
 /* 필드 에러 */
 .field-error{
   display:block;
@@ -177,16 +190,6 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   color:var(--error);
   font-size:13px;
   visibility:hidden;
-}
-
-/* 필드 경고 (항상 표시) */
-.field-warning{
-  display:block;
-  min-height:16px;
-  margin:6px 0 0;
-  padding-bottom:4px;
-  color:var(--error);
-  font-size:13px;
 }
 
 /* 에러가 있을 때만 보이도록 */
