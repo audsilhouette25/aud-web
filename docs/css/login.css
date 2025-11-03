@@ -259,20 +259,28 @@ input[type="date"].input-lg:focus::before{
 }
 
 /* Find 폼: 에러/성공 메시지를 같은 위치에 겹쳐서 배치
-   비어있을 때는 숨기고, 내용이 있을 때만 표시 */
+   공간은 유지하되, 내용이 없을 때는 보이지 않게 */
 #find-email-form .form-error,
 #find-email-form .form-success,
 #find-password-form .form-error,
 #find-password-form .form-success{
-  min-height: 0;
-  display: none;
+  position: absolute;
+  width: 100%;
+  visibility: hidden;
 }
 #find-email-form .form-error:not(:empty),
 #find-email-form .form-success:not(:empty),
 #find-password-form .form-error:not(:empty),
 #find-password-form .form-success:not(:empty){
-  display: block;
-  min-height: 16px;
+  visibility: visible;
+}
+
+/* Find 폼: 메시지를 위한 공간 확보
+   카드 하단까지 총 32px = 카드 padding 24px + 폼 padding-bottom 8px
+   메시지 공간은 absolute로 배치되므로 별도 계산 불필요 */
+#find-email-form,
+#find-password-form{
+  padding-bottom: 8px;
 }
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */
