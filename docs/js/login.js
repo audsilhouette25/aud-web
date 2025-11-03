@@ -5,7 +5,7 @@
   /* =============================================================
    *  0) CONFIG & LIGHTWEIGHT SHIMS
    * ============================================================= */
-  const DEBUG = false;
+  const DEBUG = true;
   const log = (...a) => DEBUG && console.log("[login]", ...a);
 
   // Ensure a non-breaking auth namespace without overriding a real one
@@ -886,12 +886,16 @@
     });
 
     // Recovery buttons in login form
+    log("findEmailBtn:", els.findEmailBtn);
+    log("findPasswordBtn:", els.findPasswordBtn);
     on(els.findEmailBtn, "click", (e) => {
       e.preventDefault();
+      log("Find Email button clicked");
       showFindEmailForm();
     });
     on(els.findPasswordBtn, "click", (e) => {
       e.preventDefault();
+      log("Find Password button clicked");
       showFindPasswordForm();
     });
 
