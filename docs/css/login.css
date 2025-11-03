@@ -209,6 +209,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   color:var(--error);
   font-size:14px;
   margin-top:0;
+  padding-bottom:4px;
 }
 
 /* 성공 메시지 */
@@ -217,6 +218,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   color: #16a34a;
   font-size:14px;
   margin-top:0;
+  padding-bottom:4px;
   font-weight: 600;
 }
 
