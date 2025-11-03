@@ -197,7 +197,7 @@ input[type="date"].input-lg:focus::before{
 .field-error{
   display:block;
   min-height:16px;
-  margin:6px 0 0;
+  margin:2px 0 0;
   padding-bottom:4px;
   color:var(--error);
   font-size:13px;
@@ -231,7 +231,7 @@ input[type="date"].input-lg:focus::before{
 /* 폼 하단 전역 에러 */
 .form-error{
   min-height: 16px;
-  margin-top:0;
+  margin-top:2px;
   padding-bottom:4px;
   color:var(--error);
   font-size:13px;
@@ -240,10 +240,16 @@ input[type="date"].input-lg:focus::before{
 /* 성공 메시지 */
 .form-success{
   min-height: 16px;
-  margin-top:0;
+  margin-top:2px;
   padding-bottom:4px;
   color: #16a34a;
   font-size:13px;
+}
+
+/* Find 폼의 하단 간격을 Sign in과 맞춤 */
+#find-email-form .form-success,
+#find-password-form .form-success{
+  padding-bottom: 24px;
 }
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */
