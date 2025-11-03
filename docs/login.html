@@ -76,58 +76,170 @@
       </div>
     </form>
 
-    <!-- 회원가입 -->
+    <!-- 회원가입 Step 1 -->
     <form id="signup" role="tabpanel" aria-labelledby="tab-signup" hidden novalidate>
-      <label for="su-email">e-mail</label>
-      <input id="su-email" type="email" name="email" required
-            autocomplete="username email" inputmode="email"
-            autocapitalize="off" spellcheck="false" class="input-lg"
-            aria-invalid="false" aria-describedby="su-err-email"/>
-      <p id="su-err-email" class="field-error" aria-live="polite"></p>
+      <div id="signup-step1">
+        <label for="su-email">e-mail</label>
+        <input id="su-email" type="email" name="email" required
+              autocomplete="username email" inputmode="email"
+              autocapitalize="off" spellcheck="false" class="input-lg"
+              aria-invalid="false" aria-describedby="su-err-email"/>
+        <p id="su-err-email" class="field-error" aria-live="polite"></p>
 
-      <label for="su-pw">password</label>
-      <div class="pw-field">
-        <input id="su-pw" type="password" name="password" minlength="8" required
-              autocomplete="new-password" enterkeyhint="go" class="input-lg"
-              placeholder="8+ characters"
-              lang="en" inputmode="text" autocapitalize="none" spellcheck="false"
-              pattern="[ -~]*"
-              aria-invalid="false" aria-describedby="su-err-pw"/>
-        <button type="button" class="pw-toggle" data-state="hidden" data-target="su-pw"
-                aria-label="Show password" aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-open" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-          </svg>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-closed" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+        <label for="su-pw">password</label>
+        <div class="pw-field">
+          <input id="su-pw" type="password" name="password" minlength="8" required
+                autocomplete="new-password" enterkeyhint="go" class="input-lg"
+                placeholder="8+ characters"
+                lang="en" inputmode="text" autocapitalize="none" spellcheck="false"
+                pattern="[ -~]*"
+                aria-invalid="false" aria-describedby="su-err-pw"/>
+          <button type="button" class="pw-toggle" data-state="hidden" data-target="su-pw"
+                  aria-label="Show password" aria-pressed="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-open" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-closed" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+          </button>
+        </div>
+        <p id="su-err-pw" class="field-error" aria-live="polite"></p>
+
+        <label for="su-pw2">verify password</label>
+        <div class="pw-field">
+          <input id="su-pw2" type="password" name="password2" minlength="8" required
+                autocomplete="new-password" enterkeyhint="go" class="input-lg"
+                lang="en" inputmode="text" autocapitalize="none" spellcheck="false"
+                pattern="[ -~]*"
+                aria-invalid="false" aria-describedby="su-err-pw2"/>
+          <button type="button" class="pw-toggle" data-state="hidden" data-target="su-pw2"
+                  aria-label="Show password" aria-pressed="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-open" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-closed" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+          </button>
+        </div>
+        <p id="su-err-pw2" class="field-error" aria-live="polite"></p>
+
+        <button id="signup-next-btn" class="btn-primary" type="button">Next</button>
+        <p id="signup-step1-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+      </div>
+
+      <!-- 회원가입 Step 2 -->
+      <div id="signup-step2" hidden>
+        <button type="button" id="signup-back-btn" class="back-btn" aria-label="Go back">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
         </button>
-      </div>
-      <p id="su-err-pw" class="field-error" aria-live="polite"></p>
 
-      <label for="su-pw2">verify password</label>
-      <div class="pw-field">
-        <input id="su-pw2" type="password" name="password2" minlength="8" required
-              autocomplete="new-password" enterkeyhint="go" class="input-lg"
-              lang="en" inputmode="text" autocapitalize="none" spellcheck="false"
-              pattern="[ -~]*"
-              aria-invalid="false" aria-describedby="su-err-pw2"/>
-        <button type="button" class="pw-toggle" data-state="hidden" data-target="su-pw2"
-                aria-label="Show password" aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-open" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-          </svg>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-closed" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
-          </svg>
-        </button>
-      </div>
-      <p id="su-err-pw2" class="field-error" aria-live="polite"></p>
+        <label for="su-name">name</label>
+        <input id="su-name" type="text" name="name" required
+              autocomplete="name" class="input-lg"
+              aria-invalid="false" aria-describedby="su-err-name"/>
+        <p id="su-err-name" class="field-error" aria-live="polite"></p>
 
-      <button class="btn-primary" type="submit">Sign up</button>
-      <p id="signup-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+        <label for="su-birthdate">birthdate</label>
+        <input id="su-birthdate" type="date" name="birthdate" required
+              class="input-lg"
+              aria-invalid="false" aria-describedby="su-err-birthdate"/>
+        <p id="su-err-birthdate" class="field-error" aria-live="polite"></p>
+
+        <button class="btn-primary" type="submit">Sign up</button>
+        <p id="signup-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+      </div>
+    </form>
+
+    <!-- Find Email Form -->
+    <form id="find-email-form" hidden novalidate>
+      <button type="button" id="find-email-back-btn" class="back-btn" aria-label="Go back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+      </button>
+
+      <h2 class="auth-title">Find Email</h2>
+
+      <label for="fe-name">name</label>
+      <input id="fe-name" type="text" name="name" required
+            autocomplete="name" class="input-lg"
+            aria-invalid="false" aria-describedby="fe-err-name"/>
+      <p id="fe-err-name" class="field-error" aria-live="polite"></p>
+
+      <label for="fe-birthdate">birthdate</label>
+      <input id="fe-birthdate" type="date" name="birthdate" required
+            class="input-lg"
+            aria-invalid="false" aria-describedby="fe-err-birthdate"/>
+      <p id="fe-err-birthdate" class="field-error" aria-live="polite"></p>
+
+      <button class="btn-primary" type="submit">Find Email</button>
+      <p id="find-email-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+      <p id="find-email-result" class="form-success" aria-live="polite" aria-atomic="true"></p>
+    </form>
+
+    <!-- Find Password Form -->
+    <form id="find-password-form" hidden novalidate>
+      <button type="button" id="find-password-back-btn" class="back-btn" aria-label="Go back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+      </button>
+
+      <h2 class="auth-title">Reset Password</h2>
+
+      <div id="reset-step1">
+        <label for="fp-email">e-mail</label>
+        <input id="fp-email" type="email" name="email" required
+              autocomplete="username email" inputmode="email"
+              autocapitalize="off" spellcheck="false" class="input-lg"
+              aria-invalid="false" aria-describedby="fp-err-email"/>
+        <p id="fp-err-email" class="field-error" aria-live="polite"></p>
+
+        <button class="btn-primary" type="button" id="send-code-btn">Send Verification Code</button>
+        <p id="reset-step1-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+      </div>
+
+      <div id="reset-step2" hidden>
+        <label for="fp-code">verification code</label>
+        <input id="fp-code" type="text" name="code" required
+              maxlength="6" pattern="[0-9]{6}" inputmode="numeric"
+              class="input-lg" placeholder="6-digit code"
+              aria-invalid="false" aria-describedby="fp-err-code"/>
+        <p id="fp-err-code" class="field-error" aria-live="polite"></p>
+
+        <label for="fp-new-pw">new password</label>
+        <div class="pw-field">
+          <input id="fp-new-pw" type="password" name="newPassword" minlength="8" required
+                autocomplete="new-password" class="input-lg"
+                placeholder="8+ characters"
+                lang="en" inputmode="text" autocapitalize="none" spellcheck="false"
+                pattern="[ -~]*"
+                aria-invalid="false" aria-describedby="fp-err-new-pw"/>
+          <button type="button" class="pw-toggle" data-state="hidden" data-target="fp-new-pw"
+                  aria-label="Show password" aria-pressed="false">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-open" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" class="icon-eye-closed" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+          </button>
+        </div>
+        <p id="fp-err-new-pw" class="field-error" aria-live="polite"></p>
+
+        <button class="btn-primary" type="submit">Reset Password</button>
+        <p id="reset-step2-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
+      </div>
+
+      <!-- 전역 에러/성공 메시지 -->
+      <p id="find-password-error" class="form-error" aria-live="polite" aria-atomic="true"></p>
     </form>
 
     <noscript>

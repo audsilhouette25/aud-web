@@ -59,6 +59,40 @@
 
     loginBtn:    $("#login button[type='submit']"),
     signupBtn:   $("#signup button[type='submit']"),
+
+    // 2-step signup elements
+    signupStep1: $("#signup-step1"),
+    signupStep2: $("#signup-step2"),
+    signupNextBtn: $("#signup-next-btn"),
+    signupBackBtn: $("#signup-back-btn"),
+    signupName: $("#su-name"),
+    signupBirthdate: $("#su-birthdate"),
+    signupStep1Error: $("#signup-step1-error"),
+
+    // Recovery forms
+    findEmailForm: $("#find-email-form"),
+    findPasswordForm: $("#find-password-form"),
+    findEmailBackBtn: $("#find-email-back-btn"),
+    findPasswordBackBtn: $("#find-password-back-btn"),
+
+    // Find email fields
+    feEmail: $("#fe-email"),
+    feName: $("#fe-name"),
+    feBirthdate: $("#fe-birthdate"),
+    findEmailResult: $("#find-email-result"),
+
+    // Find password fields
+    fpEmail: $("#fp-email"),
+    fpCode: $("#fp-code"),
+    fpNewPw: $("#fp-new-pw"),
+    sendCodeBtn: $("#send-code-btn"),
+    resetStep1: $("#reset-step1"),
+    resetStep2: $("#reset-step2"),
+    fpError: $("#find-password-error"),
+
+    // Recovery buttons in login form
+    findEmailBtn: $("#find-email-btn"),
+    findPasswordBtn: $("#find-password-btn"),
   };
 
   /* =============================================================
@@ -500,7 +534,64 @@
   }
 
   /* =============================================================
-   *  10) EVENT HANDLERS
+   *  10) FORM TRANSITIONS & RECOVERY UI
+   * ============================================================= */
+  function showSignupStep1(){
+    if (els.signupStep1) els.signupStep1.hidden = false;
+    if (els.signupStep2) els.signupStep2.hidden = true;
+  }
+  function showSignupStep2(){
+    if (els.signupStep1) els.signupStep1.hidden = true;
+    if (els.signupStep2) els.signupStep2.hidden = false;
+  }
+
+  function showLoginForm(){
+    // Hide all recovery forms
+    if (els.findEmailForm) els.findEmailForm.hidden = true;
+    if (els.findPasswordForm) els.findPasswordForm.hidden = true;
+
+    // Show login/signup tabs and panels
+    if (els.panelLogin) els.panelLogin.hidden = false;
+    if (els.panelSignup) els.panelSignup.hidden = true;
+
+    // Reset to login tab
+    activateTab("login");
+  }
+
+  function showFindEmailForm(){
+    // Hide login/signup panels
+    if (els.panelLogin) els.panelLogin.hidden = true;
+    if (els.panelSignup) els.panelSignup.hidden = true;
+
+    // Show find email form
+    if (els.findEmailForm) els.findEmailForm.hidden = false;
+    if (els.findPasswordForm) els.findPasswordForm.hidden = true;
+
+    // Clear previous results
+    if (els.findEmailResult) els.findEmailResult.textContent = "";
+  }
+
+  function showFindPasswordForm(){
+    // Hide login/signup panels
+    if (els.panelLogin) els.panelLogin.hidden = true;
+    if (els.panelSignup) els.panelSignup.hidden = true;
+
+    // Show find password form
+    if (els.findPasswordForm) els.findPasswordForm.hidden = false;
+    if (els.findEmailForm) els.findEmailForm.hidden = true;
+
+    // Reset to step 1
+    if (els.resetStep1) els.resetStep1.hidden = false;
+    if (els.resetStep2) els.resetStep2.hidden = true;
+
+    // Clear fields
+    if (els.fpEmail) els.fpEmail.value = "";
+    if (els.fpCode) els.fpCode.value = "";
+    if (els.fpNewPw) els.fpNewPw.value = "";
+  }
+
+  /* =============================================================
+   *  11) EVENT HANDLERS
    * ============================================================= */
   async function onSubmitLogin(e){
     e.preventDefault();
@@ -528,6 +619,74 @@
   async function onSubmitSignup(e){
     e.preventDefault();
 
+    // Step 2에서 제출: name과 birthdate 포함
+    const name = (els.signupName?.value || "").trim();
+    const birthdate = (els.signupBirthdate?.value || "").trim();
+
+    if (!name) {
+      showError(els.signupErr, "Please enter your name.");
+      return;
+    }
+    if (!birthdate) {
+      showError(els.signupErr, "Please enter your birthdate.");
+      return;
+    }
+
+    // 이미 step 1에서 검증된 email/password 가져오기
+    const email = (els.signupEmail?.value || "").trim();
+    const pw1 = (els.signupPw?.value || "").trim();
+
+    setBusy(els.signupBtn, true, "Creating account…");
+    try {
+      // POST /auth/signup with name and birthdate
+      const res = await postJSON("/auth/signup", {
+        email,
+        password: pw1,
+        name,
+        birthdate
+      });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok || out?.ok === false) {
+        const code = String(out?.error || out?.code || "").toUpperCase();
+        if (code === "DUPLICATE_EMAIL") {
+          showError(els.signupErr, "This email is already registered.");
+          showSignupStep1(); // 다시 step1로
+        } else if (code === "INVALID_EMAIL") {
+          showError(els.signupErr, "Please enter a valid email address.");
+          showSignupStep1();
+        } else if (code === "WEAK_PASSWORD") {
+          showError(els.signupErr, "Please choose a stronger password.");
+          showSignupStep1();
+        } else {
+          showError(els.signupErr, out?.message || "Sign-up failed. Please try again.");
+        }
+        setBusy(els.signupBtn, false);
+        return;
+      }
+
+      // 회원가입 성공 → 자동 로그인 시도
+      setBusy(els.signupBtn, true, "Signing in…");
+      const loginRes = await doLogin(email, pw1);
+      setBusy(els.signupBtn, false);
+
+      if (!loginRes.ok) {
+        // 로그인 실패 시 로그인 화면으로 안내
+        showError(els.signupErr, "Account created! Please sign in.");
+        showLoginForm();
+        showSignupStep1();
+        return;
+      }
+
+      // 로그인 성공 시 onLoginSuccess가 이미 gotoNext() 호출함
+    } catch (e) {
+      showError(els.signupErr, "Network error. Please try again.");
+      setBusy(els.signupBtn, false);
+    }
+  }
+
+  // Signup Next 버튼 핸들러 (Step 1 → Step 2)
+  function onSignupNext(){
     // 필드/공통 에러 초기화
     const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
     const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
@@ -535,7 +694,7 @@
     setFieldError(els.signupEmail, suEmailErr, "");
     setFieldError(els.signupPw,    suPwErr,    "");
     setFieldError(els.signupPw2,   suPw2Err,   "");
-    showError(els.signupErr, "");
+    showError(els.signupStep1Error, "");
 
     // 클라이언트 검증
     const v = assertSignupInputs();
@@ -545,40 +704,143 @@
       if (v.field === "pw2")   setFieldError(els.signupPw2,   suPw2Err,   v.msg);
       return;
     }
-    setBusy(els.signupBtn, true, "Creating account…");
-    try {
-      const res = await auth.signup(
-        v.email,
-        v.pw1,
-        { autoLogin: true, redirect: true, next: resolveNextUrl() }
-      );
 
-      if (!res?.ok) {
-        // 서버가 { ok:false, error|code } 형태로 줄 때를 대비
-        const code = String(res.error || res.code || "").toUpperCase();
-        if (code === "DUPLICATE_EMAIL") {
-          setFieldError(els.signupEmail, $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email"), "This email is already registered.");
-        } else if (code === "INVALID_EMAIL") {
-          setFieldError(els.signupEmail, $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email"), "Please enter a valid email address.");
-        } else if (code === "WEAK_PASSWORD") {
-          setFieldError(els.signupPw, $("#su-err-pw") || ensureErrBelow(els.signupPw, "su-err-pw"), "Please choose a stronger password.");
-        } else {
-          showError(els.signupErr, res.message || "Sign-up failed. Please try again.");
+    // 검증 통과 → Step 2로 전환
+    showSignupStep2();
+  }
+
+  // Find Email 제출
+  async function onSubmitFindEmail(e){
+    e.preventDefault();
+    const name = (els.feName?.value || "").trim();
+    const birthdate = (els.feBirthdate?.value || "").trim();
+
+    if (!name || !birthdate) {
+      if (els.findEmailResult) {
+        els.findEmailResult.textContent = "Please fill in all fields.";
+        els.findEmailResult.style.color = "var(--error)";
+      }
+      return;
+    }
+
+    try {
+      const res = await postJSON("/api/find-email", { name, birthdate });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok || out?.ok === false) {
+        if (els.findEmailResult) {
+          els.findEmailResult.textContent = out?.message || "No account found.";
+          els.findEmailResult.style.color = "var(--error)";
         }
-        setBusy(els.signupBtn, false);
         return;
       }
 
-      // 성공 + redirect:true 면 여기 오기 전에 이미 이동됨.
-    } catch (e) {
-      showError(els.signupErr, "Network error. Please try again.");
-      setBusy(els.signupBtn, false);
+      // 성공: 마스킹된 이메일 표시
+      if (els.findEmailResult && out.email) {
+        els.findEmailResult.textContent = `Your email: ${out.email}`;
+        els.findEmailResult.style.color = "#16a34a";
+      }
+    } catch {
+      if (els.findEmailResult) {
+        els.findEmailResult.textContent = "Network error. Please try again.";
+        els.findEmailResult.style.color = "var(--error)";
+      }
+    }
+  }
+
+  // Find Password: Send Code
+  async function onSendCode(){
+    const email = (els.fpEmail?.value || "").trim();
+    if (!EMAIL_RX.test(email)) {
+      if (els.fpError) {
+        els.fpError.textContent = "Please enter a valid email.";
+        els.fpError.style.color = "var(--error)";
+      }
+      return;
     }
 
+    setBusy(els.sendCodeBtn, true, "Sending code…");
+    try {
+      const res = await postJSON("/api/send-reset-code", { email });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok || out?.ok === false) {
+        if (els.fpError) {
+          els.fpError.textContent = out?.message || "Failed to send code.";
+          els.fpError.style.color = "var(--error)";
+        }
+        setBusy(els.sendCodeBtn, false);
+        return;
+      }
+
+      // 성공: Step 2로 전환
+      if (els.resetStep1) els.resetStep1.hidden = true;
+      if (els.resetStep2) els.resetStep2.hidden = false;
+      if (els.fpError) {
+        els.fpError.textContent = "Verification code sent to your email!";
+        els.fpError.style.color = "#16a34a";
+      }
+      setBusy(els.sendCodeBtn, false);
+    } catch {
+      if (els.fpError) {
+        els.fpError.textContent = "Network error. Please try again.";
+        els.fpError.style.color = "var(--error)";
+      }
+      setBusy(els.sendCodeBtn, false);
+    }
+  }
+
+  // Find Password: Reset with Code
+  async function onSubmitResetPassword(e){
+    e.preventDefault();
+    const email = (els.fpEmail?.value || "").trim();
+    const code = (els.fpCode?.value || "").trim();
+    const newPassword = (els.fpNewPw?.value || "").trim();
+
+    if (!code || code.length !== 6) {
+      if (els.fpError) {
+        els.fpError.textContent = "Please enter the 6-digit code.";
+        els.fpError.style.color = "var(--error)";
+      }
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      if (els.fpError) {
+        els.fpError.textContent = "Password must be at least 8 characters.";
+        els.fpError.style.color = "var(--error)";
+      }
+      return;
+    }
+
+    try {
+      const res = await postJSON("/api/reset-password", { email, code, newPassword });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok || out?.ok === false) {
+        if (els.fpError) {
+          els.fpError.textContent = out?.message || "Failed to reset password.";
+          els.fpError.style.color = "var(--error)";
+        }
+        return;
+      }
+
+      // 성공: 로그인 화면으로
+      if (els.fpError) {
+        els.fpError.textContent = "Password reset successful! Please sign in.";
+        els.fpError.style.color = "#16a34a";
+      }
+      setTimeout(() => showLoginForm(), 2000);
+    } catch {
+      if (els.fpError) {
+        els.fpError.textContent = "Network error. Please try again.";
+        els.fpError.style.color = "var(--error)";
+      }
+    }
   }
 
   /* =============================================================
-   *  11) INIT
+   *  12) INIT
    * ============================================================= */
   async function init(){
     try {
@@ -614,6 +876,47 @@
       setFieldError(els.signupPw2, el, "");
     });
 
+    // 2-step signup: Next button (Step 1 → Step 2)
+    on(els.signupNextBtn, "click", onSignupNext);
+
+    // 2-step signup: Back button (Step 2 → Step 1)
+    on(els.signupBackBtn, "click", () => {
+      showSignupStep1();
+      showError(els.signupErr, "");
+    });
+
+    // Recovery buttons in login form
+    on(els.findEmailBtn, "click", (e) => {
+      e.preventDefault();
+      showFindEmailForm();
+    });
+    on(els.findPasswordBtn, "click", (e) => {
+      e.preventDefault();
+      showFindPasswordForm();
+    });
+
+    // Back buttons in recovery forms
+    on(els.findEmailBackBtn, "click", (e) => {
+      e.preventDefault();
+      showLoginForm();
+    });
+    on(els.findPasswordBackBtn, "click", (e) => {
+      e.preventDefault();
+      showLoginForm();
+    });
+
+    // Find Email form submit
+    on(els.findEmailForm, "submit", onSubmitFindEmail);
+
+    // Find Password: Send Code button
+    on(els.sendCodeBtn, "click", onSendCode);
+
+    // Find Password form submit (reset password with code)
+    on(els.findPasswordForm, "submit", onSubmitResetPassword);
+
+    // Ensure signup starts at step 1
+    showSignupStep1();
+
     bindTabDelegation();
 
     // Debug helpers for console
@@ -623,7 +926,8 @@
         : fetch(toAPI("/auth/me"), { credentials:"include" })
       ).then(r => (r.json ? r.json() : r)); },
       async csrf(){ return csrf.ensure(true); },
-      gotoNext, activateTab
+      gotoNext, activateTab,
+      showLoginForm, showFindEmailForm, showFindPasswordForm
     };
 
     log("init done");
