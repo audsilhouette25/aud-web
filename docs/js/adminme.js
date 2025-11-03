@@ -10,7 +10,7 @@
 
   // me.js 상단 유틸로 추가
 
-  window.API_BASE    = "https://aud-api-dtd1.onrender.com/";
+  window.API_BASE    = "https://aud-api-cdvn.onrender.com/";
   window.STATIC_BASE = location.origin + "/";
   window.LB_REPAIR   = true;
 

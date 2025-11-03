@@ -11,7 +11,7 @@
   // me.js 상단 유틸로 추가
 
   // 실제 업로드 호스트로 반드시 바꿔주세요.
-  window.API_BASE = "https://aud-api-dtd1.onrender.com/"; // 예: https://cdn.myapp.com/
+  window.API_BASE = "https://aud-api-cdvn.onrender.com/"; // 예: https://cdn.myapp.com/
 
   window.__toAPI = function (u) {
     const s = String(u || "");
