@@ -750,7 +750,13 @@
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const msg = out.message || out.error || "Failed to send verification code.";
+        const code = String(out?.error || out?.code || "").toUpperCase();
+        let msg = out.message || out.error || "Failed to send verification code.";
+
+        if (code === "DUPLICATE_EMAIL" || code === "EMAIL_ALREADY_EXISTS") {
+          msg = "This email is already registered. Please sign in instead.";
+        }
+
         setFieldError(els.signupEmail, suEmailErr, msg);
         setBusy(els.signupNextBtn, false);
         return;
