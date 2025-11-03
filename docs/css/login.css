@@ -94,8 +94,8 @@ header.nav{
 
 /* 이메일/비밀번호 찾기 버튼 (Sign in 폼 하단) */
 .recovery-switch{
-  margin-top: 8px;
-  margin-bottom: 0;
+  margin-top: 4px;
+  margin-bottom: 8px;
 }
 
 /* 활성/비활성 — aria-selected 기준(권장) */
