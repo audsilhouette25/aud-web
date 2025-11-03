@@ -540,10 +540,14 @@
   function showSignupStep1(){
     if (els.signupStep1) els.signupStep1.hidden = false;
     if (els.signupStep2) els.signupStep2.hidden = true;
+    // Show tabs
+    if (els.tabContainer) els.tabContainer.hidden = false;
   }
   function showSignupStep2(){
     if (els.signupStep1) els.signupStep1.hidden = true;
     if (els.signupStep2) els.signupStep2.hidden = false;
+    // Hide tabs
+    if (els.tabContainer) els.tabContainer.hidden = true;
   }
 
   function showLoginForm(){
