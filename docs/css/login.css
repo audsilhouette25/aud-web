@@ -69,7 +69,7 @@ header.nav{
 .auth-card{
   width: min(385px, 92vw);
   margin: 0 auto;
-  padding: 24px;
+  padding: 18px;
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--card-shadow);
@@ -223,8 +223,8 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 /* 뒤로 가기 버튼 - 텍스트 전용 */
 .back-btn{
   position: absolute;
-  top: 24px;
-  left: 24px;
+  top: 18px;
+  left: 18px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
