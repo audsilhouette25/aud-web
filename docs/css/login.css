@@ -85,6 +85,7 @@ header.nav{
 
 /* 탭 전환 */
 .auth-switch{ display:flex; gap:8px; margin-bottom:16px; }
+.auth-switch[hidden]{ display:none !important; }
 .auth-tab{
   flex:1; padding:10px 12px; border-radius:9999px;
   border:1px solid rgba(0,0,0,.12); background:#fff;
