@@ -84,7 +84,7 @@ header.nav{
 }
 
 /* 탭 전환 */
-.auth-switch{ display:flex; gap:8px; margin-bottom:16px; }
+.auth-switch{ display:flex; gap:8px; margin-bottom:24px; }
 .auth-switch[hidden]{ display:none !important; }
 .auth-tab{
   flex:1; padding:10px 12px; border-radius:9999px;
@@ -96,7 +96,7 @@ header.nav{
 
 /* 이메일/비밀번호 찾기 버튼 (Sign in 폼 하단) */
 .recovery-switch{
-  margin-top: 4px;
+  margin-top: 12px;
   margin-bottom: 16px;
 }
 
