@@ -59,6 +59,7 @@ header.nav{
 #main.auth-card{
   /* 수평·수직 중앙 정렬 */
   place-self: center;
+  transform: translateY(-20px);
 }
 
 /* =====================================================================
@@ -94,7 +95,7 @@ header.nav{
 
 /* 이메일/비밀번호 찾기 버튼 (Sign in 폼 하단) */
 .recovery-switch{
-  margin-top: 0;
+  margin-top: 4px;
   margin-bottom: 16px;
 }
 
