@@ -95,7 +95,7 @@ header.nav{
 /* 이메일/비밀번호 찾기 버튼 (Sign in 폼 하단) */
 .recovery-switch{
   margin-top: 0px;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 /* 활성/비활성 — aria-selected 기준(권장) */
@@ -203,10 +203,10 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 
 /* 폼 하단 전역 에러 */
 .form-error{
-  min-height: 20px;
+  min-height: 0;
   color:var(--error);
   font-size:14px;
-  margin-top:12px;
+  margin-top:4px;
 }
 
 /* (선택) 공통 auth 네비 슬롯 */
