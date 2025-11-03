@@ -77,6 +77,7 @@
     signupStep2: $("#signup-step2"),
     signupNextBtn: $("#signup-next-btn"),
     signupBackBtn: $("#signup-back-btn"),
+    signupVerificationCode: $("#su-verification-code"),
     signupName: $("#su-name"),
     signupBirthdate: $("#su-birthdate"),
     signupStep1Error: $("#signup-step1-error"),
@@ -644,10 +645,15 @@
   async function onSubmitSignup(e){
     e.preventDefault();
 
-    // Step 2에서 제출: name과 birthdate 포함
+    // Step 2에서 제출: verification code, name, birthdate 포함
+    const verificationCode = (els.signupVerificationCode?.value || "").trim();
     const name = (els.signupName?.value || "").trim();
     const birthdate = (els.signupBirthdate?.value || "").trim();
 
+    if (!verificationCode) {
+      showError(els.signupErr, "Please enter the verification code.");
+      return;
+    }
     if (!name) {
       showError(els.signupErr, "Please enter your name.");
       return;
@@ -667,10 +673,11 @@
 
     setBusy(els.signupBtn, true, "Creating account…");
     try {
-      // POST /auth/signup with name and birthdate
+      // POST /auth/signup with verification code, name and birthdate
       const res = await postJSON("/auth/signup", {
         email,
         password: pw1,
+        verificationCode,
         name,
         birthdate
       });
@@ -678,7 +685,9 @@
 
       if (!res.ok || out?.ok === false) {
         const code = String(out?.error || out?.code || "").toUpperCase();
-        if (code === "DUPLICATE_EMAIL") {
+        if (code === "INVALID_VERIFICATION_CODE" || code === "VERIFICATION_CODE_EXPIRED") {
+          showError(els.signupErr, "Invalid or expired verification code. Please try again.");
+        } else if (code === "DUPLICATE_EMAIL") {
           showError(els.signupErr, "This email is already registered.");
           showSignupStep1(); // 다시 step1로
         } else if (code === "INVALID_EMAIL") {
@@ -715,7 +724,7 @@
   }
 
   // Signup Next 버튼 핸들러 (Step 1 → Step 2)
-  function onSignupNext(){
+  async function onSignupNext(){
     // 필드/공통 에러 초기화
     const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
     const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
@@ -734,8 +743,26 @@
       return;
     }
 
-    // 검증 통과 → Step 2로 전환
-    showSignupStep2();
+    // 검증 통과 → verification code 전송
+    setBusy(els.signupNextBtn, true, "Sending code…");
+    try {
+      const res = await postJSON("/auth/send-verification", { email: v.email });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = out.message || out.error || "Failed to send verification code.";
+        setFieldError(els.signupEmail, suEmailErr, msg);
+        setBusy(els.signupNextBtn, false);
+        return;
+      }
+
+      // 성공 → Step 2로 전환
+      setBusy(els.signupNextBtn, false);
+      showSignupStep2();
+    } catch (e) {
+      setFieldError(els.signupEmail, suEmailErr, "Network error. Please try again.");
+      setBusy(els.signupNextBtn, false);
+    }
   }
 
   // Find Email 제출

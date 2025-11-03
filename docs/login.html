@@ -137,6 +137,13 @@
           Back
         </button>
 
+        <label for="su-verification-code">verification code</label>
+        <input id="su-verification-code" type="text" name="verificationCode" required
+              class="input-lg"
+              placeholder="Enter the code sent to your email"
+              aria-invalid="false" aria-describedby="su-err-verification"/>
+        <p id="su-err-verification" class="field-error" aria-live="polite"></p>
+
         <label for="su-name">name</label>
         <input id="su-name" type="text" name="name" required
               autocomplete="name" class="input-lg"
