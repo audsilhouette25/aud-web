@@ -246,41 +246,57 @@ input[type="date"].input-lg:focus::before{
   font-size:13px;
 }
 
-/* 모든 폼 하단 간격 통일: 마지막 요소~카드 하단 = 32px
-   = 24px(카드 padding) + 8px(추가 여백)
-   따라서 메시지 padding-bottom = 8px */
-#signup-step1-error,
-#signup-error,
+/* Sign up Step 1: Next 버튼 하단~카드 하단 = 32px
+   에러 메시지를 사용하지 않으므로 공간 차지 안함 */
+#signup-step1-error{
+  display: none;
+}
+#signup-step1 .btn-primary{
+  margin-bottom: 8px; /* 버튼~카드 하단 = 8px + 24px(카드 padding) = 32px */
+}
+
+/* Sign up Step 2: 에러 메시지 하단~카드 하단 = 32px */
+#signup-error{
+  padding-bottom: 8px;
+}
+
+/* Find 폼: form-error만 padding-bottom 설정 (success는 겹침) */
 #find-email-form .form-error,
+#find-password-form .form-error{
+  padding-bottom: 8px;
+}
 #find-email-form .form-success,
-#find-password-form .form-error,
 #find-password-form .form-success{
   padding-bottom: 8px;
 }
 
 /* Find 폼: 에러/성공 메시지를 같은 위치에 겹쳐서 배치
-   공간은 유지하되, 내용이 없을 때는 보이지 않게 */
+   form-error는 공간 차지, form-success는 그 위에 absolute로 겹침 */
+
+/* form-error: 항상 공간 차지 (비어있어도 min-height 유지) */
 #find-email-form .form-error,
-#find-email-form .form-success,
-#find-password-form .form-error,
-#find-password-form .form-success{
-  position: absolute;
-  width: 100%;
+#find-password-form .form-error{
+  position: relative;
+  min-height: 16px;
   visibility: hidden;
 }
 #find-email-form .form-error:not(:empty),
-#find-email-form .form-success:not(:empty),
-#find-password-form .form-error:not(:empty),
-#find-password-form .form-success:not(:empty){
+#find-password-form .form-error:not(:empty){
   visibility: visible;
 }
 
-/* Find 폼: 메시지를 위한 공간 확보
-   카드 하단까지 총 32px = 카드 padding 24px + 폼 padding-bottom 8px
-   메시지 공간은 absolute로 배치되므로 별도 계산 불필요 */
-#find-email-form,
-#find-password-form{
-  padding-bottom: 8px;
+/* form-success: form-error 위에 absolute로 겹침 */
+#find-email-form .form-success,
+#find-password-form .form-success{
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  visibility: hidden;
+}
+#find-email-form .form-success:not(:empty),
+#find-password-form .form-success:not(:empty){
+  visibility: visible;
 }
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */
