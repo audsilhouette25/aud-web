@@ -188,10 +188,10 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 }
 
 /* 제출 버튼 */
-.auth-card form .btn-primary{ margin-top: 20px; }
+.auth-card form .btn-primary{ margin-top: 16px; }
 .btn-primary{
   width:100%;
-  padding:12px 16px;
+  padding:10px 16px;
   border-radius:9999px;
   font-weight:700;
   background:#111; color:#fff; border:none; cursor:pointer;
@@ -203,10 +203,10 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 
 /* 폼 하단 전역 에러 */
 .form-error{
-  min-height: 10px;
+  min-height: 20px;
   color:var(--error);
   font-size:14px;
-  margin-top:8px;
+  margin-top:12px;
 }
 
 /* (선택) 공통 auth 네비 슬롯 */
