@@ -3,6 +3,7 @@
 (function initAppConfig(){
   const DEFAULT_LABELS = ["thump","miro","whee","track","echo","portal"];
   const DEFAULT_JIBBITZ = ["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"];
+  const DEFAULT_ADMIN_EMAILS = ["audsilhouette25@gmail.com"];
 
   // why: 오타/빈 배열 방지
   function sanitizeStringArray(arr, fallback){
@@ -21,7 +22,8 @@
     const pre = (w.APP_CONFIG && typeof w.APP_CONFIG === "object") ? w.APP_CONFIG : {};
     const labels  = sanitizeStringArray(pre.LABELS,  DEFAULT_LABELS);
     const jibbitz = sanitizeStringArray(pre.JIBBITZ, DEFAULT_JIBBITZ);
-    return { LABELS: labels, JIBBITZ: jibbitz };
+    const adminEmails = sanitizeStringArray(pre.ADMIN_EMAILS, DEFAULT_ADMIN_EMAILS);
+    return { LABELS: labels, JIBBITZ: jibbitz, ADMIN_EMAILS: adminEmails };
   })();
 
   // 전역 노출(SSOT)
@@ -37,5 +39,6 @@
   try {
     window.ALL_LABELS = cfg.LABELS;
     window.ALL_JIBS   = cfg.JIBBITZ;
+    window.ADMIN_EMAILS = cfg.ADMIN_EMAILS;
   } catch {}
 })();

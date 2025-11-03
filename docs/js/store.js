@@ -27,7 +27,7 @@ const AUTO_MIGRATE_GUEST_TO_USER = false;
 
 const SESSION_USER_NS_KEY = "auth:userns:session";
 
-const ADMIN_ALWAYS_OPEN_EMAIL = "audsilhouette@gmail.com";
+const ADMIN_ALWAYS_OPEN_EMAIL = (typeof window !== 'undefined' && Array.isArray(window.ADMIN_EMAILS) && window.ADMIN_EMAILS[0]) || "";
 
 /* ── auth 세션 플래그: 탭 생존 동안 유지 ───────────────────*/
 const AUTH_FLAG_KEY = "auth:flag";

@@ -278,7 +278,7 @@
       // NEW: email allow-list (frontend fallback)
       const email = String(u.email || '').trim().toLowerCase();
       // prefer a runtime-provided list; fallback keeps your current known admin
-      const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : ['audsilhouette@gmail.com'])
+      const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [])
                             .map(s => String(s).trim().toLowerCase());
 
       return (u.isAdmin === true)

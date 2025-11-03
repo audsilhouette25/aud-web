@@ -15,7 +15,7 @@
   window.LB_REPAIR   = true;
 
   // [ADD] admin allowlist
-  const ADMIN_EMAILS = ["audsilhouette@gmail.com"];
+  const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : []);
 
   function _ensureSlash(u){ return u.endsWith("/") ? u : (u + "/"); }
   window.API_BASE    = _ensureSlash(window.API_BASE);
