@@ -171,8 +171,9 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 /* 필드 에러 */
 .field-error{
   display:block;
-  min-height:14px;     /* 살짝 낮춰 라인 조밀감 균일화 */
-  margin:6px 0 0;      /* 인풋→에러 사이 6px(위쪽만) */
+  min-height:16px;
+  margin:6px 0 0;
+  padding-bottom:4px;
   color:var(--error);
   font-size:13px;
   visibility:hidden;
@@ -206,20 +207,19 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 /* 폼 하단 전역 에러 */
 .form-error{
   min-height: 16px;
-  color:var(--error);
-  font-size:13px;
   margin-top:0;
   padding-bottom:4px;
+  color:var(--error);
+  font-size:13px;
 }
 
 /* 성공 메시지 */
 .form-success{
   min-height: 16px;
-  color: #16a34a;
-  font-size:13px;
   margin-top:0;
   padding-bottom:4px;
-  font-weight: 600;
+  color: #16a34a;
+  font-size:13px;
 }
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */
