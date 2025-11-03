@@ -92,6 +92,12 @@ header.nav{
 }
 .auth-tab:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(0,0,0,.12); }
 
+/* 이메일/비밀번호 찾기 버튼 (Sign in 폼 하단) */
+.recovery-switch{
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
 /* 활성/비활성 — aria-selected 기준(권장) */
 .auth-switch .auth-tab[aria-selected="true"]{
   background:#111; color:#fff; border-color:#111;
