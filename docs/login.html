@@ -145,11 +145,10 @@
         <p id="su-err-name" class="field-error" aria-live="polite"></p>
 
         <label for="su-birthdate">birthdate</label>
-        <input id="su-birthdate" type="date" name="birthdate" required
+        <input id="su-birthdate" type="text" name="birthdate" required
               class="input-lg"
-              data-placeholder="This cannot be changed later"
-              aria-invalid="false" aria-describedby="su-err-birthdate"
-              onfocus="this.showPicker()"/>
+              placeholder="This cannot be changed later"
+              aria-invalid="false" aria-describedby="su-err-birthdate"/>
         <p id="su-err-birthdate" class="field-error" aria-live="polite"></p>
 
         <button class="btn-primary" type="submit">Sign up</button>
@@ -172,8 +171,9 @@
       <p id="fe-err-name" class="field-error" aria-live="polite"></p>
 
       <label for="fe-birthdate">birthdate</label>
-      <input id="fe-birthdate" type="date" name="birthdate" required
+      <input id="fe-birthdate" type="text" name="birthdate" required
             class="input-lg"
+            placeholder="MM/DD/YYYY"
             aria-invalid="false" aria-describedby="fe-err-birthdate"/>
       <p id="fe-err-birthdate" class="field-error" aria-live="polite"></p>
 

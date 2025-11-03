@@ -168,32 +168,6 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   box-shadow:0 0 0 3px rgba(0,0,0,.08);
 }
 
-/* Date input 스타일 */
-input[type="date"].input-lg::-webkit-calendar-picker-indicator{
-  cursor: pointer;
-}
-
-/* 값이 없을 때 기본 placeholder(mm/dd/yyyy) 숨기고 경고 문구 표시 */
-input[type="date"].input-lg:invalid{
-  color: transparent;
-}
-input[type="date"].input-lg:invalid::before{
-  content: attr(data-placeholder);
-  color: #aaa;
-  font-size: 16px;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  position: absolute;
-}
-
-/* 값이 있거나 포커스 시 정상 표시 */
-input[type="date"].input-lg:valid,
-input[type="date"].input-lg:focus{
-  color: inherit;
-}
-input[type="date"].input-lg:valid::before,
-input[type="date"].input-lg:focus::before{
-  content: none;
-}
 
 /* 필드 에러 */
 .field-error{

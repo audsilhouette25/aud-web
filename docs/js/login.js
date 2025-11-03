@@ -33,9 +33,20 @@
   const on = (el, ev, fn, opt) => el && el.addEventListener(ev, fn, opt);
 
   const EMAIL_RX       = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const DATE_RX        = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/; // MM/DD/YYYY
   const AUTH_FLAG_KEY  = "auth:flag";     // tab-scoped auth flag
   const NAV_MARK_KEY   = "auth:navigate"; // internal navigation mark
   const MINE_PATH = (window.pageHref ? pageHref("mine.html") : "./mine.html");    // default landing
+
+  // Validate date string in MM/DD/YYYY format
+  function isValidDate(str) {
+    if (!DATE_RX.test(str)) return false;
+    const [month, day, year] = str.split('/').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year &&
+           date.getMonth() === month - 1 &&
+           date.getDate() === day;
+  }
 
   const FORCE_LOGIN =
     new URL(location.href).searchParams.get("force") === "1" ||
@@ -645,6 +656,10 @@
       showError(els.signupErr, "Please enter your birthdate.");
       return;
     }
+    if (!isValidDate(birthdate)) {
+      showError(els.signupErr, "Please enter a valid date in MM/DD/YYYY format.");
+      return;
+    }
 
     // 이미 step 1에서 검증된 email/password 가져오기
     const email = (els.signupEmail?.value || "").trim();
@@ -732,6 +747,13 @@
     if (!name || !birthdate) {
       if (els.findEmailResult) {
         els.findEmailResult.textContent = "Please fill in all fields.";
+        els.findEmailResult.style.color = "var(--error)";
+      }
+      return;
+    }
+    if (!isValidDate(birthdate)) {
+      if (els.findEmailResult) {
+        els.findEmailResult.textContent = "Please enter a valid date in MM/DD/YYYY format.";
         els.findEmailResult.style.color = "var(--error)";
       }
       return;
