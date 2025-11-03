@@ -5,7 +5,7 @@
   /* =============================================================
    *  0) CONFIG & LIGHTWEIGHT SHIMS
    * ============================================================= */
-  const DEBUG = true;
+  const DEBUG = false;
   const log = (...a) => DEBUG && console.log("[login]", ...a);
 
   // Ensure a non-breaking auth namespace without overriding a real one
@@ -43,6 +43,7 @@
 
   // DOM cache (ids are optional; delegation handles the rest)
   const els = {
+    tabContainer: $(".auth-switch[role='tablist']"),
     tabLogin:    $("#tab-login") || $('[data-tab="login"]'),
     tabSignup:   $("#tab-signup")|| $('[data-tab="signup"]'),
     panelLogin:  $("#login")     || $("#panel-login")  || $('[data-panel="login"]'),
@@ -550,6 +551,9 @@
     if (els.findEmailForm) els.findEmailForm.hidden = true;
     if (els.findPasswordForm) els.findPasswordForm.hidden = true;
 
+    // Show tabs
+    if (els.tabContainer) els.tabContainer.hidden = false;
+
     // Show login/signup tabs and panels
     if (els.panelLogin) els.panelLogin.hidden = false;
     if (els.panelSignup) els.panelSignup.hidden = true;
@@ -559,6 +563,9 @@
   }
 
   function showFindEmailForm(){
+    // Hide tabs
+    if (els.tabContainer) els.tabContainer.hidden = true;
+
     // Hide login/signup panels
     if (els.panelLogin) els.panelLogin.hidden = true;
     if (els.panelSignup) els.panelSignup.hidden = true;
@@ -572,6 +579,9 @@
   }
 
   function showFindPasswordForm(){
+    // Hide tabs
+    if (els.tabContainer) els.tabContainer.hidden = true;
+
     // Hide login/signup panels
     if (els.panelLogin) els.panelLogin.hidden = true;
     if (els.panelSignup) els.panelSignup.hidden = true;
@@ -886,16 +896,12 @@
     });
 
     // Recovery buttons in login form
-    log("findEmailBtn:", els.findEmailBtn);
-    log("findPasswordBtn:", els.findPasswordBtn);
     on(els.findEmailBtn, "click", (e) => {
       e.preventDefault();
-      log("Find Email button clicked");
       showFindEmailForm();
     });
     on(els.findPasswordBtn, "click", (e) => {
       e.preventDefault();
-      log("Find Password button clicked");
       showFindPasswordForm();
     });
 
