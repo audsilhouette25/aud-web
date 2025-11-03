@@ -190,7 +190,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 }
 
 /* 제출 버튼 */
-.auth-card form .btn-primary{ margin-top: 16px; }
+.auth-card form .btn-primary{ margin-top: 12px; }
 .btn-primary{
   width:100%;
   padding:10px 16px;
