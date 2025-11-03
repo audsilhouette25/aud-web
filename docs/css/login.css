@@ -219,28 +219,32 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   font-weight: 600;
 }
 
-/* 뒤로 가기 버튼 */
+/* 뒤로 가기 버튼 - 텍스트 전용 */
 .back-btn{
   position: absolute;
   top: 24px;
   left: 24px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px;
+  gap: 4px;
+  padding: 0;
   border: none;
   background: none;
   color: #666;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: color .2s;
 }
-.back-btn:hover{ color: #111; }
-.back-btn:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0,0,0,.14);
-  border-radius: 999px;
+.back-btn:hover{
+  color: #111;
+  text-decoration: underline;
 }
-.back-btn svg{ width: 20px; height: 20px; }
+.back-btn:focus-visible{
+  outline: 2px solid #666;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 /* (선택) 공통 auth 네비 슬롯 */
 .auth-slot{ display:flex; gap:10px; align-items:center; }
