@@ -394,8 +394,12 @@
     if (!emailNs) return; // 방어
 
     // Store JWT token if provided
+    console.log("[DEBUG] Login response:", user);
     if (user?.token) {
+      console.log("[DEBUG] Storing JWT token:", user.token.substring(0, 20) + "...");
       try { localStorage.setItem("auth:token", user.token); } catch {}
+    } else {
+      console.warn("[DEBUG] No JWT token in response!");
     }
 
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
