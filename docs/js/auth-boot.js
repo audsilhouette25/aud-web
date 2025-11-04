@@ -780,6 +780,16 @@
 
   // 닫힘-로그아웃 intent 보정 루프 (boot 직후 실행)
   (async function finishPendingLogout(){
+    // Skip auto-logout if JWT token exists (JWT-based auth doesn't need this)
+    try {
+      const hasJWT = !!localStorage.getItem("auth:token");
+      if (hasJWT) {
+        console.log("[auth-boot] JWT token found, skipping auto-logout logic");
+        try { localStorage.removeItem("auth:logout-intent"); } catch {}
+        return;
+      }
+    } catch {}
+
     let intent = null;
     try { intent = JSON.parse(localStorage.getItem("auth:logout-intent") || "null"); } catch {}
     if (!intent) return;
