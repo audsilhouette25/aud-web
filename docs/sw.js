@@ -1,5 +1,5 @@
 // Service Worker for AUD PWA
-const CACHE_NAME = 'aud-v1';
+const CACHE_NAME = 'aud-v2';
 const urlsToCache = [
   './',
   './index.html',
@@ -49,6 +49,13 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Skip caching for API requests (different origin)
+  if (url.origin !== location.origin) {
+    return event.respondWith(fetch(event.request));
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
