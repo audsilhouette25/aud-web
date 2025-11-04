@@ -443,11 +443,16 @@
    * ============================================================= */
   async function doLogin(email, password){
     log("doLogin via", window.auth?.login ? "window.auth" : "fallback");
+    console.log("[LOGIN DEBUG] Starting login for:", email);
+    console.log("[LOGIN DEBUG] Using method:", window.auth?.login ? "window.auth" : "fallback");
     try {
       if (window.auth?.login) {
+        console.log("[LOGIN DEBUG] Calling window.auth.login...");
         const r = await window.auth.login(email, password); // { ok, error|code? }
+        console.log("[LOGIN DEBUG] window.auth.login response:", r);
         if (!r || r.ok !== true) {
           const t = translateError(r?.error || r?.code || r?.message);
+          console.log("[LOGIN DEBUG] Login failed via window.auth:", r?.error || r?.code);
           return { ok:false, msg:t.msg, field:t.field, code:r?.error || r?.code };
         }
 
@@ -475,15 +480,21 @@
       }
 
       // Fallback: POST /auth/login
+      console.log("[LOGIN DEBUG] Using fallback POST /auth/login");
       const r = await postJSON("/auth/login", { email, password });
+      console.log("[LOGIN DEBUG] Response status:", r.status, r.statusText);
       const out = await r.json().catch(() => ({}));
+      console.log("[LOGIN DEBUG] Response body:", out);
       if (!r.ok || out?.ok === false) {
         const t = translateError(out?.error || out?.code);
+        console.log("[LOGIN DEBUG] Login failed:", out?.error || out?.code);
         return { ok:false, msg:t.msg, field:t.field, code:out?.error || out?.code };
       }
-      onLoginSuccess({ id: out.id, email });
+      console.log("[LOGIN DEBUG] Login successful, calling onLoginSuccess");
+      onLoginSuccess({ id: out.id, email, token: out.token });
       return { ok:true };
     } catch (e) {
+      console.error("[LOGIN DEBUG] Exception caught:", e);
       const t = translateError(e?.code || e?.message);
       return { ok:false, msg:t.msg, field:t.field };
     }
