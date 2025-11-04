@@ -1,18 +1,18 @@
 // Service Worker for AUD PWA
 const CACHE_NAME = 'aud-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/home.html',
-  '/login.html',
-  '/css/home.css',
-  '/css/login.css',
-  '/js/config.js',
-  '/js/auth-boot.js',
-  '/js/store.js',
-  '/js/login.js',
-  '/icons/icon.svg',
-  '/manifest.json'
+  './',
+  './index.html',
+  './home.html',
+  './login.html',
+  './css/home.css',
+  './css/login.css',
+  './js/config.js',
+  './js/auth-boot.js',
+  './js/store.js',
+  './js/login.js',
+  './icons/icon.svg',
+  './manifest.json'
 ];
 
 // Install event - cache resources
@@ -77,7 +77,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         }).catch(() => {
           // Return offline fallback if available
-          return caches.match('/index.html');
+          return caches.match('./index.html');
         });
       })
   );
