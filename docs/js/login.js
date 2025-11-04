@@ -127,7 +127,6 @@
   const clearAuthedFlag = () => {
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
     try { localStorage.removeItem(AUTH_FLAG_KEY);  } catch {}
-    try { localStorage.removeItem("auth:token");  } catch {} // Remove JWT token
   };
 
   function markNavigate(){
@@ -392,15 +391,6 @@
   function onLoginSuccess(user){
     const emailNs = String(user?.email || "").trim().toLowerCase();
     if (!emailNs) return; // 방어
-
-    // Store JWT token if provided
-    console.log("[DEBUG] Login response:", user);
-    if (user?.token) {
-      console.log("[DEBUG] Storing JWT token:", user.token.substring(0, 20) + "...");
-      try { localStorage.setItem("auth:token", user.token); } catch {}
-    } else {
-      console.warn("[DEBUG] No JWT token in response!");
-    }
 
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
     try { window.setSessionUserNS?.(emailNs); } catch {}

@@ -18,15 +18,6 @@
     try {
       const H = new Headers(headersLike || {});
 
-      // Add JWT token to Authorization header if available
-      const token = localStorage.getItem("auth:token");
-      if (token && !H.has("Authorization")) {
-        console.log("[DEBUG] Adding JWT to request:", token.substring(0, 20) + "...");
-        H.set("Authorization", `Bearer ${token}`);
-      } else if (!token) {
-        console.log("[DEBUG] No JWT token found in localStorage");
-      }
-
       const v = H.get("csrf-token");
       if (v != null) {
         if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) {
