@@ -17,6 +17,13 @@
   function promote(headersLike) {
     try {
       const H = new Headers(headersLike || {});
+
+      // Add JWT token to Authorization header if available
+      const token = localStorage.getItem("auth:token");
+      if (token && !H.has("Authorization")) {
+        H.set("Authorization", `Bearer ${token}`);
+      }
+
       const v = H.get("csrf-token");
       if (v != null) {
         if (!H.has("X-CSRF-Token") && !H.has("x-csrf-token")) {

@@ -127,6 +127,7 @@
   const clearAuthedFlag = () => {
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
     try { localStorage.removeItem(AUTH_FLAG_KEY);  } catch {}
+    try { localStorage.removeItem("auth:token");  } catch {} // Remove JWT token
   };
 
   function markNavigate(){
@@ -391,6 +392,12 @@
   function onLoginSuccess(user){
     const emailNs = String(user?.email || "").trim().toLowerCase();
     if (!emailNs) return; // 방어
+
+    // Store JWT token if provided
+    if (user?.token) {
+      try { localStorage.setItem("auth:token", user.token); } catch {}
+    }
+
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
     try { window.setSessionUserNS?.(emailNs); } catch {}
     setAuthedFlag();
