@@ -19,8 +19,8 @@
   const TAB_CLOSE_GRACE_MS = 0;
   const LOGOUT_ON_TAB_CLOSE = "always";
 
-  // ★ 추가: 툴바 새로고침/내비 보호용 짧은 유예
-  const GRACE_NAV_BOOT_MS = 200;
+  // ★ 추가: 툴바 새로고침/내비 보호용 짧은 유예 (모바일 고려하여 500ms)
+  const GRACE_NAV_BOOT_MS = 500;
 
   const setAuthedFlag = () => {
     try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
@@ -636,6 +636,16 @@
 
     const j = await r.json().catch(() => ({}));
     if (j?.ok) {
+      // ✅ JWT 토큰 저장 (stateless auth)
+      if (j?.token) {
+        try {
+          localStorage.setItem("auth:token", j.token);
+          console.log("[auth-boot] JWT token saved");
+        } catch (e) {
+          console.error("[auth-boot] Failed to store JWT token:", e);
+        }
+      }
+
       // 세션/상태 갱신
       state.csrf = null;
       setAuthedFlag();
@@ -785,6 +795,15 @@
       const hasJWT = !!localStorage.getItem("auth:token");
       if (hasJWT) {
         console.log("[auth-boot] JWT token found, skipping auto-logout logic");
+        try { localStorage.removeItem("auth:logout-intent"); } catch {}
+        return;
+      }
+    } catch {}
+
+    // Skip auto-logout if auth flag is present (session-based auth)
+    try {
+      if (sessionStorage.getItem(AUTH_FLAG_KEY) === "1" || localStorage.getItem(AUTH_FLAG_KEY) === "1") {
+        console.log("[auth-boot] Auth flag present, skipping auto-logout logic");
         try { localStorage.removeItem("auth:logout-intent"); } catch {}
         return;
       }
