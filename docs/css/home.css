@@ -175,8 +175,8 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 
 /* ⬇️ 윈도우의 80% */
 .about-inner{
-  width:95vw;    
-  max-width:1600px;             
+  width:90vw;
+  max-width:1600px;
   margin:0 auto;
   padding:0 25px 0 25px;
   color:#333;
@@ -195,8 +195,8 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 
 /* ⬇️ 윈도우의 80% */
 .footer-inner{
-  width:95vw;     
-  max-width:1600px;            
+  width:90vw;
+  max-width:1600px;
   margin:0 auto;
   padding:0 25px 0 25px;
   display:grid; grid-template-columns:1fr 1fr; align-items:center;
