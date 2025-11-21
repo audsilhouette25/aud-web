@@ -36,6 +36,13 @@ header.nav {
   border-bottom: none;
 }
 
+/* PWA standalone 모드에서는 단색 배경 */
+@media (display-mode: standalone) {
+  header.nav {
+    background: #E0DFE1;
+  }
+}
+
 .nav-inner {
   display: flex;
   align-items: center;
