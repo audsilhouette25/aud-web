@@ -505,6 +505,7 @@ header.nav {
   row-gap: 0;                  /* was 5px */
   column-gap: 0;
   justify-items: start;
+  margin-top: 40px;
 }
 
 /* 숫자(KPI) 바로 아래 리스트는 촘촘하게 */
