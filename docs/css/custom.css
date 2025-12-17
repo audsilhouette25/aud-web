@@ -96,7 +96,7 @@ header.nav {
   transform: translate(-50%, -50%);
   font-size: 12px;
   font-weight: 600;
-  color: #1a2a5e;
+  color: #fff;
   opacity: 0;
   transition: opacity .2s ease;
   pointer-events: none;
