@@ -2028,12 +2028,17 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       e.preventDefault(); e.stopPropagation();
       try { btn.disabled = true; btn.setAttribute("aria-busy", "true"); } catch {}
       try {
-        // ✅ 순수 로그아웃만 수행
-        await __safeBeaconLogout();
-        try { window.auth?.markNavigate?.(); } catch {}
-        const loginURL = new URL("./login.html", document.baseURI);
-        loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
-        location.assign(loginURL.href);
+        // ✅ auth-boot.js의 logout 사용 (state.authed = false 설정 + beacon 전송)
+        if (typeof window.auth?.logout === "function") {
+          await window.auth.logout();
+        } else {
+          // fallback
+          await __safeBeaconLogout();
+          try { window.auth?.markNavigate?.(); } catch {}
+          const loginURL = new URL("./login.html", document.baseURI);
+          loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
+          location.assign(loginURL.href);
+        }
       } finally {
         try { btn.disabled = false; btn.removeAttribute("aria-busy"); } catch {}
       }
