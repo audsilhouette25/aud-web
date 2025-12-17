@@ -618,7 +618,7 @@
 
     // Reset result box to default state
     if (els.findEmailValue) {
-      els.findEmailValue.textContent = "-";
+      els.findEmailValue.textContent = "";
       els.findEmailValue.classList.remove("is-error");
     }
     if (els.findEmailResult) els.findEmailResult.classList.remove("is-error");
@@ -812,7 +812,7 @@
 
     // 초기화: 박스를 기본 상태로
     if (els.findEmailValue) {
-      els.findEmailValue.textContent = "-";
+      els.findEmailValue.textContent = "";
       els.findEmailValue.classList.remove("is-error");
     }
     if (els.findEmailResult) els.findEmailResult.classList.remove("is-error");
