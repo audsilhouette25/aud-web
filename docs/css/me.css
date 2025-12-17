@@ -663,7 +663,7 @@ progress#m-rate-bar::-webkit-progress-value{
 /* ===== Footer (compact) ===== */
 .mine-footer{
   margin-top: 24px;
-  padding: 24px 0 64px;
+  padding: 28px 0 64px;
   border-top: 1px solid rgba(0,0,0,.06);
   background: transparent;
 }

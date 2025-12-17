@@ -672,7 +672,7 @@ header.nav {
 /* ===== Footer (compact) ===== */
 .admin-footer{
   margin-top: 24px;
-  padding: 24px 0 64px;
+  padding: 28px 0 64px;
   border-top: 1px solid rgba(0,0,0,.06);
   background: transparent;
 }
