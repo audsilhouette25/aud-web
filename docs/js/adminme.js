@@ -2418,22 +2418,7 @@
   }
 
   function drawMask() {
-    const { ctx, size } = AV;
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.fillRect(0, 0, size, size);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    const r = size * 0.48;
-    ctx.arc(size / 2, size / 2, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.beginPath();
-    ctx.strokeStyle = "rgba(255,255,255,.9)";
-    ctx.lineWidth = 2;
-    ctx.arc(size / 2, size / 2, size * 0.48, 0, Math.PI * 2);
-    ctx.stroke();
+    /* 마스크 제거 - CSS border-radius: 50%로 원형 크롭 표시 */
   }
 
   function drawCrop() {
