@@ -745,8 +745,7 @@
       setBusy(els.signupBtn, false);
 
       if (!loginRes.ok) {
-        // 로그인 실패 시 로그인 화면으로 안내
-        setFieldError(els.loginEmail, els.errEmail, "Account created! Please sign in.");
+        // 로그인 실패 시 로그인 화면으로 이동
         showLoginForm();
         showSignupStep1();
         return;
@@ -957,13 +956,8 @@
         return;
       }
 
-      // 성공: 로그인 화면으로 이동하며 성공 메시지 표시
+      // 성공: 로그인 화면으로 이동
       showLoginForm();
-      if (els.errEmail) {
-        els.errEmail.textContent = "Password reset successful! Please sign in.";
-        els.errEmail.classList.add("is-on");
-        els.errEmail.style.color = "#16a34a";
-      }
     } catch {
       if (els.fpErrCode) {
         els.fpErrCode.textContent = "Network error. Please try again.";
