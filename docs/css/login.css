@@ -171,7 +171,7 @@ header.nav {
 form label{
   display:block;
   font-size:14px; font-weight:600; color:#333;
-  margin: 14px 0 6px;   /* 위=필드 사이 간격, 아래=라벨→인풋 간격 */
+  margin: 20px 0 6px;   /* 위=필드 사이 간격, 아래=라벨→인풋 간격 */
 }
 form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 .input-lg{
@@ -241,7 +241,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 }
 
 /* 제출 버튼 */
-.auth-card form .btn-primary{ margin-top: 16px; }
+.auth-card form .btn-primary{ margin-top: 28px; }
 .btn-primary{
   width:100%;
   padding:10px 16px;
