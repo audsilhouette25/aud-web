@@ -814,6 +814,9 @@ header.nav {
   .quick{
     grid-template-columns: 1fr;               /* 스택 */
   }
+  .quick .panel:first-child .grid-2{
+    margin-top: 0;
+  }
 }
 
 /* ===== admin aud-lab modal (full-page overlay) ===== */
