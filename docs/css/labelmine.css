@@ -66,7 +66,7 @@ header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background
 .menu a.active{ font-weight:600; color:#000; }
 .logo-cta { position: relative; }
 .logo-cta img{ width:27px; height:27px; object-fit:contain; }
-.logo-cta::after{ content:"MY"; position:absolute; top:50%; right:calc(100% + 8px); transform:translateY(-50%); font-size:12px; font-weight:600; color:#1a2a5e; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
+.logo-cta::after{ content:"MY"; position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#1a2a5e; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
 .logo-cta:hover::after{ opacity:1; }
 
 /* =====================================================================

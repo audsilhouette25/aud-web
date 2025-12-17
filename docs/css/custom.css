@@ -91,9 +91,9 @@ header.nav {
 .logo-cta::after {
   content: "MY";
   position: absolute;
-  top: 50%;
-  right: calc(100% + 8px);
-  transform: translateY(-50%);
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 12px;
   font-weight: 600;
   color: #1a2a5e;
