@@ -2008,8 +2008,11 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     try { window.__flushStoreSnapshot?.({ server:true }); } catch {}
     try {
       const blob = new Blob([JSON.stringify({})], { type: "application/json" });
-      (navigator.sendBeacon && navigator.sendBeacon("/auth/logout-beacon", blob)) ||
-        await fetch("/auth/logout-beacon", { method: "POST", keepalive: true, credentials: "include" });
+      const target = (window.API_ORIGIN || window.PROD_BACKEND || window.API_BASE)
+        ? new URL("/auth/logout-beacon", window.API_ORIGIN || window.PROD_BACKEND || window.API_BASE).toString()
+        : "/auth/logout-beacon";
+      (navigator.sendBeacon && navigator.sendBeacon(target, blob)) ||
+        await fetch(target, { method: "POST", keepalive: true, credentials: "include" });
     } catch {}
     try { sessionStorage.removeItem("auth:flag"); } catch {}
     try { localStorage.removeItem("auth:flag"); localStorage.removeItem("auth:userns"); } catch {}
