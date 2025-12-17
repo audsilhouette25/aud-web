@@ -274,7 +274,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   font-size: 12px;
   font-weight: 500;
   color: #888;
-  margin-bottom: 0;
+  margin-bottom: 6px;
 }
 .result-box .result-value{
   display: block;
@@ -282,7 +282,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   font-weight: 600;
   color: #111;
   min-height: 1.2em;
-  margin-top: 12px;
+  margin-top: 6px;
 }
 .result-box .result-value.is-error{
   color: var(--error);
