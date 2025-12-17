@@ -18,17 +18,6 @@
     catch { return rel; }
   };
 
-  // 어드민 여부 확인
-  function isAdminFrontend() {
-    try {
-      if (sessionStorage.getItem('auth:isAdmin') === '1') return true;
-      const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [])
-        .map(s => String(s).trim().toLowerCase());
-      const ns = (localStorage.getItem('auth:userns') || '').trim().toLowerCase();
-      return ns && ADMIN_EMAILS.includes(ns);
-    } catch { return false; }
-  }
-
   // 로고 클릭 시 이동할 경로 계산
   function computeLogoDest() {
     const mine = absURL("mine.html");
@@ -40,7 +29,7 @@
     const authed = !!(authApi || lsFlag);
 
     if (authed) {
-      return isAdminFrontend() ? absURL("adminme.html") : mine;
+      return mine; // admin이든 일반 유저든 항상 mine.html로 이동
     }
 
     const u = new URL(login);
