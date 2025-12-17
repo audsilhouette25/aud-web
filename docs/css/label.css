@@ -68,7 +68,7 @@ header.nav {
   display:block;
   object-fit:contain;
 }
-.logo-cta::after{ content:"MY"; position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#1a2a5e; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
+.logo-cta::after{ content:"MY"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:12px; font-weight:600; color:#1a2a5e; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
 .logo-cta:hover::after{ opacity:1; }
 
 /* =====================================================================
