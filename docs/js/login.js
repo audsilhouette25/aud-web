@@ -95,7 +95,6 @@
     feBirthdate: $("#fe-birthdate"),
     findEmailResult: $("#find-email-result"),
     findEmailValue: $("#find-email-value"),
-    findEmailError: $("#find-email-error"),
 
     // Find password fields
     fpEmail: $("#fp-email"),
@@ -618,9 +617,12 @@
     if (els.findEmailForm) els.findEmailForm.hidden = false;
     if (els.findPasswordForm) els.findPasswordForm.hidden = true;
 
-    // Clear previous results
-    if (els.findEmailResult) els.findEmailResult.hidden = true;
-    if (els.findEmailError) els.findEmailError.textContent = "";
+    // Reset result box to default state
+    if (els.findEmailValue) {
+      els.findEmailValue.textContent = "-";
+      els.findEmailValue.classList.remove("is-error");
+    }
+    if (els.findEmailResult) els.findEmailResult.classList.remove("is-error");
   }
 
   function showFindPasswordForm(){
@@ -807,20 +809,27 @@
     const name = (els.feName?.value || "").trim();
     const birthdate = (els.feBirthdate?.value || "").trim();
 
-    // 초기화
-    if (els.findEmailError) els.findEmailError.textContent = "";
-    if (els.findEmailResult) els.findEmailResult.hidden = true;
+    // 초기화: 박스를 기본 상태로
+    if (els.findEmailValue) {
+      els.findEmailValue.textContent = "-";
+      els.findEmailValue.classList.remove("is-error");
+    }
+    if (els.findEmailResult) els.findEmailResult.classList.remove("is-error");
 
     if (!name || !birthdate) {
-      if (els.findEmailError) {
-        els.findEmailError.textContent = "Please fill in all fields.";
+      if (els.findEmailValue) {
+        els.findEmailValue.textContent = "Please fill in all fields.";
+        els.findEmailValue.classList.add("is-error");
       }
+      if (els.findEmailResult) els.findEmailResult.classList.add("is-error");
       return;
     }
     if (!isValidDate(birthdate)) {
-      if (els.findEmailError) {
-        els.findEmailError.textContent = "Please enter a valid date in MM/DD/YYYY format.";
+      if (els.findEmailValue) {
+        els.findEmailValue.textContent = "Please enter a valid date in MM/DD/YYYY format.";
+        els.findEmailValue.classList.add("is-error");
       }
+      if (els.findEmailResult) els.findEmailResult.classList.add("is-error");
       return;
     }
 
@@ -829,21 +838,24 @@
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok || out?.ok === false) {
-        if (els.findEmailError) {
-          els.findEmailError.textContent = out?.message || "No account found.";
+        if (els.findEmailValue) {
+          els.findEmailValue.textContent = out?.message || "No account found.";
+          els.findEmailValue.classList.add("is-error");
         }
+        if (els.findEmailResult) els.findEmailResult.classList.add("is-error");
         return;
       }
 
       // 성공: 회색 박스에 이메일 표시
       if (els.findEmailValue && out.email) {
         els.findEmailValue.textContent = out.email;
-        if (els.findEmailResult) els.findEmailResult.hidden = false;
       }
     } catch {
-      if (els.findEmailError) {
-        els.findEmailError.textContent = "Network error. Please try again.";
+      if (els.findEmailValue) {
+        els.findEmailValue.textContent = "Network error. Please try again.";
+        els.findEmailValue.classList.add("is-error");
       }
+      if (els.findEmailResult) els.findEmailResult.classList.add("is-error");
     }
   }
 

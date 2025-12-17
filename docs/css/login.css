@@ -315,6 +315,10 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   font-weight: 600;
   color: #111;
 }
+.result-box .result-value.is-error{
+  color: var(--error);
+  font-weight: 500;
+}
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */
 .back-btn{
