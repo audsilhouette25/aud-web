@@ -320,6 +320,7 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   bottom: 0;
   left: 0;
   width: 100%;
+  text-align: center;
   visibility: hidden;
 }
 #find-email-form .form-success:not(:empty),
