@@ -504,7 +504,6 @@ header.nav {
   grid-template-columns: 1fr;  /* 한 컬럼 고정 */
   row-gap: 0;                  /* was 5px */
   column-gap: 0;
-  align-content: start;
   justify-items: start;
 }
 
