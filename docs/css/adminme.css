@@ -261,6 +261,46 @@ header.nav {
   box-shadow: 0 2px 6px rgba(0,0,0,.15);
 }
 
+/* Avatar Viewer (확대 보기) */
+#avatar-viewer{
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  z-index: 1100;
+  background: rgba(0,0,0,0);
+  pointer-events: none; opacity: 0;
+  transition: opacity .25s ease, background .25s ease;
+}
+#avatar-viewer.open{
+  background: rgba(0,0,0,.85);
+  pointer-events: auto; opacity: 1;
+}
+#avatar-viewer .overlay{
+  position: fixed; inset: 0;
+  background: transparent; border: 0;
+  cursor: pointer;
+}
+#avatar-viewer .avatar-viewer-content{
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+#avatar-viewer #avatar-viewer-img{
+  display: block;
+  max-width: min(90vw, 500px);
+  max-height: 80vh;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 40px rgba(0,0,0,.4);
+  transition: transform .3s ease;
+}
+#avatar-viewer.open #avatar-viewer-img{
+  animation: avatarZoomIn .3s ease forwards;
+}
+@keyframes avatarZoomIn{
+  from{ transform: scale(0.8); opacity: 0; }
+  to{ transform: scale(1); opacity: 1; }
+}
+
 /* =====================================================================
    5) Typography blocks
 ===================================================================== */

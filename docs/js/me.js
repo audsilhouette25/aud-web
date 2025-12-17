@@ -1542,6 +1542,56 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     cleanupImage();
   }
 
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * 8-1) Avatar Viewer (확대 보기)
+   * ──────────────────────────────────────────────────────────────────────────── */
+  function ensureAvatarViewer() {
+    let wrap = $("#avatar-viewer");
+    if (wrap) return wrap;
+
+    wrap = document.createElement("div");
+    wrap.id = "avatar-viewer";
+    wrap.className = "modal";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-modal", "true");
+    wrap.innerHTML = `
+      <button type="button" class="overlay" aria-label="Close"></button>
+      <div class="avatar-viewer-content">
+        <img id="avatar-viewer-img" src="" alt="Profile" />
+      </div>
+    `.trim();
+
+    document.body.appendChild(wrap);
+
+    wrap.querySelector(".overlay")?.addEventListener("click", closeAvatarViewer);
+    wrap.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAvatarViewer(); });
+    wrap.querySelector(".avatar-viewer-content")?.addEventListener("click", closeAvatarViewer);
+
+    return wrap;
+  }
+
+  function openAvatarViewer() {
+    const avatarEl = $("#me-avatar");
+    const imgEl = avatarEl?.querySelector(".avatar-img");
+    const src = imgEl?.src || ME_STATE.avatarUrl;
+
+    if (!src) return; // 프로필 사진이 없으면 열지 않음
+
+    const viewer = ensureAvatarViewer();
+    const viewerImg = viewer.querySelector("#avatar-viewer-img");
+    if (viewerImg) viewerImg.src = src;
+
+    viewer.classList.add("open");
+    viewer.setAttribute("aria-hidden", "false");
+  }
+
+  function closeAvatarViewer() {
+    const m = $("#avatar-viewer");
+    if (!m) return;
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+  }
+
   function cleanupImage() {
     if (AV.url) { try { URL.revokeObjectURL(AV.url); } catch {} AV.url = null; }
     AV.img = null;
@@ -1754,7 +1804,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
-    $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarCropper(); });
+    $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarViewer(); });
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) {
