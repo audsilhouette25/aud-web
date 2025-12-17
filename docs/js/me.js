@@ -2007,12 +2007,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   async function __safeBeaconLogout() {
     try { window.__flushStoreSnapshot?.({ server:true }); } catch {}
     try {
-      const blob = new Blob([JSON.stringify({})], { type: "application/json" });
+      // force: true로 서버에 명시적 로그아웃 요청
+      const blob = new Blob([JSON.stringify({ force: true })], { type: "application/json" });
       const target = (window.API_ORIGIN || window.PROD_BACKEND || window.API_BASE)
         ? new URL("/auth/logout-beacon", window.API_ORIGIN || window.PROD_BACKEND || window.API_BASE).toString()
         : "/auth/logout-beacon";
       (navigator.sendBeacon && navigator.sendBeacon(target, blob)) ||
-        await fetch(target, { method: "POST", keepalive: true, credentials: "include" });
+        await fetch(target, { method: "POST", keepalive: true, credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: true }) });
     } catch {}
     try { sessionStorage.removeItem("auth:flag"); } catch {}
     try { localStorage.removeItem("auth:flag"); localStorage.removeItem("auth:userns"); } catch {}
