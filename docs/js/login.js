@@ -142,16 +142,6 @@
     try { sessionStorage.setItem(NAV_MARK_KEY, String(Date.now())); } catch {}
   }
 
-  // Clear auth flag when arriving with ?reset=1 (logout redirect)
-  (function clearAuthFlagOnReset(){
-    try {
-      const u = new URL(location.href);
-      if (u.searchParams.get("reset") === "1") {
-        clearAuthedFlag();
-      }
-    } catch {}
-  })();
-
   /* =============================================================
    *  2) CSRF TOKEN HELPER (with cache + resilient fallback)
    * ============================================================= */
@@ -167,6 +157,19 @@
     },
     clear(){ this._cache = null; }
   };
+
+  // Clear auth flag and refresh CSRF when arriving with ?reset=1 (logout redirect)
+  (function clearAuthFlagOnReset(){
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get("reset") === "1") {
+        clearAuthedFlag();
+        csrf.clear();
+        // 새 CSRF 토큰 미리 발급
+        csrf.ensure(true).catch(() => {});
+      }
+    } catch {}
+  })();
 
   async function postJSON(url, body = {}, retrying = false){
     const t = await csrf.ensure(true);
