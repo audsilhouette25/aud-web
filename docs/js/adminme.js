@@ -2199,6 +2199,24 @@
         if (!r2.ok) { msgEl.textContent = r2.msg || "Failed to change your password."; return; }
       }
 
+      // 대기 중인 아바타가 있으면 업로드
+      if (AV.pendingBlob) {
+        msgEl.textContent = "Uploading avatar…";
+        const avatarResult = await uploadAvatar(AV.pendingBlob);
+        if (avatarResult?.ok) {
+          ME_STATE.avatarUrl = avatarResult.url || "";
+          renderProfile({ displayName, email: ME_STATE.email, avatarUrl: avatarResult.url });
+          await broadcastMyProfile({ avatarUrl: avatarResult.url });
+        } else {
+          msgEl.textContent = avatarResult?.msg || "Failed to upload avatar.";
+          return;
+        }
+        // 정리
+        if (AV.pendingPreviewUrl) URL.revokeObjectURL(AV.pendingPreviewUrl);
+        AV.pendingBlob = null;
+        AV.pendingPreviewUrl = null;
+      }
+
       ME_STATE.displayName = displayName;
       $("#me-name") && ($("#me-name").textContent = displayName);
       paintAvatar(displayName);
@@ -2241,6 +2259,7 @@
     scale: 1, minScale: 1,
     tx: 0, ty: 0, drag: false, sx: 0, sy: 0,
     canvas: null, ctx: null, size: 360, rotate: 0,
+    pendingBlob: null, pendingPreviewUrl: null,
   };
 
   function ensureAvatarCropper() {
@@ -2275,7 +2294,7 @@
         <div class="actions">
           <button type="button" class="btn" id="av-rotate">Rotate 90°</button>
           <button type="button" class="btn" id="av-reset">Reset</button>
-          <button type="button" class="btn btn-primary" id="av-save">Save</button>
+          <button type="button" class="btn btn-primary" id="av-save">Done</button>
           <button type="button" class="btn" id="av-cancel">Cancel</button>
         </div>
 
@@ -2341,18 +2360,24 @@
     });
 
     wrap.querySelector("#av-save")?.addEventListener("click", async () => {
-      msg.textContent = "Uploading…";
-      const blob = await exportCroppedBlob(512);
-      const r = await uploadAvatar(blob);
-      if (r?.ok) {
-        ME_STATE.avatarUrl = r.url || "";
-        renderProfile({ displayName: ME_STATE.displayName, email: ME_STATE.email, avatarUrl: r.url });
-        await broadcastMyProfile({ avatarUrl: r.url });
-        msg.textContent = "Saved.";
-        setTimeout(closeAvatarCropper, 350);
-      } else {
-        msg.textContent = r?.msg || "Upload failed.";
+      if (!AV.img) {
+        msg.textContent = "Please choose an image first.";
+        return;
       }
+      msg.textContent = "Preparing…";
+      const blob = await exportCroppedBlob(512);
+      if (AV.pendingPreviewUrl) URL.revokeObjectURL(AV.pendingPreviewUrl);
+      AV.pendingBlob = blob;
+      AV.pendingPreviewUrl = URL.createObjectURL(blob);
+      // 미리보기만 업데이트 (실제 저장은 Edit Profile의 Save에서)
+      const avatarEl = $("#me-avatar");
+      if (avatarEl) {
+        avatarEl.classList.add("url-mode");
+        const imgEl = avatarEl.querySelector(".avatar-img");
+        if (imgEl) imgEl.src = AV.pendingPreviewUrl;
+      }
+      msg.textContent = "Done. Click Save in Edit Profile to apply.";
+      setTimeout(closeAvatarCropper, 600);
     });
 
     wrap.querySelector("#av-cancel")?.addEventListener("click", closeAvatarCropper);
