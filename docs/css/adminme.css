@@ -128,7 +128,7 @@ header.nav {
 /* =====================================================================
    3) Profile Hero
 ===================================================================== */
-.me{ inline-size: var(--container-w); margin: 0 auto 64px; }
+.me{ inline-size: var(--container-w); margin: 0 auto 48px; }
 .profile-hero{
   margin-top: 18px; padding: 20px 22px; border-radius: 22px;
   background: linear-gradient(180deg,
