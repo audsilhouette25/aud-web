@@ -55,28 +55,75 @@ body{
 /* =====================================================================
    2) Nav
 ===================================================================== */
-header.nav{
+header.nav {
   position: sticky; top: 0; z-index: 100;
   height: var(--nav-h);
-  background: var(--surface);   
+  background: var(--surface);
 }
-.nav-inner{
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 100%;
-  display: flex; align-items: center; justify-content: space-between;
   padding: 0 27px;
 }
-.menu{ list-style: none; display: flex; gap: 20px; }
-.menu a{
-  color: #333; text-decoration: none;
-  font-weight: 500; font-size: 15px;
-  opacity: .9; transition: opacity .2s ease, color .2s ease;
+
+.menu {
+  display: flex;
+  gap: 20px;
+  list-style: none;
 }
-.menu a:hover{ opacity: 1; color: #000; }
-.menu a.active{ font-weight: 600; color: #000; }
-.logo-cta { position: relative; }
-.logo-cta img{ inline-size: 27px; block-size: 27px; object-fit: contain; }
-.logo-cta::after{ content:"MY"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:12px; font-weight:600; color:#fff; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
-.logo-cta:hover::after{ opacity:1; }
+
+.menu a {
+  color: #333;
+  text-decoration: none;
+  letter-spacing: -.2px;
+  font-size: 15px;
+  font-weight: 500;
+  opacity:.9;
+  transition:opacity .2s,color .2s;
+}
+
+.menu a:hover {
+  color: #000;
+  opacity: 1;
+}
+
+.menu a.active {
+  color: #000;
+  font-weight: 600;
+}
+
+.logo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  position: relative;
+}
+
+.logo-cta img {
+  display: block;
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+.logo-cta::after {
+  content: "MY";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.logo-cta:hover::after { opacity: 1; }
 
 /* =====================================================================
    3) Profile Hero
