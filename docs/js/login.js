@@ -267,10 +267,8 @@
   function enforceLatinInput(inputEl){
     if (!inputEl || inputEl.dataset.enforceLatin === "1") return;
     inputEl.dataset.enforceLatin = "1";
-    let isComposing = false;
+
     const handler = () => {
-      // IME 조합 중이면 무시 (한글 입력 등)
-      if (isComposing) return;
       const value = inputEl.value ?? "";
       const cleaned = sanitizeLatin(value);
       if (cleaned === value) return;
@@ -281,10 +279,19 @@
         try { inputEl.setSelectionRange(leftClean.length, leftClean.length); } catch {}
       });
     };
-    on(inputEl, "compositionstart", () => { isComposing = true; });
-    on(inputEl, "compositionend", () => { isComposing = false; handler(); });
+
+    // 모든 input 이벤트에서 즉시 필터링
     on(inputEl, "input", handler);
+    on(inputEl, "compositionend", handler);
     on(inputEl, "blur", handler);
+
+    // keypress에서 비-ASCII 키 차단 (IME 우회 방지)
+    on(inputEl, "keypress", (e) => {
+      const char = e.key || String.fromCharCode(e.charCode);
+      if (char.length === 1 && NON_LATIN_RX.test(char)) {
+        e.preventDefault();
+      }
+    });
   }
 
   function setupPasswordField(root){
