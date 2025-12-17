@@ -256,42 +256,9 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 .btn-primary:active{ transform: translateY(1px); }
 .btn-primary:focus-visible{ outline:none; box-shadow:0 0 0 4px rgba(0,0,0,.15); }
 
-/* 폼 하단 전역 에러 */
-.form-error{
-  min-height: 16px;
-  margin-top:4px;
-  padding-bottom:4px;
-  color:var(--error);
-  font-size:13px;
-}
-
-/* 성공 메시지 */
-.form-success{
-  min-height: 16px;
-  margin-top:4px;
-  padding-bottom:4px;
-  color: #16a34a;
-  font-size:13px;
-}
-
-/* Sign up Step 1: Next 버튼 하단~카드 하단 = 32px
-   에러 메시지를 사용하지 않으므로 공간 차지 안함 */
-#signup-step1-error{
-  display: none;
-}
-#signup-step1 .btn-primary{
-  margin-bottom: 8px; /* 버튼~카드 하단 = 8px + 24px(카드 padding) = 32px */
-}
-
-/* Sign up Step 2: 에러 메시지 하단~카드 하단 = 32px */
-#signup-error{
-  padding-bottom: 8px;
-}
-
-/* Find 폼: form-error padding-bottom 설정 */
-#find-email-form .form-error,
-#find-password-form .form-error{
-  padding-bottom: 8px;
+/* 버튼 하단 여백 */
+.auth-card form .btn-primary{
+  margin-bottom: 8px;
 }
 
 /* Find Email 결과 박스 */

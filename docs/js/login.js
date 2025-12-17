@@ -61,14 +61,19 @@
     panelLogin:  $("#login")     || $("#panel-login")  || $('[data-panel="login"]'),
     panelSignup: $("#signup")    || $("#panel-signup") || $('[data-panel="signup"]'),
 
+    // Login fields
     loginEmail:  $("#email"),
     loginPw:     $("#pw"),
-    loginErr:    $("#login-error"),
+    errEmail:    $("#err-email"),
+    errPw:       $("#err-pw"),
 
+    // Signup fields
     signupEmail: $("#su-email"),
     signupPw:    $("#su-pw"),
     signupPw2:   $("#su-pw2"),
-    signupErr:   $("#signup-error"),
+    suErrEmail:  $("#su-err-email"),
+    suErrPw:     $("#su-err-pw"),
+    suErrPw2:    $("#su-err-pw2"),
 
     loginBtn:    $("#login button[type='submit']"),
     signupBtn:   $("#signup button[type='submit']"),
@@ -81,7 +86,9 @@
     signupVerificationCode: $("#su-verification-code"),
     signupName: $("#su-name"),
     signupBirthdate: $("#su-birthdate"),
-    signupStep1Error: $("#signup-step1-error"),
+    suErrVerification: $("#su-err-verification"),
+    suErrName: $("#su-err-name"),
+    suErrBirthdate: $("#su-err-birthdate"),
 
     // Recovery forms
     findEmailForm: $("#find-email-form"),
@@ -106,7 +113,6 @@
     sendCodeBtn: $("#send-code-btn"),
     resetStep1: $("#reset-step1"),
     resetStep2: $("#reset-step2"),
-    fpError: $("#find-password-error"),
 
     // Recovery buttons in login form
     findEmailBtn: $("#find-email-btn"),
@@ -319,27 +325,18 @@
 
   function clearFieldErrors(){
     // 로그인
-    setFieldError(
-      els.loginEmail,
-      $("#err-email") || ensureErrBelow(els.loginEmail, "err-email"),
-      ""
-    );
-    setFieldError(
-      els.loginPw,
-      $("#err-pw") || ensureErrBelow(els.loginPw, "err-pw"),
-      ""
-    );
-    showError(els.loginErr, "");
+    setFieldError(els.loginEmail, els.errEmail, "");
+    setFieldError(els.loginPw, els.errPw, "");
 
-    // 회원가입(필드별)
-    const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
-    const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
-    const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
+    // 회원가입 Step 1
+    setFieldError(els.signupEmail, els.suErrEmail, "");
+    setFieldError(els.signupPw, els.suErrPw, "");
+    setFieldError(els.signupPw2, els.suErrPw2, "");
 
-    setFieldError(els.signupEmail, suEmailErr, "");
-    setFieldError(els.signupPw,    suPwErr,    "");
-    setFieldError(els.signupPw2,   suPw2Err,   "");
-    showError(els.signupErr, "");
+    // 회원가입 Step 2
+    setFieldError(els.signupVerificationCode, els.suErrVerification, "");
+    setFieldError(els.signupName, els.suErrName, "");
+    setFieldError(els.signupBirthdate, els.suErrBirthdate, "");
   }
 
   function mountErrorPlaceholders(){
@@ -684,20 +681,25 @@
     const name = (els.signupName?.value || "").trim();
     const birthdate = (els.signupBirthdate?.value || "").trim();
 
+    // 에러 초기화
+    setFieldError(els.signupVerificationCode, els.suErrVerification, "");
+    setFieldError(els.signupName, els.suErrName, "");
+    setFieldError(els.signupBirthdate, els.suErrBirthdate, "");
+
     if (!verificationCode) {
-      showError(els.signupErr, "Please enter the verification code.");
+      setFieldError(els.signupVerificationCode, els.suErrVerification, "Please enter the verification code.");
       return;
     }
     if (!name) {
-      showError(els.signupErr, "Please enter your name.");
+      setFieldError(els.signupName, els.suErrName, "Please enter your name.");
       return;
     }
     if (!birthdate) {
-      showError(els.signupErr, "Please enter your birthdate.");
+      setFieldError(els.signupBirthdate, els.suErrBirthdate, "Please enter your birthdate.");
       return;
     }
     if (!isValidDate(birthdate)) {
-      showError(els.signupErr, "Please enter a valid date in MM/DD/YYYY format.");
+      setFieldError(els.signupBirthdate, els.suErrBirthdate, "Please enter a valid date in MM/DD/YYYY format.");
       return;
     }
 
@@ -720,18 +722,18 @@
       if (!res.ok || out?.ok === false) {
         const code = String(out?.error || out?.code || "").toUpperCase();
         if (code === "INVALID_VERIFICATION_CODE" || code === "VERIFICATION_CODE_EXPIRED") {
-          showError(els.signupErr, "Invalid or expired verification code. Please try again.");
+          setFieldError(els.signupVerificationCode, els.suErrVerification, "Invalid or expired verification code.");
         } else if (code === "DUPLICATE_EMAIL") {
-          showError(els.signupErr, "This email is already registered.");
+          setFieldError(els.signupEmail, els.suErrEmail, "This email is already registered.");
           showSignupStep1(); // 다시 step1로
         } else if (code === "INVALID_EMAIL") {
-          showError(els.signupErr, "Please enter a valid email address.");
+          setFieldError(els.signupEmail, els.suErrEmail, "Please enter a valid email address.");
           showSignupStep1();
         } else if (code === "WEAK_PASSWORD") {
-          showError(els.signupErr, "Please choose a stronger password.");
+          setFieldError(els.signupPw, els.suErrPw, "Please choose a stronger password.");
           showSignupStep1();
         } else {
-          showError(els.signupErr, out?.message || "Sign-up failed. Please try again.");
+          setFieldError(els.signupVerificationCode, els.suErrVerification, out?.message || "Sign-up failed. Please try again.");
         }
         setBusy(els.signupBtn, false);
         return;
@@ -744,7 +746,7 @@
 
       if (!loginRes.ok) {
         // 로그인 실패 시 로그인 화면으로 안내
-        showError(els.signupErr, "Account created! Please sign in.");
+        setFieldError(els.loginEmail, els.errEmail, "Account created! Please sign in.");
         showLoginForm();
         showSignupStep1();
         return;
@@ -752,28 +754,24 @@
 
       // 로그인 성공 시 onLoginSuccess가 이미 gotoNext() 호출함
     } catch (e) {
-      showError(els.signupErr, "Network error. Please try again.");
+      setFieldError(els.signupVerificationCode, els.suErrVerification, "Network error. Please try again.");
       setBusy(els.signupBtn, false);
     }
   }
 
   // Signup Next 버튼 핸들러 (Step 1 → Step 2)
   async function onSignupNext(){
-    // 필드/공통 에러 초기화
-    const suEmailErr = $("#su-err-email") || ensureErrBelow(els.signupEmail, "su-err-email");
-    const suPwErr    = $("#su-err-pw")    || ensureErrBelow(els.signupPw,    "su-err-pw");
-    const suPw2Err   = $("#su-err-pw2")   || ensureErrBelow(els.signupPw2,   "su-err-pw2");
-    setFieldError(els.signupEmail, suEmailErr, "");
-    setFieldError(els.signupPw,    suPwErr,    "");
-    setFieldError(els.signupPw2,   suPw2Err,   "");
-    showError(els.signupStep1Error, "");
+    // 필드 에러 초기화
+    setFieldError(els.signupEmail, els.suErrEmail, "");
+    setFieldError(els.signupPw, els.suErrPw, "");
+    setFieldError(els.signupPw2, els.suErrPw2, "");
 
     // 클라이언트 검증
     const v = assertSignupInputs();
     if (!v.ok){
-      if (v.field === "email") setFieldError(els.signupEmail, suEmailErr, v.msg);
-      if (v.field === "pw")    setFieldError(els.signupPw,    suPwErr,    v.msg);
-      if (v.field === "pw2")   setFieldError(els.signupPw2,   suPw2Err,   v.msg);
+      if (v.field === "email") setFieldError(els.signupEmail, els.suErrEmail, v.msg);
+      if (v.field === "pw")    setFieldError(els.signupPw, els.suErrPw, v.msg);
+      if (v.field === "pw2")   setFieldError(els.signupPw2, els.suErrPw2, v.msg);
       return;
     }
 
@@ -791,7 +789,7 @@
           msg = "This email is already registered. Please sign in instead.";
         }
 
-        setFieldError(els.signupEmail, suEmailErr, msg);
+        setFieldError(els.signupEmail, els.suErrEmail, msg);
         setBusy(els.signupNextBtn, false);
         return;
       }
@@ -800,7 +798,7 @@
       setBusy(els.signupNextBtn, false);
       showSignupStep2();
     } catch (e) {
-      setFieldError(els.signupEmail, suEmailErr, "Network error. Please try again.");
+      setFieldError(els.signupEmail, els.suErrEmail, "Network error. Please try again.");
       setBusy(els.signupNextBtn, false);
     }
   }
@@ -959,12 +957,13 @@
         return;
       }
 
-      // 성공: 로그인 화면으로
-      if (els.fpError) {
-        els.fpError.textContent = "Password reset successful! Please sign in.";
-        els.fpError.style.color = "#16a34a";
+      // 성공: 로그인 화면으로 이동하며 성공 메시지 표시
+      showLoginForm();
+      if (els.errEmail) {
+        els.errEmail.textContent = "Password reset successful! Please sign in.";
+        els.errEmail.classList.add("is-on");
+        els.errEmail.style.color = "#16a34a";
       }
-      setTimeout(() => showLoginForm(), 2000);
     } catch {
       if (els.fpErrCode) {
         els.fpErrCode.textContent = "Network error. Please try again.";
@@ -1016,7 +1015,10 @@
     // 2-step signup: Back button (Step 2 → Step 1)
     on(els.signupBackBtn, "click", () => {
       showSignupStep1();
-      showError(els.signupErr, "");
+      // Step 2 에러 초기화
+      setFieldError(els.signupVerificationCode, els.suErrVerification, "");
+      setFieldError(els.signupName, els.suErrName, "");
+      setFieldError(els.signupBirthdate, els.suErrBirthdate, "");
     });
 
     // Recovery buttons in login form
