@@ -361,10 +361,10 @@ header.nav {
    ※ KPI 스타일 제거와 무관하게 유지되어야 함
 ===================================================================== */
 .panel{
-  background: var(--panel);           
+  background: var(--panel);
   border-radius: var(--panel-radius);
-  padding: 16px;
-  box-shadow: var(--shadow-soft);    
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
 }
 .panel h3{
   margin: 0 0 10px;
@@ -394,7 +394,7 @@ header.nav {
 .insights #lb-root .panel{
   background: #fff;
   border-radius: 18px;
-  padding: 16px;
+  padding: 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
   display: grid;
   grid-template-rows: auto 1fr auto; /* why: 높이 균일 */
@@ -741,7 +741,7 @@ header.nav {
   /* 가운데(캔버스) 행이 패딩을 제외한 남은 높이를 모두 차지 */
   grid-template-rows: auto minmax(0,1fr) auto;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 20px;
   --lab-canvas-height: 360px;
 }
 

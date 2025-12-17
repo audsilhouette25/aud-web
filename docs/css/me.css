@@ -424,7 +424,7 @@ header.nav {
   gap: 16px;
   margin: 20px 0 8px;
 }
-.panel{ background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.panel{ background: #fff; border-radius: 18px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
 .panel h3{ margin: 0 0 10px; font-size: 16px; }
 .kpi-lg{ display: flex; align-items: baseline; gap: 10px; }
 .kpi-lg b{ font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; }
@@ -707,7 +707,7 @@ progress#m-rate-bar::-webkit-progress-value{
   /* 가운데(캔버스) 행이 패딩을 제외한 남은 높이를 모두 차지 */
   grid-template-rows: auto minmax(0,1fr) auto;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 20px;
   --lab-canvas-height: 360px;
 }
 
