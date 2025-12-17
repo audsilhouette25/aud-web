@@ -131,10 +131,6 @@
       localStorage.removeItem("auth:ping");
     } catch {}
   };
-  const hasAuthedFlag = () =>
-    (sessionStorage.getItem(AUTH_FLAG_KEY) === "1") ||
-    (localStorage.getItem(AUTH_FLAG_KEY)  === "1");
-
   const clearAuthedFlag = () => {
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
     try { localStorage.removeItem(AUTH_FLAG_KEY);  } catch {}
@@ -146,11 +142,13 @@
     try { sessionStorage.setItem(NAV_MARK_KEY, String(Date.now())); } catch {}
   }
 
-  // Keep the auth flag even when reloading with ?reset=1
-  (function preserveAuthFlagOnReset(){
+  // Clear auth flag when arriving with ?reset=1 (logout redirect)
+  (function clearAuthFlagOnReset(){
     try {
       const u = new URL(location.href);
-      if (u.searchParams.get("reset") === "1" && hasAuthedFlag()) setAuthedFlag();
+      if (u.searchParams.get("reset") === "1") {
+        clearAuthedFlag();
+      }
     } catch {}
   })();
 
