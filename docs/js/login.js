@@ -100,7 +100,9 @@
     fpEmail: $("#fp-email"),
     fpErrEmail: $("#fp-err-email"),
     fpCode: $("#fp-code"),
+    fpErrCode: $("#fp-err-code"),
     fpNewPw: $("#fp-new-pw"),
+    fpErrNewPw: $("#fp-err-new-pw"),
     sendCodeBtn: $("#send-code-btn"),
     resetStep1: $("#reset-step1"),
     resetStep2: $("#reset-step2"),
@@ -913,19 +915,33 @@
     const code = (els.fpCode?.value || "").trim();
     const newPassword = (els.fpNewPw?.value || "").trim();
 
+    // 에러 초기화
+    if (els.fpErrCode) {
+      els.fpErrCode.textContent = "";
+      els.fpErrCode.classList.remove("is-on");
+    }
+    if (els.fpErrNewPw) {
+      els.fpErrNewPw.textContent = "";
+      els.fpErrNewPw.classList.remove("is-on");
+    }
+    els.fpCode?.classList.remove("is-invalid");
+    els.fpNewPw?.classList.remove("is-invalid");
+
     if (!code || code.length !== 6) {
-      if (els.fpError) {
-        els.fpError.textContent = "Please enter the 6-digit code.";
-        els.fpError.style.color = "var(--error)";
+      if (els.fpErrCode) {
+        els.fpErrCode.textContent = "Please enter the 6-digit code.";
+        els.fpErrCode.classList.add("is-on");
       }
+      els.fpCode?.classList.add("is-invalid");
       return;
     }
 
     if (newPassword.length < 8) {
-      if (els.fpError) {
-        els.fpError.textContent = "Password must be at least 8 characters.";
-        els.fpError.style.color = "var(--error)";
+      if (els.fpErrNewPw) {
+        els.fpErrNewPw.textContent = "Password must be at least 8 characters.";
+        els.fpErrNewPw.classList.add("is-on");
       }
+      els.fpNewPw?.classList.add("is-invalid");
       return;
     }
 
@@ -934,10 +950,12 @@
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok || out?.ok === false) {
-        if (els.fpError) {
-          els.fpError.textContent = out?.message || "Failed to reset password.";
-          els.fpError.style.color = "var(--error)";
+        // 코드 오류인 경우 코드 필드에 표시
+        if (els.fpErrCode) {
+          els.fpErrCode.textContent = out?.message || "Failed to reset password.";
+          els.fpErrCode.classList.add("is-on");
         }
+        els.fpCode?.classList.add("is-invalid");
         return;
       }
 
@@ -948,9 +966,9 @@
       }
       setTimeout(() => showLoginForm(), 2000);
     } catch {
-      if (els.fpError) {
-        els.fpError.textContent = "Network error. Please try again.";
-        els.fpError.style.color = "var(--error)";
+      if (els.fpErrCode) {
+        els.fpErrCode.textContent = "Network error. Please try again.";
+        els.fpErrCode.classList.add("is-on");
       }
     }
   }
