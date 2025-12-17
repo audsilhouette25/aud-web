@@ -494,7 +494,8 @@ header.nav {
 /* 왼쪽 첫 패널(= Collection) */
 .quick .panel:first-child{
   display: grid;
-  padding-block: 24px;  
+  align-content: center;
+  padding-block: 24px;
 }
 
 /* 그리드 내용: 세로 가운데, 가로는 시작 정렬 */
