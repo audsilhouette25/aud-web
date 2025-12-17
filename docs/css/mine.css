@@ -47,22 +47,54 @@ header.nav {
   background: #F5F5F5;
 }
 .nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 100%;
-  display: flex; align-items: center; justify-content: space-between;
   padding: 0 27px;
 }
-.menu { list-style: none; display: flex; gap: 20px; }
-.menu a {
-  color: #333; text-decoration: none;
-  font-weight: 500; font-size: 15px;
-  opacity: .9; transition: .2s;
-}
-.menu a:hover { opacity: 1; color: #000; }
-.menu a.active { font-weight: 600; color: #000; }
 
-/* Logo with MY hover tooltip */
-.logo-cta { position: relative; }
-.logo-cta img { width: 27px; height: 27px; object-fit: contain; }
+.menu {
+  display: flex;
+  gap: 20px;
+  list-style: none;
+}
+
+.menu a {
+  color: #333;
+  text-decoration: none;
+  letter-spacing: -.2px;
+  font-size: 15px;
+  font-weight: 500;
+  opacity:.9;
+  transition:opacity .2s,color .2s;
+}
+
+.menu a:hover {
+  color: #000;
+  opacity: 1;
+}
+
+.menu a.active {
+  color: #000;
+  font-weight: 600;
+}
+
+.logo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  position: relative;
+}
+
+.logo-cta img {
+  display: block;
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
 .logo-cta::after {
   content: "MY";
   position: absolute;
