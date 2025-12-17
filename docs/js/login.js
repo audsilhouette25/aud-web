@@ -267,7 +267,10 @@
   function enforceLatinInput(inputEl){
     if (!inputEl || inputEl.dataset.enforceLatin === "1") return;
     inputEl.dataset.enforceLatin = "1";
+    let isComposing = false;
     const handler = () => {
+      // IME 조합 중이면 무시 (한글 입력 등)
+      if (isComposing) return;
       const value = inputEl.value ?? "";
       const cleaned = sanitizeLatin(value);
       if (cleaned === value) return;
@@ -278,6 +281,8 @@
         try { inputEl.setSelectionRange(leftClean.length, leftClean.length); } catch {}
       });
     };
+    on(inputEl, "compositionstart", () => { isComposing = true; });
+    on(inputEl, "compositionend", () => { isComposing = false; handler(); });
     on(inputEl, "input", handler);
     on(inputEl, "blur", handler);
   }
