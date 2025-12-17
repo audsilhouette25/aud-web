@@ -514,6 +514,19 @@
    * Me(refresh) + boot handling
    * ========================= */
   async function refreshMe(){
+    // 최근 로그아웃 의도가 있으면 서버 응답 무시하고 로그아웃 유지
+    try {
+      const loggedOutAt = +(localStorage.getItem("auth:logged-out") || 0);
+      if (loggedOutAt && (now() - loggedOutAt < 60000)) { // 1분 이내 로그아웃
+        state.authed = false;
+        state.user = null;
+        state.ready = true;
+        clearAuthedFlag();
+        notify();
+        return;
+      }
+    } catch {}
+
     try {
       const r = await fetch(toAPI("/auth/me"), {
         credentials: "include",
@@ -526,6 +539,8 @@
       state.bootId = j?.bootId || null;
 
       if (state.authed) {
+        // 로그인 성공 시 로그아웃 의도 삭제
+        try { localStorage.removeItem("auth:logged-out"); } catch {}
         setAuthedFlag();
         registerAuthedTab();
         try { await getCSRF(); } catch {}
@@ -715,6 +730,8 @@
 
   async function onLogoutClick(e){
     e?.preventDefault?.();
+    // 로그아웃 의도 기록 (다른 페이지에서도 확인 가능)
+    try { localStorage.setItem("auth:logged-out", String(Date.now())); } catch {}
     try { await apiFetch("/auth/logout", { method:"POST" }); } catch {}
     try {
       const rm = [];
