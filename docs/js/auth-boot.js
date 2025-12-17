@@ -576,11 +576,51 @@
   }
 
   (function setupCloseWatcher(){
-    if (LOGOUT_ON_TAB_CLOSE === "always") return; // always 모드에선 storage 감시 비활성화
+    // ★ 중요: always 모드에서도 auth:flag 변경 감지는 유지해야 함
+    // (다른 탭에서 로그아웃 버튼 클릭 시 이 탭도 로그아웃)
     function parseMap(v){ try { return (JSON.parse(v||"{}")||{}); } catch { return {}; } }
 
+    // ★ auth:flag 또는 auth:token 변경 감지 (로그아웃 버튼 클릭 시 다른 탭도 로그아웃)
     window.addEventListener("storage", (ev) => {
+      // auth:flag가 삭제되면 (로그아웃) 이 탭도 로그아웃 상태로 전환
+      if (ev.key === AUTH_FLAG_KEY) {
+        const wasSet = ev.oldValue === "1";
+        const nowCleared = !ev.newValue || ev.newValue !== "1";
+        if (wasSet && nowCleared) {
+          console.log("[auth-boot] auth:flag removed in another tab, syncing logout state");
+          // 이 탭도 로그아웃 상태로 동기화
+          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+          try { localStorage.removeItem("auth:token"); } catch {}
+          state.authed = false;
+          state.user = null;
+          state.csrf = null;
+          notify();
+          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+        }
+        return;
+      }
+
+      // auth:token이 삭제되면 (로그아웃) 이 탭도 로그아웃 상태로 전환
+      if (ev.key === "auth:token") {
+        const hadToken = !!ev.oldValue;
+        const noToken = !ev.newValue;
+        if (hadToken && noToken) {
+          console.log("[auth-boot] auth:token removed in another tab, syncing logout state");
+          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+          try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+          state.authed = false;
+          state.user = null;
+          state.csrf = null;
+          notify();
+          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+        }
+        return;
+      }
+
+      // TAB_AUTHED_KEY 변경 감지 (탭 닫힘 감지)
       if (ev.key !== TAB_AUTHED_KEY) return;
+      // always 모드에서는 탭 닫힘으로 인한 로그아웃은 pagehide에서 처리
+      if (LOGOUT_ON_TAB_CLOSE === "always") return;
 
       const oldMap = parseMap(ev.oldValue);
       const newMap = parseMap(ev.newValue);
@@ -592,17 +632,6 @@
         const nowMap = prune(readKV(TAB_AUTHED_KEY));
         const stillMissing = removed.filter(id => !(id in nowMap));
         if (!stillMissing.length) return;
-
-        if (LOGOUT_ON_TAB_CLOSE === "always") {
-          try { window.__flushStoreSnapshot?.({ server: true }); } catch {}
-          try {
-            const blob = new Blob([JSON.stringify({})], { type: "application/json" });
-            navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob) ||
-              fetch(toAPI("/auth/logout-beacon"), { method: "POST", keepalive: true, credentials: "include" });
-          } catch {}
-          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-          return;
-        }
 
         const leftAuthed = Object.keys(nowMap).length;
         const shouldLogout =
@@ -725,6 +754,8 @@
       rm.forEach(k => sessionStorage.removeItem(k));
     } catch {}
     clearAuthedFlag();
+    // ★ JWT 토큰도 삭제 (다른 탭에서 storage 이벤트로 감지)
+    try { localStorage.removeItem("auth:token"); } catch {}
     try { localStorage.removeItem(USERNS_KEY); } catch {}
     try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed:false, user:null, ns:"default" } })); } catch {}
     regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));

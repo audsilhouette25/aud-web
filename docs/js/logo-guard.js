@@ -87,8 +87,13 @@
   function computeLogoDest() {
     const mine  = absURL("mine.html");
     const login = absURL("login.html");
-    // 빠른 체감 반응: window.auth.isAuthed() 우선, 초기 부팅 동안엔 세션 플래그 폴백
-    const authed = !!(window.auth?.isAuthed?.() || sessionStorage.getItem(AUTH_FLAG_KEY) === "1");
+    // ★ 수정: window.auth.isAuthed()를 우선 확인, localStorage의 auth:flag도 체크
+    // sessionStorage는 탭별이라 다른 탭에서 로그아웃해도 남아있을 수 있으므로 localStorage 우선
+    const authApi = window.auth?.isAuthed?.();
+    const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
+    const ssFlag = sessionStorage.getItem(AUTH_FLAG_KEY) === "1";
+    // localStorage에 flag가 없으면 로그아웃된 것 (다른 탭에서 로그아웃)
+    const authed = !!(authApi || (lsFlag && ssFlag));
     if (authed) return mine;
     const u = new URL(login);
     u.searchParams.set("next", mine);
@@ -119,12 +124,12 @@
         sessionStorage.setItem(NAV_KEY, String(Date.now()));
       } catch {}
 
+      // ★ 수정: 실제 인증 상태만 확인하고, 로그아웃 상태면 flag 설정 안 함
       try {
         if (window.auth?.isAuthed?.()) {
           sessionStorage.setItem(AUTH_FLAG_KEY, "1");
-        } else if (sessionStorage.getItem(AUTH_FLAG_KEY) === "1") {
-          sessionStorage.setItem(AUTH_FLAG_KEY, "1");
         }
+        // else: 로그아웃 상태면 flag 건드리지 않음 (기존 코드는 flag 유지했음)
       } catch {}
 
       navPingSilent();
@@ -174,7 +179,11 @@
       const orig = (typeof window.computeLogoDest === 'function') ? window.computeLogoDest : null;
       window.computeLogoDest = function(){
         try {
-          const authed = !!(window.auth?.isAuthed?.() || sessionStorage.getItem('auth:flag') === '1');
+          // ★ 수정: localStorage flag도 확인 (다른 탭 로그아웃 감지)
+          const authApi = window.auth?.isAuthed?.();
+          const lsFlag = localStorage.getItem('auth:flag') === '1';
+          const ssFlag = sessionStorage.getItem('auth:flag') === '1';
+          const authed = !!(authApi || (lsFlag && ssFlag));
           if (authed && isAdminFrontend()) return new URL('adminme.html', location.href).toString();
           const mine = new URL('mine.html', location.href).toString();
           const login = new URL('login.html', location.href).toString();
