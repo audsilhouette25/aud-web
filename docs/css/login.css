@@ -221,20 +221,18 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
 }
 
 
-/* 필드 에러 */
+/* 필드 에러 - 에러 발생 시에만 공간 차지 */
 .field-error{
-  display:block;
-  min-height:16px;
+  display:none;
   margin:4px 0 0;
   padding-bottom:4px;
   color:var(--error);
   font-size:13px;
-  visibility:hidden;
 }
 
-/* 에러가 있을 때만 보이도록 */
+/* 에러가 있을 때만 표시 */
 .field-error.is-on{
-  visibility: visible;
+  display:block;
 }
 
 .input-lg.is-invalid{
