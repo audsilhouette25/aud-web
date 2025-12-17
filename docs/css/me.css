@@ -209,26 +209,23 @@ header.nav {
   font-weight: 500;
   color: var(--text);
   background: #f8f8f8;
-  border: 1px dashed rgba(0,0,0,.18);
+  border: none;
   border-radius: 12px;
   cursor: pointer;
-  transition: border-color .2s, background .2s;
+  transition: background .2s;
 }
 #avatar-modal #av-file:hover{
   background: #f0f0f0;
-  border-color: rgba(0,0,0,.28);
 }
 #avatar-modal #av-file:focus{
   outline: none;
-  border-color: var(--accent);
-  border-style: solid;
 }
 #avatar-modal #av-file::file-selector-button{
   padding: 8px 16px;
   margin-right: 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: #111;
   background: var(--accent);
   border: none;
   border-radius: 8px;
@@ -247,7 +244,6 @@ header.nav {
   display:block; margin-inline:auto; max-inline-size:100%;
   aspect-ratio: 1 / 1; block-size:auto;
   border-radius: 50%;
-  box-shadow: 0 4px 20px rgba(0,0,0,.1);
 }
 
 /* Zoom 슬라이더 스타일링 */
