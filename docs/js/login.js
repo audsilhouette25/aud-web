@@ -318,8 +318,12 @@
   }
 
   function initPasswordUtilities(){
-    [els.loginPw, els.signupPw, els.signupPw2].forEach(enforceLatinInput);
-    document.querySelectorAll('.pw-field').forEach(setupPasswordField);
+    // 모든 .pw-field 내의 input에 Latin 입력 제한 + 토글 설정
+    document.querySelectorAll('.pw-field').forEach(root => {
+      const input = root.querySelector('input');
+      if (input) enforceLatinInput(input);
+      setupPasswordField(root);
+    });
   }
 
   function showError(errEl, msg){
