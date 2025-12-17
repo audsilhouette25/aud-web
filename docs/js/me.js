@@ -575,7 +575,8 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 3) API helpers & rendering
    * ──────────────────────────────────────────────────────────────────────────── */
-  const hasAuthedFlag = () => sessionStorage.getItem("auth:flag") === "1";
+  // localStorage가 주 인증 플래그 (크로스탭 동기화)
+  const hasAuthedFlag = () => localStorage.getItem("auth:flag") === "1";
   const serverAuthed  = () => !!(window.auth?.isAuthed && window.auth.isAuthed());
   const sessionAuthed = () => hasAuthedFlag() || serverAuthed();
 

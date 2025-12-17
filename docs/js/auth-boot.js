@@ -1,43 +1,45 @@
-// /public/js/auth-boot.js — hardened navigation + selective logout (2025-09-03)
+// /public/js/auth-boot.js — clean logout mechanism (2025-12)
 (() => {
   "use strict";
 
   /* =========================
-   * Constants & small utils
+   * Constants
    * ========================= */
   const AUTH_FLAG_KEY = "auth:flag";
   const NAV_KEY = "auth:navigate";
-  const NAV_TTL_MS = 60000;           // 내부 이동으로 인정할 유효시간
+  const NAV_TTL_MS = 60000;
   const USERNS_KEY = "auth:userns";
 
-  const TAB_ID_KEY   = "auth:tab-id";
-  const TAB_REG_KEY  = "auth:open-tabs";         // 모든 탭 레지스트리
+  const TAB_ID_KEY = "auth:tab-id";
+  const TAB_REG_KEY = "auth:open-tabs";
   const TAB_AUTHED_KEY = "auth:open-tabs:authed";
-  const TAB_HB_MS    = 15_000;
+  const TAB_HB_MS = 15_000;
   const TAB_STALE_MS = 5 * 60_000;
 
-  const TAB_CLOSE_GRACE_MS = 0;
-  const LOGOUT_ON_TAB_CLOSE = "always";
-
+  /* =========================
+   * Auth flag helpers
+   * ========================= */
   const setAuthedFlag = () => {
     try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
-    try { localStorage.setItem(AUTH_FLAG_KEY,  "1"); }  catch {}
+    try { localStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
   };
   const clearAuthedFlag = () => {
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-    try { localStorage.removeItem(AUTH_FLAG_KEY);  }  catch {}
+    try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
   };
 
   const now = () => Date.now();
 
-  // GH Pages(정적 호스트)에서 /auth, /api 요청을 실제 백엔드로 보냄
+  /* =========================
+   * API URL helpers
+   * ========================= */
   function apiOrigin() {
     return window.PROD_BACKEND || window.API_BASE || null;
   }
   function toAPI(p) {
     try {
       const u = new URL(p, location.href);
-      const ORI = apiOrigin();               // ← 매번 최신값 사용
+      const ORI = apiOrigin();
       if (ORI && /^\/(?:auth|api)\//.test(u.pathname)) {
         return new URL(u.pathname + u.search + u.hash, ORI).toString();
       }
@@ -45,25 +47,24 @@
     } catch { return p; }
   }
 
+  // 이벤트 이름 노출
   try {
-    window.COLLECTED_EVT     = "collectedLabels:changed";
+    window.COLLECTED_EVT = "collectedLabels:changed";
     window.JIB_COLLECTED_EVT = "jib:collection-changed";
   } catch {}
 
+  /* =========================
+   * Navigation marking
+   * ========================= */
   let __lastNavPing = 0;
   function markNavigate() {
     try { sessionStorage.setItem(NAV_KEY, String(now())); } catch {}
     try {
       const t = now();
-      if (t - __lastNavPing > 2000) {            // 2s throttle
+      if (t - __lastNavPing > 2000) {
         __lastNavPing = t;
         const blob = new Blob([JSON.stringify({ t })], { type: "application/json" });
-        const navURL = toAPI("/auth/nav");
-        navigator.sendBeacon?.(navURL, blob) ||
-          fetch(navURL, {
-            method: "POST", credentials: "include", keepalive: true,
-            headers: { "content-type": "application/json" }, body: "{}"
-          }).catch(()=>{});
+        navigator.sendBeacon?.(toAPI("/auth/nav"), blob);
       }
     } catch {}
   }
@@ -75,21 +76,25 @@
     } catch { return false; }
   }
 
+  /* =========================
+   * Tab registry
+   * ========================= */
   function getTabId() {
     try {
       let id = sessionStorage.getItem(TAB_ID_KEY);
       if (!id) {
-        id = `t_${now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+        id = `t_${now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
         sessionStorage.setItem(TAB_ID_KEY, id);
       }
       return id;
     } catch { return "t_fallback"; }
   }
+
   const readKV = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch { return {}; } };
   const writeKV = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const prune = (obj) => {
     const out = {}; const t = now();
-    for (const [k, ts] of Object.entries(obj || {})) if (t - (ts||0) < TAB_STALE_MS) out[k] = ts;
+    for (const [k, ts] of Object.entries(obj || {})) if (t - (ts || 0) < TAB_STALE_MS) out[k] = ts;
     return out;
   };
   function regUpdate(key, modFn) { const next = modFn(prune(readKV(key))); writeKV(key, next); return next; }
@@ -107,6 +112,7 @@
     const id = getTabId();
     regUpdate(TAB_AUTHED_KEY, reg => (reg[id] = now(), reg));
   }
+
   let hbTimer = null;
   function startHeartbeat() {
     if (hbTimer) return;
@@ -120,27 +126,27 @@
   }
   function stopHeartbeat() { if (hbTimer) { clearInterval(hbTimer); hbTimer = null; } }
 
-  // 공용 유틸 (auth-boot.js에 추가하면 좋음)
-  function wipeLocalForNs(ns){
-    if(!ns) return;
-    const bases = ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"];
+  // ns별 캐시 정리
+  function wipeLocalForNs(ns) {
+    if (!ns) return;
+    const bases = ["REG_COLLECT", "JIBC_COLLECT", "REG_LABELS", "JIBC_LABELS"];
     for (const b of bases) localStorage.removeItem(`${b}::${ns.toLowerCase()}`);
   }
+
   /* =========================
-   * Navigation marking (broad)
+   * Navigation event listeners
    * ========================= */
   document.addEventListener("click", (e) => {
     try {
-      if (e.defaultPrevented) return;
-      if (e.button !== 0) return;
+      if (e.defaultPrevented || e.button !== 0) return;
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = e.target?.closest?.('a[href]');
       if (!a) return;
       const href = a.getAttribute("href") || "";
-      if (!href || href.startsWith("#")) return; // 해시 이동 제외
+      if (!href || href.startsWith("#")) return;
       const u = new URL(href, location.href);
       if (u.origin === location.origin) markNavigate();
-      } catch {}
+    } catch {}
   }, { capture: true, passive: true });
 
   document.addEventListener("submit", (e) => {
@@ -155,147 +161,57 @@
   document.addEventListener("keydown", (e) => {
     const k = e.key;
     const mod = e.metaKey || e.ctrlKey;
-    const isNavKey =
-      k === "F5" ||
+    const isNavKey = k === "F5" ||
       (mod && (k === "r" || k === "R")) ||
       (e.altKey && (k === "ArrowLeft" || k === "ArrowRight")) ||
       (mod && (k === "[" || k === "]"));
     if (isNavKey) {
-      try {
-        window.auth?.markNavigate?.();
-        sessionStorage.setItem("auth:navigate", String(Date.now()));
-      } catch {}
+      try { sessionStorage.setItem(NAV_KEY, String(Date.now())); } catch {}
     }
   }, { capture: true });
 
-  (function patchLocationAssignReplace(){
+  // Location API 패치
+  (function patchLocationMethods() {
     try {
-      if (Location.prototype.__audPatchedNav) return;
-      const A = Location.prototype.assign;
-      const R = Location.prototype.replace;
-      Location.prototype.assign  = function(u){ try{ markNavigate(); }catch{} return A.call(this, u); };
-      Location.prototype.replace = function(u){ try{ markNavigate(); }catch{} return R.call(this, u); };
-      Object.defineProperty(Location.prototype, "__audPatchedNav", { value:true });
-    } catch {}
-  })();
+      if (Location.prototype.__audPatched) return;
+      const origAssign = Location.prototype.assign;
+      const origReplace = Location.prototype.replace;
+      const origReload = Location.prototype.reload;
 
-  (function patchLocationHrefSetter(){
-    try {
+      Location.prototype.assign = function(u) { try { markNavigate(); } catch {} return origAssign.call(this, u); };
+      Location.prototype.replace = function(u) { try { markNavigate(); } catch {} return origReplace.call(this, u); };
+      Location.prototype.reload = function(...args) { try { markNavigate(); } catch {} return origReload.apply(this, args); };
+
       const d = Object.getOwnPropertyDescriptor(Location.prototype, "href");
       if (d && d.set && d.configurable) {
-        const origSet = d.set, getter = d.get;
         Object.defineProperty(Location.prototype, "href", {
           configurable: true,
-          get: getter,
-          set(v){ try{ markNavigate(); }catch{} return origSet.call(this, v); }
+          get: d.get,
+          set(v) { try { markNavigate(); } catch {} return d.set.call(this, v); }
         });
       }
-    } catch {}
-  })();
 
-  (function patchLocationReload(){
-    try {
-      if (Location.prototype.__audPatchedReload) return;
-      const RELOAD = Location.prototype.reload;
-      Location.prototype.reload = function(...args){
-        try { markNavigate(); } catch {}
-        return RELOAD.apply(this, args);
-      };
-      Object.defineProperty(Location.prototype, "__audPatchedReload", { value:true });
+      Object.defineProperty(Location.prototype, "__audPatched", { value: true });
     } catch {}
   })();
 
   /* =========================
-   * Last-tab logout on real exit
+   * Tab close logout (pagehide)
    * ========================= */
-  let unregistered = false;
-  function beaconLogout(){
-    try {
-      const blob = new Blob([JSON.stringify({ reason:"tab-close", t: Date.now() })],
-                            { type: "application/json" });
-      const url = toAPI("/auth/logout-beacon");
-      const ok = navigator.sendBeacon?.(url, blob);
-      if (!ok) {
-        fetch(url, {
-          method: "POST",
-          credentials: "include",
-          keepalive: true,
-          headers: { "content-type": "application/json" },
-          body: "{}"
-        }).catch(()=>{});
-      }
-    } catch {}
-  }
-
-  // 기존 함수 유지 (다른 경로에서 참조 가능). always 모드에선 사실상 미사용.
-  function unregisterTabAndMaybeLogout(e) {
-    if (unregistered) return;
-    if (closeTimer) return; // hidden 경로에서 이미 처리 예정
-    unregistered = true;
-    try {
-      stopHeartbeat();
-      unregisterTab(); // 레지스트리에서 현재 탭 제거
-      const realExitCandidate = !isAppNavigation();
-      if (LOGOUT_ON_TAB_CLOSE === "always" && realExitCandidate) {
-        const hideAt = Date.now();
-        setTimeout(() => {
-          let bootTs = 0;
-          try { bootTs = +(localStorage.getItem("auth:nav:boot-ts") || 0); } catch {}
-          const bootedSoonAfter = bootTs && (bootTs >= hideAt);
-          if (bootedSoonAfter) return;
-          try { sessionStorage.removeItem("auth:flag"); } catch {}
-          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-          try {
-            const blob = new Blob(
-              [JSON.stringify({ reason: "tab-close", t: Date.now() })],
-              { type: "application/json" }
-            );
-            const ok = navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob);
-            if (!ok) throw new Error("beacon-failed");
-          } catch {
-            try {
-              fetch(toAPI("/auth/logout-beacon"), {
-                method: "POST",
-                keepalive: true,
-                credentials: "include",
-                headers: { "content-type": "application/json" },
-                body: "{}"
-              }).catch(() => {});
-            } catch {}
-          }
-          try {
-            localStorage.setItem("auth:logout-intent",
-              JSON.stringify({ t: Date.now(), ttl: 120000 })
-            );
-          } catch {}
-        }, TAB_CLOSE_GRACE_MS);
-      }
-    } catch {}
-  }
-
-  // ★ 수정: pagehide에서 즉시 로그아웃 처리 (타이머 사용 안 함)
-  window.addEventListener("pagehide", (e) => {
+  window.addEventListener("pagehide", () => {
     // 내부 네비게이션이면 로그아웃 안 함
-    if (isAppNavigation()) {
-      console.log("[auth-boot] pagehide: app navigation detected, skipping logout");
-      return;
-    }
+    if (isAppNavigation()) return;
 
     // 로그인 상태가 아니면 처리 불필요
     const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
-    if (!lsFlag) {
-      console.log("[auth-boot] pagehide: not logged in, skipping");
-      return;
-    }
-
-    console.log("[auth-boot] pagehide: tab closing, sending logout beacon");
+    if (!lsFlag) return;
 
     // ★ 즉시 localStorage에서 auth:flag 삭제 (다른 탭에서 감지)
     try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
     try { localStorage.removeItem("auth:token"); } catch {}
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
 
-    // ★ sendBeacon으로 서버에 로그아웃 알림 (즉시 실행)
+    // ★ sendBeacon으로 서버에 로그아웃 알림
     try {
       const blob = new Blob(
         [JSON.stringify({ reason: "tab-close", t: Date.now(), force: true })],
@@ -303,42 +219,26 @@
       );
       navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob);
     } catch {}
-
-    // 로그아웃 intent 저장 (다음 부팅 시 확인용)
-    try {
-      localStorage.setItem("auth:logout-intent",
-        JSON.stringify({ t: Date.now(), ttl: 120000 })
-      );
-    } catch {}
   }, { capture: true });
 
+  // bfcache 복구 시 탭 재등록
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) {
-      unregistered = false;
-      registerTab(); startHeartbeat();
+      registerTab();
+      startHeartbeat();
       if (state.authed) registerAuthedTab();
     }
   });
 
-  // ───────────────────────────────────────────────
-  // visibilitychange(hidden)에서 종료 후보를 먼저 처리
-  // ───────────────────────────────────────────────
-  let closeTimer = null; // (기존 경로 호환용, 현재는 사용 안 함)
-
-  // ★ 교체: hidden 시에도 판별 스케줄
-  document.addEventListener("visibilitychange", () => {
-    /* intentionally no-op: only pagehide triggers close-logout */
-  }, { capture: true });
-
   /* =========================
    * State & subscribers
    * ========================= */
-  let state = { ready:false, authed:false, csrf:null, user:null, bootId:null };
+  let state = { ready: false, authed: false, csrf: null, user: null, bootId: null };
   const subs = new Set();
-  function notify(){ subs.forEach(fn => { try { fn(state); } catch {} }); }
-  function onChange(fn){ subs.add(fn); return () => subs.delete(fn); }
-  function isAuthed(){ return !!state.authed; }
-  async function getUser(){           // 구문 오류 수정 + null 세이프티
+  function notify() { subs.forEach(fn => { try { fn(state); } catch {} }); }
+  function onChange(fn) { subs.add(fn); return () => subs.delete(fn); }
+  function isAuthed() { return !!state.authed; }
+  async function getUser() {
     if (!state.ready) await refreshMe();
     return state.user || null;
   }
@@ -347,22 +247,22 @@
    * CSRF helpers
    * ========================= */
   let csrfInFlight = null;
-  async function getCSRF(force=false){
+  async function getCSRF(force = false) {
     if (state.csrf && !force) return state.csrf;
     if (csrfInFlight && !force) return csrfInFlight;
-    csrfInFlight = fetch(toAPI("/auth/csrf"), { credentials:"include", headers: { "Accept":"application/json" } })
-      .then(r => { if(!r.ok) throw new Error("csrf-fetch-failed"); return r.json(); })
+    csrfInFlight = fetch(toAPI("/auth/csrf"), { credentials: "include", headers: { "Accept": "application/json" } })
+      .then(r => { if (!r.ok) throw new Error("csrf-fetch-failed"); return r.json(); })
       .then(j => (state.csrf = j?.csrfToken || null))
       .finally(() => { csrfInFlight = null; });
     return csrfInFlight;
   }
-  function getCSRFTokenSync(){ return state.csrf || null; }
+  function getCSRFTokenSync() { return state.csrf || null; }
 
-  // === Same-origin coercion for dev (localhost <-> 127.0.0.1) ===
+  // 개발환경 localhost/127.0.0.1 호환
   function coerceToSameOrigin(input) {
     try {
       const u = new URL(input, location.href);
-      const devPair = (a,b) => (a==="localhost"&&b==="127.0.0.1")||(a==="127.0.0.1"&&b==="localhost");
+      const devPair = (a, b) => (a === "localhost" && b === "127.0.0.1") || (a === "127.0.0.1" && b === "localhost");
       if (u.origin !== location.origin && devPair(u.hostname, location.hostname)) {
         return location.origin + u.pathname + u.search + u.hash;
       }
@@ -370,13 +270,12 @@
     } catch { return input; }
   }
 
-
   /* =========================
    * fetch wrapper (CSRF + retry)
    * ========================= */
   async function apiFetch(path, opt = {}) {
     const method = (opt.method || "GET").toUpperCase();
-    const needsCSRF = !["GET","HEAD","OPTIONS"].includes(method);
+    const needsCSRF = !["GET", "HEAD", "OPTIONS"].includes(method);
 
     const headers = new Headers(opt.headers || {});
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
@@ -384,22 +283,15 @@
     const isFD = (typeof FormData !== "undefined") && (opt.body instanceof FormData);
     if (isFD) {
       headers.delete("Content-Type");
-      headers.delete("content-type");
     }
-    // 객체 바디 자동 JSON 처리 (Blob/URLSearchParams 제외)
-    const isPlainObjBody =
-      !isFD &&
-      opt.body &&
-      typeof opt.body === "object" &&
-      !(opt.body instanceof Blob) &&
-      !(opt.body instanceof URLSearchParams);
 
+    const isPlainObjBody = !isFD && opt.body && typeof opt.body === "object" &&
+      !(opt.body instanceof Blob) && !(opt.body instanceof URLSearchParams);
     if (isPlainObjBody) {
       if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
       opt.body = JSON.stringify(opt.body);
     }
 
-    // 최종 바디가 JSON 문자열인지 판별
     const isJSONStr = !isFD && typeof opt.body === "string" && /^\s*\{/.test(opt.body);
 
     let token = null;
@@ -409,7 +301,7 @@
         headers.set("X-CSRF-Token", token);
         headers.set("X-XSRF-Token", token);
       }
-      if (!isFD && !headers.has("Content-Type")) headers.set("Content-Type","application/json");
+      if (!isFD && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
       if (token) {
         if (isFD) { try { if (!opt.body.has("_csrf")) opt.body.append("_csrf", token); } catch {} }
         else if (isJSONStr) {
@@ -421,13 +313,7 @@
         }
         try {
           const u = new URL(path, location.href);
-          if (u.searchParams.has("csrf") && !u.searchParams.has("_csrf")) {
-            u.searchParams.set("_csrf", u.searchParams.get("csrf"));
-            u.searchParams.delete("csrf");
-          }
-          if (token && !u.searchParams.has("_csrf")) {
-            u.searchParams.set("_csrf", token);
-          }
+          if (token && !u.searchParams.has("_csrf")) u.searchParams.set("_csrf", token);
           path = u.toString();
         } catch {}
       }
@@ -462,64 +348,43 @@
       } catch {}
     }
 
+    // 401 처리
     if (res.status === 401) {
-      try {
-        const u   = new URL(path, location.href);
-        const pth = u.pathname || "";
-        const isAuthRoute = /^\/auth\//i.test(pth);
-        if (isAuthRoute) {
-          clearAuthedFlag();
-          state.authed = false; state.user = null;
-          notify(); try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-        } else {
-          let trulyExpired = false;
-          try {
-            const chk = await fetch(toAPI("/auth/me"), { credentials:"include", cache:"no-store", headers: { "Accept":"application/json" }});
-            if (!chk || chk.status !== 200) trulyExpired = true;
-            else {
-              const jj = await chk.clone().json().catch(()=>null);
-              trulyExpired = !jj?.authenticated;
-            }
-          } catch { trulyExpired = false; }
-          if (trulyExpired) {
-            clearAuthedFlag();
-            state.authed = false; state.user = null;
-            notify(); try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-          }
-        }
-      } catch {}
+      clearAuthedFlag();
+      state.authed = false;
+      state.user = null;
+      notify();
+      try { window.dispatchEvent(new Event("auth:logout")); } catch {}
     } else if (res.status === 403) {
-      state.csrf = null; // 다음 요청에서 재발급
+      state.csrf = null;
     }
     return res;
   }
 
   /* =========================
-   * Me(refresh) + boot handling
+   * refreshMe - 서버에서 인증 상태 확인
    * ========================= */
-  async function refreshMe(){
+  async function refreshMe() {
     try {
-      // ★ 중요: localStorage에 auth:flag가 없으면 로그아웃된 것
-      // 서버 응답과 관계없이 로그아웃 상태 유지 (다른 탭에서 로그아웃한 경우)
+      // ★ localStorage에 auth:flag가 없으면 로그아웃된 것
       const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
       if (!lsFlag) {
-        console.log("[auth-boot] refreshMe: localStorage auth:flag missing, treating as logged out");
         state.authed = false;
         state.user = null;
         state.bootId = null;
         clearAuthedFlag();
         regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
-        return; // 서버 호출 생략
+        return;
       }
 
       const r = await fetch(toAPI("/auth/me"), {
         credentials: "include",
         headers: { "Accept": "application/json" }
       });
-      const j = await r.json().catch(()=>null);
+      const j = await r.json().catch(() => null);
 
       state.authed = !!j?.authenticated;
-      state.user   = state.authed ? (j?.user || null) : null;
+      state.user = state.authed ? (j?.user || null) : null;
       state.bootId = j?.bootId || null;
 
       if (state.authed) {
@@ -527,25 +392,15 @@
         registerAuthedTab();
         try { await getCSRF(); } catch {}
 
-        // ✅ ns는 이메일 기반으로 고정 (서버가 j.ns로 내려줌)
         try {
-          const nsPersist =
-            String(j?.ns || j?.user?.email || "")
-              .trim()
-              .toLowerCase();
-
+          const nsPersist = String(j?.ns || j?.user?.email || "").trim().toLowerCase();
           if (nsPersist) {
-            // 보관
             localStorage.setItem(USERNS_KEY, nsPersist);
             localStorage.setItem("auth:ns", nsPersist);
-
-            // ✅ 같은 이메일로 재가입해도 이전 캐시가 섞이지 않도록 '1회만' 정리
             const wipedKey = `auth:wiped:${nsPersist}`;
             if (!localStorage.getItem(wipedKey)) {
               wipeLocalForNs(nsPersist);
-              // 레거시 전역 키도 정리(있다면)
-              ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"]
-                .forEach(k => localStorage.removeItem(k));
+              ["REG_COLLECT", "JIBC_COLLECT", "REG_LABELS", "JIBC_LABELS"].forEach(k => localStorage.removeItem(k));
               localStorage.setItem(wipedKey, "1");
             }
           }
@@ -560,93 +415,48 @@
       try { nsDetail = localStorage.getItem(USERNS_KEY) || null; } catch {}
       try {
         window.dispatchEvent(new CustomEvent("auth:state", {
-          detail: {
-            authed: state.authed,
-            user: state.user,
-            bootId: state.bootId,
-            ns: nsDetail
-          }
+          detail: { authed: state.authed, user: state.user, bootId: state.bootId, ns: nsDetail }
         }));
       } catch {}
       notify();
     }
   }
 
-  (function setupCloseWatcher(){
-    // ★ 중요: always 모드에서도 auth:flag 변경 감지는 유지해야 함
-    // (다른 탭에서 로그아웃 버튼 클릭 시 이 탭도 로그아웃)
-    function parseMap(v){ try { return (JSON.parse(v||"{}")||{}); } catch { return {}; } }
-
-    // ★ auth:flag 또는 auth:token 변경 감지 (로그아웃 버튼 클릭 시 다른 탭도 로그아웃)
-    window.addEventListener("storage", (ev) => {
-      // auth:flag가 삭제되면 (로그아웃) 이 탭도 로그아웃 상태로 전환
-      if (ev.key === AUTH_FLAG_KEY) {
-        const wasSet = ev.oldValue === "1";
-        const nowCleared = !ev.newValue || ev.newValue !== "1";
-        if (wasSet && nowCleared) {
-          console.log("[auth-boot] auth:flag removed in another tab, syncing logout state");
-          // 이 탭도 로그아웃 상태로 동기화
-          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-          try { localStorage.removeItem("auth:token"); } catch {}
-          state.authed = false;
-          state.user = null;
-          state.csrf = null;
-          notify();
-          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-        }
-        return;
-      }
-
-      // auth:token이 삭제되면 (로그아웃) 이 탭도 로그아웃 상태로 전환
-      if (ev.key === "auth:token") {
-        const hadToken = !!ev.oldValue;
-        const noToken = !ev.newValue;
-        if (hadToken && noToken) {
-          console.log("[auth-boot] auth:token removed in another tab, syncing logout state");
-          try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-          try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-          state.authed = false;
-          state.user = null;
-          state.csrf = null;
-          notify();
-          try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-        }
-        return;
-      }
-
-      // TAB_AUTHED_KEY 변경 감지 (탭 닫힘 감지)
-      if (ev.key !== TAB_AUTHED_KEY) return;
-      // always 모드에서는 탭 닫힘으로 인한 로그아웃은 pagehide에서 처리
-      if (LOGOUT_ON_TAB_CLOSE === "always") return;
-
-      const oldMap = parseMap(ev.oldValue);
-      const newMap = parseMap(ev.newValue);
-
-      const removed = Object.keys(oldMap).filter(id => !(id in newMap));
-      if (!removed.length) return;
-
-      setTimeout(() => {
-        const nowMap = prune(readKV(TAB_AUTHED_KEY));
-        const stillMissing = removed.filter(id => !(id in nowMap));
-        if (!stillMissing.length) return;
-
-        const leftAuthed = Object.keys(nowMap).length;
-        const shouldLogout =
-          LOGOUT_ON_TAB_CLOSE === "any"  ? true :
-          LOGOUT_ON_TAB_CLOSE === "last" ? (leftAuthed === 0) :
-          false;
-        if (!shouldLogout) return;
-
-        try { window.__flushStoreSnapshot?.({ server: true }); } catch {}
-        try {
-          const blob = new Blob([JSON.stringify({})], { type: "application/json" });
-          navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob) ||
-            fetch(toAPI("/auth/logout-beacon"), { method: "POST", keepalive: true, credentials: "include" });
-        } catch {}
+  /* =========================
+   * Cross-tab logout sync (storage event)
+   * ========================= */
+  window.addEventListener("storage", (ev) => {
+    // auth:flag가 삭제되면 이 탭도 로그아웃
+    if (ev.key === AUTH_FLAG_KEY) {
+      const wasSet = ev.oldValue === "1";
+      const nowCleared = !ev.newValue || ev.newValue !== "1";
+      if (wasSet && nowCleared) {
+        try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        try { localStorage.removeItem("auth:token"); } catch {}
+        state.authed = false;
+        state.user = null;
+        state.csrf = null;
+        notify();
         try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-      }, TAB_CLOSE_GRACE_MS);
-    });
-  })();
+      }
+      return;
+    }
+
+    // auth:token이 삭제되면 이 탭도 로그아웃
+    if (ev.key === "auth:token") {
+      const hadToken = !!ev.oldValue;
+      const noToken = !ev.newValue;
+      if (hadToken && noToken) {
+        try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        state.authed = false;
+        state.user = null;
+        state.csrf = null;
+        notify();
+        try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+      }
+    }
+  });
 
   /* =========================
    * Public actions
@@ -662,34 +472,24 @@
 
     const j = await r.json().catch(() => ({}));
     if (j?.ok) {
-      // ✅ JWT 토큰 저장 (stateless auth)
+      // JWT 토큰 저장
       if (j?.token) {
-        try {
-          localStorage.setItem("auth:token", j.token);
-          console.log("[auth-boot] JWT token saved");
-        } catch (e) {
-          console.error("[auth-boot] Failed to store JWT token:", e);
-        }
+        try { localStorage.setItem("auth:token", j.token); } catch {}
       }
 
-      // 세션/상태 갱신
       state.csrf = null;
       setAuthedFlag();
       registerAuthedTab();
-      await refreshMe();              // /auth/me로 user/bootId 동기화
+      await refreshMe();
       try { await getCSRF(true); } catch {}
 
-      // ✅ ns는 "이메일"로만 고정 저장 (id 쓰지 않음)
       try {
         localStorage.setItem(USERNS_KEY, normEmail);
-        localStorage.setItem("auth:ns",  normEmail);
-
-        // ✅ 같은 이메일로 재가입했을 때 섞이지 않도록 ns별 1회 캐시 정리
+        localStorage.setItem("auth:ns", normEmail);
         const wipedKey = `auth:wiped:${normEmail}`;
         if (!localStorage.getItem(wipedKey)) {
           wipeLocalForNs(normEmail);
-          ["REG_COLLECT","JIBC_COLLECT","REG_LABELS","JIBC_LABELS"]
-            .forEach(k => localStorage.removeItem(k)); // 레거시 전역키 정리
+          ["REG_COLLECT", "JIBC_COLLECT", "REG_LABELS", "JIBC_LABELS"].forEach(k => localStorage.removeItem(k));
           localStorage.setItem(wipedKey, "1");
         }
       } catch {}
@@ -697,17 +497,11 @@
 
     return j;
   }
-  // 회원가입 → (성공 시) 자동 로그인 → (옵션) 리다이렉트
-  async function signup(email, password, opts = {}) {
-    const {
-      autoLogin = true,     // true면 가입 성공 후 자동 로그인
-      redirect  = true,     // true면 로그인까지 성공하면 즉시 이동
-      next      = null,     // 지정 없으면 ?next=... 쿼리나 /mine.html 로 이동
-    } = opts;
 
+  async function signup(email, password, opts = {}) {
+    const { autoLogin = true, redirect = true, next = null } = opts;
     const normEmail = String(email || "").trim().toLowerCase();
 
-    // 1) 회원가입
     const r = await apiFetch("/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -715,152 +509,109 @@
     });
     const sign = await r.json().catch(() => ({}));
 
-    if (!sign?.ok) {
-      // 가입 실패 (중복 등) — 그대로 반환
-      return sign;
-    }
-
-    // 2) 자동 로그인 옵션이 아니면 여기서 종료
+    if (!sign?.ok) return sign;
     if (!autoLogin) return { ...sign, autologin: false };
 
-    // 3) 자동 로그인
     const loginRes = await login(normEmail, password);
-    try { password = ""; } catch {}         // 메모리에 남은 비번 최대한 비움
-
-    // 4) (선택) 리다이렉트
     if (redirect && loginRes?.ok) {
-      const to =
-        next ||
-        new URLSearchParams(location.search).get("next") ||
-        "/mine.html";
+      const to = next || new URLSearchParams(location.search).get("next") || "/mine.html";
       try { markNavigate(); } catch {}
-      location.replace(to);                 // 히스토리 깔끔
+      location.replace(to);
     }
     return { ...loginRes, autologin: true };
   }
 
-  async function onLogoutClick(e){
+  async function logout(e) {
     e?.preventDefault?.();
-    try { await apiFetch("/auth/logout", { method:"POST" }); } catch {}
+
+    // 서버에 로그아웃 요청
+    try { await apiFetch("/auth/logout", { method: "POST" }); } catch {}
+
+    // sessionStorage 정리
     try {
       const rm = [];
-      for (let i=0; i<sessionStorage.length; i++){
-        const k = sessionStorage.key(i); if (!k) continue;
-        if (/^(auth:|__boot\.id|auth:open-tabs)/.test(k)) rm.push(k);
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && /^(auth:|__boot\.id)/.test(k)) rm.push(k);
       }
       rm.forEach(k => sessionStorage.removeItem(k));
     } catch {}
+
+    // ★ 핵심: localStorage에서 auth 관련 항목 삭제 (다른 탭에서 storage 이벤트로 감지)
     clearAuthedFlag();
-    // ★ JWT 토큰도 삭제 (다른 탭에서 storage 이벤트로 감지)
     try { localStorage.removeItem("auth:token"); } catch {}
     try { localStorage.removeItem(USERNS_KEY); } catch {}
-    try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed:false, user:null, ns:"default" } })); } catch {}
+
+    // 상태 초기화
     regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
-    state.csrf=null; state.authed=false; state.user=null;
-    notify(); try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+    state.csrf = null;
+    state.authed = false;
+    state.user = null;
+    notify();
+
+    try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed: false, user: null, ns: "default" } })); } catch {}
+    try { window.dispatchEvent(new Event("auth:logout")); } catch {}
+
+    // 로그인 페이지로 이동
     markNavigate();
     const next = encodeURIComponent(location.pathname + location.search);
     location.href = `./login.html?reset=1&next=${next}`;
   }
-  async function logout(){ return onLogoutClick(); }
 
   /* =========================
-   * Optional tiny state API
+   * State API
    * ========================= */
-  async function loadState(ns="default"){
+  async function loadState(ns = "default") {
     const u = toAPI(`/api/state?ns=${encodeURIComponent(ns)}`);
-    const j = await fetch(u, { credentials:"include", headers:{ "Accept":"application/json" }}).then(r=>r.json()).catch(()=> ({}));
+    const j = await fetch(u, { credentials: "include", headers: { "Accept": "application/json" } }).then(r => r.json()).catch(() => ({}));
     return j?.state || {};
   }
-  async function saveState(ns="default", stateObj={}){
+  async function saveState(ns = "default", stateObj = {}) {
     const body = JSON.stringify({ ns, state: stateObj });
-    let r = await apiFetch("/api/state", { method:"PUT", headers:{ "Content-Type":"application/json" }, body });
-    if (!r.ok) r = await apiFetch("/api/state", { method:"POST", headers:{ "Content-Type":"application/json" }, body });
+    let r = await apiFetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body });
+    if (!r.ok) r = await apiFetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body });
     return r.ok;
   }
 
   /* =========================
-   * Expose & boot
+   * Expose window.auth
    * ========================= */
   window.auth = {
-    apiFetch, onChange, isAuthed, getUser, require: async () => {
-      if (state.ready && state.authed) { await getCSRF().catch(()=>null); return true; }
+    apiFetch,
+    onChange,
+    isAuthed,
+    getUser,
+    require: async () => {
+      if (state.ready && state.authed) { await getCSRF().catch(() => null); return true; }
       if (!state.ready) await refreshMe();
-      if (state.authed) { await getCSRF().catch(()=>null); return true; }
+      if (state.authed) { await getCSRF().catch(() => null); return true; }
       const next = encodeURIComponent(location.pathname + location.search);
       markNavigate();
       location.href = "./login.html?next=" + next;
       return false;
     },
-    getUser, login, signup, logout,
-    getCSRF, getCSRFTokenSync,
+    login,
+    signup,
+    logout,
+    getCSRF,
+    getCSRFTokenSync,
     ensureCSRF: getCSRF,
-    ping: async () => { try { await fetch(toAPI("/auth/ping"), { credentials:"include" }); } catch {} },
-    loadState, saveState,
+    ping: async () => { try { await fetch(toAPI("/auth/ping"), { credentials: "include" }); } catch {} },
+    loadState,
+    saveState,
     markNavigate,
   };
 
-  // 외부 스크립트에서 안전 호출
-  window.auth = window.auth || {};
-  window.auth.markNavigate = markNavigate;
-
-  // ★ 부팅 시작 ‘직후’에 가장 먼저 boot-ts 기록 (리로드/내비 보호의 핵심)
-  try { localStorage.setItem("auth:nav:boot-ts", String(Date.now())); } catch {}
-
-  // boot
+  /* =========================
+   * Boot
+   * ========================= */
   try { sessionStorage.removeItem(NAV_KEY); } catch {}
-  registerTab(); startHeartbeat();
+  registerTab();
+  startHeartbeat();
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { refreshMe(); }, { once:true });
+    document.addEventListener("DOMContentLoaded", () => { refreshMe(); }, { once: true });
   } else {
     refreshMe();
   }
-
-  // 닫힘-로그아웃 intent 보정 루프 (boot 직후 실행)
-  (async function finishPendingLogout(){
-    // Skip auto-logout if JWT token exists (JWT-based auth doesn't need this)
-    try {
-      const hasJWT = !!localStorage.getItem("auth:token");
-      if (hasJWT) {
-        console.log("[auth-boot] JWT token found, skipping auto-logout logic");
-        try { localStorage.removeItem("auth:logout-intent"); } catch {}
-        return;
-      }
-    } catch {}
-
-    // Skip auto-logout if auth flag is present (session-based auth)
-    try {
-      if (sessionStorage.getItem(AUTH_FLAG_KEY) === "1" || localStorage.getItem(AUTH_FLAG_KEY) === "1") {
-        console.log("[auth-boot] Auth flag present, skipping auto-logout logic");
-        try { localStorage.removeItem("auth:logout-intent"); } catch {}
-        return;
-      }
-    } catch {}
-
-    let intent = null;
-    try { intent = JSON.parse(localStorage.getItem("auth:logout-intent") || "null"); } catch {}
-    if (!intent) return;
-
-    const tooOld = (Date.now() - (intent.t || 0)) > (intent.ttl || 120000);
-    if (tooOld) { try { localStorage.removeItem("auth:logout-intent"); } catch {} return; }
-
-    let stillAuthed = false;
-    try {
-      const me = await fetch(toAPI("/auth/me"), {
-        credentials: "include", cache: "no-store", headers: { "Accept": "application/json" }
-      }).then(r => r.json());
-      stillAuthed = !!me?.authenticated;
-    } catch {}
-    if (!stillAuthed) { try { localStorage.removeItem("auth:logout-intent"); } catch {} return; }
-
-    try {
-      await apiFetch("/auth/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      });
-    } catch {}
-    try { localStorage.removeItem("auth:logout-intent"); } catch {}
-    try { sessionStorage.removeItem("auth:flag"); } catch {}
-  })();
 })();
