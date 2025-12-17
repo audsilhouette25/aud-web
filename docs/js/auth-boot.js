@@ -19,9 +19,6 @@
   const TAB_CLOSE_GRACE_MS = 0;
   const LOGOUT_ON_TAB_CLOSE = "always";
 
-  // ★ 추가: 툴바 새로고침/내비 보호용 짧은 유예 (모바일 고려하여 500ms)
-  const GRACE_NAV_BOOT_MS = 500;
-
   const setAuthedFlag = () => {
     try { sessionStorage.setItem(AUTH_FLAG_KEY, "1"); } catch {}
     try { localStorage.setItem(AUTH_FLAG_KEY,  "1"); }  catch {}
@@ -276,56 +273,43 @@
     } catch {}
   }
 
-  // ★ 교체: 즉시 로그아웃 → 새 문서 부팅 판별 후 로그아웃
-  function scheduleCloseLogout(trigger) {
-    const hideAt = Date.now();
-    const timer = (cb) =>
-      (typeof requestIdleCallback === "function")
-        ? requestIdleCallback(() => setTimeout(cb, 0), { timeout: GRACE_NAV_BOOT_MS })
-        : setTimeout(cb, GRACE_NAV_BOOT_MS);
-
-    timer(() => {
-      let bootTs = 0;
-      try { bootTs = +(localStorage.getItem("auth:nav:boot-ts") || 0); } catch {}
-      if (isAppNavigation()) return;     // 같은 탭 내비게이션만 억제 (세션스토리지 기준)
-
-      // 여기까지 왔으면 진짜 탭 종료
-      try { stopHeartbeat(); } catch {}
-      try { unregisterTab(); } catch {}
-
-      if (LOGOUT_ON_TAB_CLOSE === "always") {
-        try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-        try { window.dispatchEvent(new Event("auth:logout")); } catch {}
-        try {
-          const blob = new Blob(
-            [JSON.stringify({ reason: "tab-close", t: Date.now(), via: trigger || "scheduled" })],
-            { type: "application/json" }
-          );
-          const ok = navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob);
-          if (!ok) throw new Error("beacon-failed");
-        } catch {
-          try {
-            fetch(toAPI("/auth/logout-beacon"), {
-              method: "POST",
-              keepalive: true,
-              credentials: "include",
-              headers: { "content-type": "application/json" },
-              body: "{}"
-            }).catch(()=>{});
-          } catch {}
-        }
-        try {
-          localStorage.setItem("auth:logout-intent",
-            JSON.stringify({ t: Date.now(), ttl: 120000 })
-          );
-        } catch {}
-      }
-    });
-  }
-
-  // ★ 교체: pagehide에서 바로 로그아웃하지 않고 판별 스케줄
+  // ★ 수정: pagehide에서 즉시 로그아웃 처리 (타이머 사용 안 함)
   window.addEventListener("pagehide", (e) => {
-    scheduleCloseLogout("pagehide");
+    // 내부 네비게이션이면 로그아웃 안 함
+    if (isAppNavigation()) {
+      console.log("[auth-boot] pagehide: app navigation detected, skipping logout");
+      return;
+    }
+
+    // 로그인 상태가 아니면 처리 불필요
+    const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
+    if (!lsFlag) {
+      console.log("[auth-boot] pagehide: not logged in, skipping");
+      return;
+    }
+
+    console.log("[auth-boot] pagehide: tab closing, sending logout beacon");
+
+    // ★ 즉시 localStorage에서 auth:flag 삭제 (다른 탭에서 감지)
+    try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+    try { localStorage.removeItem("auth:token"); } catch {}
+    try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+
+    // ★ sendBeacon으로 서버에 로그아웃 알림 (즉시 실행)
+    try {
+      const blob = new Blob(
+        [JSON.stringify({ reason: "tab-close", t: Date.now(), force: true })],
+        { type: "application/json" }
+      );
+      navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob);
+    } catch {}
+
+    // 로그아웃 intent 저장 (다음 부팅 시 확인용)
+    try {
+      localStorage.setItem("auth:logout-intent",
+        JSON.stringify({ t: Date.now(), ttl: 120000 })
+      );
+    } catch {}
   }, { capture: true });
 
   window.addEventListener("pageshow", (e) => {
