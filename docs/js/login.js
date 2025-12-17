@@ -745,9 +745,11 @@
       setBusy(els.signupBtn, false);
 
       if (!loginRes.ok) {
-        // 로그인 실패 시 로그인 화면으로 이동
+        // 로그인 실패 시 로그인 화면으로 이동하며 메시지 표시
         showLoginForm();
         showSignupStep1();
+        setFieldError(els.loginEmail, els.errEmail, "Account created! Please sign in.");
+        if (els.errEmail) els.errEmail.style.color = "#16a34a";
         return;
       }
 
