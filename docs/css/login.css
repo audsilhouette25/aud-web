@@ -288,44 +288,32 @@ form label:first-of-type{ margin-top:0; }  /* 카드 첫 필드만 상단 0 */
   padding-bottom: 8px;
 }
 
-/* Find 폼: form-error만 padding-bottom 설정 (success는 겹침) */
+/* Find 폼: form-error padding-bottom 설정 */
 #find-email-form .form-error,
 #find-password-form .form-error{
   padding-bottom: 8px;
 }
-#find-email-form .form-success,
-#find-password-form .form-success{
-  padding-bottom: 8px;
-}
 
-/* Find 폼: 에러/성공 메시지를 같은 위치에 겹쳐서 배치
-   form-error는 공간 차지, form-success는 그 위에 absolute로 겹침 */
-
-/* form-error: 항상 공간 차지 (비어있어도 min-height 유지) */
-#find-email-form .form-error,
-#find-password-form .form-error{
-  position: relative;
-  min-height: 16px;
-  visibility: hidden;
-}
-#find-email-form .form-error:not(:empty),
-#find-password-form .form-error:not(:empty){
-  visibility: visible;
-}
-
-/* form-success: form-error 위에 absolute로 겹침 */
-#find-email-form .form-success,
-#find-password-form .form-success{
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
+/* Find Email 결과 박스 */
+.result-box{
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: #f5f5f5;
+  border-radius: 10px;
   text-align: center;
-  visibility: hidden;
 }
-#find-email-form .form-success:not(:empty),
-#find-password-form .form-success:not(:empty){
-  visibility: visible;
+.result-box .result-label{
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  margin-bottom: 4px;
+}
+.result-box .result-value{
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
 }
 
 /* 뒤로 가기 버튼 - 텍스트 전용 */

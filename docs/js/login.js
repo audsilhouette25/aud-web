@@ -54,6 +54,7 @@
 
   // DOM cache (ids are optional; delegation handles the rest)
   const els = {
+    pageTitle:   $("#page-title"),
     tabContainer: $(".auth-switch[role='tablist']"),
     tabLogin:    $("#tab-login") || $('[data-tab="login"]'),
     tabSignup:   $("#tab-signup")|| $('[data-tab="signup"]'),
@@ -93,9 +94,12 @@
     feName: $("#fe-name"),
     feBirthdate: $("#fe-birthdate"),
     findEmailResult: $("#find-email-result"),
+    findEmailValue: $("#find-email-value"),
+    findEmailError: $("#find-email-error"),
 
     // Find password fields
     fpEmail: $("#fp-email"),
+    fpErrEmail: $("#fp-err-email"),
     fpCode: $("#fp-code"),
     fpNewPw: $("#fp-new-pw"),
     sendCodeBtn: $("#send-code-btn"),
@@ -589,7 +593,8 @@
     if (els.findEmailForm) els.findEmailForm.hidden = true;
     if (els.findPasswordForm) els.findPasswordForm.hidden = true;
 
-    // Show tabs
+    // Show page title and tabs
+    if (els.pageTitle) els.pageTitle.hidden = false;
     if (els.tabContainer) els.tabContainer.hidden = false;
 
     // Show login/signup tabs and panels
@@ -601,7 +606,8 @@
   }
 
   function showFindEmailForm(){
-    // Hide tabs
+    // Hide page title and tabs
+    if (els.pageTitle) els.pageTitle.hidden = true;
     if (els.tabContainer) els.tabContainer.hidden = true;
 
     // Hide login/signup panels
@@ -613,11 +619,13 @@
     if (els.findPasswordForm) els.findPasswordForm.hidden = true;
 
     // Clear previous results
-    if (els.findEmailResult) els.findEmailResult.textContent = "";
+    if (els.findEmailResult) els.findEmailResult.hidden = true;
+    if (els.findEmailError) els.findEmailError.textContent = "";
   }
 
   function showFindPasswordForm(){
-    // Hide tabs
+    // Hide page title and tabs
+    if (els.pageTitle) els.pageTitle.hidden = true;
     if (els.tabContainer) els.tabContainer.hidden = true;
 
     // Hide login/signup panels
@@ -799,17 +807,19 @@
     const name = (els.feName?.value || "").trim();
     const birthdate = (els.feBirthdate?.value || "").trim();
 
+    // 초기화
+    if (els.findEmailError) els.findEmailError.textContent = "";
+    if (els.findEmailResult) els.findEmailResult.hidden = true;
+
     if (!name || !birthdate) {
-      if (els.findEmailResult) {
-        els.findEmailResult.textContent = "Please fill in all fields.";
-        els.findEmailResult.style.color = "var(--error)";
+      if (els.findEmailError) {
+        els.findEmailError.textContent = "Please fill in all fields.";
       }
       return;
     }
     if (!isValidDate(birthdate)) {
-      if (els.findEmailResult) {
-        els.findEmailResult.textContent = "Please enter a valid date in MM/DD/YYYY format.";
-        els.findEmailResult.style.color = "var(--error)";
+      if (els.findEmailError) {
+        els.findEmailError.textContent = "Please enter a valid date in MM/DD/YYYY format.";
       }
       return;
     }
@@ -819,22 +829,20 @@
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok || out?.ok === false) {
-        if (els.findEmailResult) {
-          els.findEmailResult.textContent = out?.message || "No account found.";
-          els.findEmailResult.style.color = "var(--error)";
+        if (els.findEmailError) {
+          els.findEmailError.textContent = out?.message || "No account found.";
         }
         return;
       }
 
-      // 성공: 마스킹된 이메일 표시
-      if (els.findEmailResult && out.email) {
-        els.findEmailResult.textContent = `Your email: ${out.email}`;
-        els.findEmailResult.style.color = "#16a34a";
+      // 성공: 회색 박스에 이메일 표시
+      if (els.findEmailValue && out.email) {
+        els.findEmailValue.textContent = out.email;
+        if (els.findEmailResult) els.findEmailResult.hidden = false;
       }
     } catch {
-      if (els.findEmailResult) {
-        els.findEmailResult.textContent = "Network error. Please try again.";
-        els.findEmailResult.style.color = "var(--error)";
+      if (els.findEmailError) {
+        els.findEmailError.textContent = "Network error. Please try again.";
       }
     }
   }
@@ -842,11 +850,19 @@
   // Find Password: Send Code
   async function onSendCode(){
     const email = (els.fpEmail?.value || "").trim();
+    // 에러 초기화
+    if (els.fpErrEmail) {
+      els.fpErrEmail.textContent = "";
+      els.fpErrEmail.classList.remove("is-on");
+    }
+    els.fpEmail?.classList.remove("is-invalid");
+
     if (!EMAIL_RX.test(email)) {
-      if (els.fpError) {
-        els.fpError.textContent = "Please enter a valid email.";
-        els.fpError.style.color = "var(--error)";
+      if (els.fpErrEmail) {
+        els.fpErrEmail.textContent = "Please enter a valid email.";
+        els.fpErrEmail.classList.add("is-on");
       }
+      els.fpEmail?.classList.add("is-invalid");
       return;
     }
 
@@ -856,10 +872,11 @@
       const out = await res.json().catch(() => ({}));
 
       if (!res.ok || out?.ok === false) {
-        if (els.fpError) {
-          els.fpError.textContent = out?.message || "Failed to send code.";
-          els.fpError.style.color = "var(--error)";
+        if (els.fpErrEmail) {
+          els.fpErrEmail.textContent = out?.message || "Failed to send code.";
+          els.fpErrEmail.classList.add("is-on");
         }
+        els.fpEmail?.classList.add("is-invalid");
         setBusy(els.sendCodeBtn, false);
         return;
       }
@@ -867,15 +884,11 @@
       // 성공: Step 2로 전환
       if (els.resetStep1) els.resetStep1.hidden = true;
       if (els.resetStep2) els.resetStep2.hidden = false;
-      if (els.fpError) {
-        els.fpError.textContent = "Verification code sent to your email!";
-        els.fpError.style.color = "#16a34a";
-      }
       setBusy(els.sendCodeBtn, false);
     } catch {
-      if (els.fpError) {
-        els.fpError.textContent = "Network error. Please try again.";
-        els.fpError.style.color = "var(--error)";
+      if (els.fpErrEmail) {
+        els.fpErrEmail.textContent = "Network error. Please try again.";
+        els.fpErrEmail.classList.add("is-on");
       }
       setBusy(els.sendCodeBtn, false);
     }
