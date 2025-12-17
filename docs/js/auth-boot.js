@@ -515,6 +515,19 @@
    * ========================= */
   async function refreshMe(){
     try {
+      // ★ 중요: localStorage에 auth:flag가 없으면 로그아웃된 것
+      // 서버 응답과 관계없이 로그아웃 상태 유지 (다른 탭에서 로그아웃한 경우)
+      const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
+      if (!lsFlag) {
+        console.log("[auth-boot] refreshMe: localStorage auth:flag missing, treating as logged out");
+        state.authed = false;
+        state.user = null;
+        state.bootId = null;
+        clearAuthedFlag();
+        regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
+        return; // 서버 호출 생략
+      }
+
       const r = await fetch(toAPI("/auth/me"), {
         credentials: "include",
         headers: { "Accept": "application/json" }
