@@ -170,6 +170,11 @@
     }
   }, { capture: true });
 
+  // 브라우저 뒤로가기/앞으로가기 감지
+  window.addEventListener("popstate", () => {
+    markNavigate();
+  });
+
   // Location API 패치
   (function patchLocationMethods() {
     try {
