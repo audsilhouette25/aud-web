@@ -627,10 +627,48 @@
   }
 
   // [ADD] admin helpers (place right after fetchMe)
+  const ADMIN_CACHE_KEY = "aud:admin-cache";
   let __adminCache = null;  // null = 미확인, true/false = 확정
   let __adminCheckPromise = null;
 
+  // 페이지 로드 시 localStorage에서 캐시 복원
+  try {
+    const stored = localStorage.getItem(ADMIN_CACHE_KEY);
+    if (stored === "1") __adminCache = true;
+    else if (stored === "0") __adminCache = false;
+  } catch {}
+
+  function isAdminSync() {
+    // 동기적으로 즉시 확인 가능한 경우만 반환 (서버 호출 없음)
+    if (__adminCache !== null) return __adminCache;
+
+    // localStorage에서 userns 확인
+    const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
+    if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
+      __adminCache = true;
+      try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
+      return true;
+    }
+
+    // 프로필 캐시 확인
+    try {
+      const cached = readProfileCache();
+      const cachedEmail = (cached?.email || "").toLowerCase();
+      if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
+        __adminCache = true;
+        try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
+        return true;
+      }
+    } catch {}
+
+    return null;  // 아직 확인 불가
+  }
+
   async function isAdmin() {
+    // 동기 확인 먼저 시도
+    const syncResult = isAdminSync();
+    if (syncResult !== null) return syncResult;
+
     // 이미 확인된 경우 캐시 반환
     if (__adminCache !== null) return __adminCache;
 
@@ -639,26 +677,12 @@
 
     __adminCheckPromise = (async () => {
       try {
-        // boot 과정에서 이미 로드된 프로필 캐시 먼저 확인 (서버 호출 없이)
-        const cached = readProfileCache();
-        const cachedEmail = (cached?.email || "").toLowerCase();
-        if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
-          __adminCache = true;
-          return true;
-        }
-
-        // localStorage에서 userns 확인
-        const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
-        if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
-          __adminCache = true;
-          return true;
-        }
-
         // 캐시에 없으면 서버 확인
         const me = await fetchMe();
         const email = (me?.email || me?.user?.email || "").toLowerCase();
         if (email && ADMIN_EMAILS.includes(email)) {
           __adminCache = true;
+          try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
           return true;
         }
 
@@ -672,12 +696,14 @@
             const j = await res.json().catch(() => null);
             if (j?.ok && (j.admin === true || j.role === "admin")) {
               __adminCache = true;
+              try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
               return true;
             }
           }
         }
       } catch {}
       __adminCache = false;
+      try { localStorage.setItem(ADMIN_CACHE_KEY, "0"); } catch {}
       return false;
     })();
 
@@ -689,6 +715,7 @@
     if (e?.detail?.authed === false) {
       __adminCache = null;
       __adminCheckPromise = null;
+      try { localStorage.removeItem(ADMIN_CACHE_KEY); } catch {}
     }
   });
 
