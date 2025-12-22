@@ -99,6 +99,17 @@ function isAdmin() {
     if (typeof window.__IS_ADMIN === "boolean") return !!window.__IS_ADMIN;
     try { if (sessionStorage.getItem("auth:isAdmin") === "1") return true; } catch {}
 
+    // ★ 빠른 확인: localStorage의 userns가 ADMIN_EMAILS에 있는지 먼저 확인 (서버 응답 불필요)
+    try {
+      const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
+      const allow = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS
+                   : Array.isArray(window.ADMIN_ALLOWLIST) ? window.ADMIN_ALLOWLIST
+                   : [];
+      if (storedNs && allow.map(s=>String(s).trim().toLowerCase()).includes(storedNs)) {
+        return true;
+      }
+    } catch {}
+
     const a = window.auth || {};
     const truthy = (v) => {
       if (v === true) return true;
