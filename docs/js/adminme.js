@@ -14,8 +14,7 @@
   window.STATIC_BASE = location.origin + "/";
   window.LB_REPAIR   = true;
 
-  // [ADD] admin allowlist
-  const ADMIN_EMAILS = (Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : []);
+  // [ADD] admin allowlist - window.ADMIN_EMAILS에서 직접 참조 (getAdminEmails 함수 사용)
 
   function _ensureSlash(u){ return u.endsWith("/") ? u : (u + "/"); }
   window.API_BASE    = _ensureSlash(window.API_BASE);
@@ -629,13 +628,21 @@
   // [ADD] admin helpers (place right after fetchMe)
   let __adminCache = null;
 
+  // 관리자 이메일 목록 가져오기 (window에서 직접 참조)
+  function getAdminEmails() {
+    return Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [];
+  }
+
   function isAdminSync() {
     // 이미 확인된 경우 캐시 반환
     if (__adminCache !== null) return __adminCache;
 
+    const adminEmails = getAdminEmails();
+    if (!adminEmails.length) return null;  // 아직 로드 안됨
+
     // localStorage에서 userns 확인
     const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
-    if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
+    if (storedNs && adminEmails.includes(storedNs)) {
       __adminCache = true;
       return true;
     }
@@ -644,7 +651,7 @@
     try {
       const cached = readProfileCache();
       const cachedEmail = (cached?.email || "").toLowerCase();
-      if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
+      if (cachedEmail && adminEmails.includes(cachedEmail)) {
         __adminCache = true;
         return true;
       }
@@ -658,11 +665,13 @@
     const syncResult = isAdminSync();
     if (syncResult !== null) return syncResult;
 
+    const adminEmails = getAdminEmails();
+
     // 서버에서 확인
     try {
       const me = await fetchMe();
       const email = (me?.email || me?.user?.email || "").toLowerCase();
-      if (email && ADMIN_EMAILS.includes(email)) {
+      if (email && adminEmails.includes(email)) {
         __adminCache = true;
         return true;
       }
