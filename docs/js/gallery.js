@@ -53,6 +53,31 @@
     } catch { return false; }
   }
 
+  // ====== 관리자 확인 (빠른 경로) ======
+  function isAdmin() {
+    try {
+      // 1) 전역 캐시
+      if (typeof window.__IS_ADMIN === "boolean") return window.__IS_ADMIN;
+      // 2) sessionStorage 캐시
+      try { if (sessionStorage.getItem("auth:isAdmin") === "1") return true; } catch {}
+      // 3) localStorage userns + ADMIN_EMAILS 비교 (서버 응답 불필요)
+      try {
+        const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
+        const allow = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS
+                     : Array.isArray(window.ADMIN_ALLOWLIST) ? window.ADMIN_ALLOWLIST
+                     : [];
+        if (storedNs && allow.map(s => String(s).trim().toLowerCase()).includes(storedNs)) {
+          return true;
+        }
+      } catch {}
+      // 4) auth API 확인
+      const a = window.auth || {};
+      if (typeof a.isAdmin === "function" && a.isAdmin()) return true;
+      if (a.isAdmin === true) return true;
+      return false;
+    } catch { return false; }
+  }
+
   // ====== 비디오 생성 공통 함수 ======
   function createVideo(src, speed = 1) {
     const video = document.createElement("video");
@@ -86,12 +111,15 @@
 
   // ====== 타일 생성 ======
   function makeTile(label, isOn){
+    // ★ 관리자는 항상 컬러(orange) 영상을 보여줌
+    const effectiveOn = isAdmin() || isOn;
+
     const el = document.createElement("button");
     el.type = "button";
-    el.className = `tile ${isOn ? "registered" : "unregistered"}`;
+    el.className = `tile ${effectiveOn ? "registered" : "unregistered"}`;
     el.setAttribute("role","listitem");
     el.setAttribute("aria-label", label);
-    el.setAttribute("aria-pressed", String(isOn));
+    el.setAttribute("aria-pressed", String(effectiveOn));
     el.style.backgroundColor = "#F5F5F5";
 
     const wrap = document.createElement("div");
@@ -99,7 +127,7 @@
 
     const iconMap = getIcons();
     const icon = iconMap[label];
-    const src = icon ? (isOn ? icon.orange : icon.black) : "";
+    const src = icon ? (effectiveOn ? icon.orange : icon.black) : "";
 
     if (src && src.endsWith(".mp4")) {
       wrap.appendChild(createVideo(src, 0.6));
