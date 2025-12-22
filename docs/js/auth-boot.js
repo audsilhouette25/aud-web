@@ -8,6 +8,7 @@
   const AUTH_FLAG_KEY = "auth:flag";
   const NAV_KEY = "auth:navigate";
   const USERNS_KEY = "auth:userns";
+  const SESSION_ALIVE_KEY = "auth:session-alive";
 
   const TAB_ID_KEY = "auth:tab-id";
   const TAB_REG_KEY = "auth:open-tabs";
@@ -588,6 +589,27 @@
    * Boot
    * ========================= */
   try { sessionStorage.removeItem(NAV_KEY); } catch {}
+
+  // 탭/창이 닫혔다가 다시 열린 경우 감지
+  // sessionStorage는 탭이 닫히면 사라지므로, 값이 없으면 새 탭이거나 탭이 닫혔다가 다시 열린 것
+  const sessionAlive = sessionStorage.getItem(SESSION_ALIVE_KEY);
+  const wasLoggedIn = localStorage.getItem(AUTH_FLAG_KEY) === "1";
+
+  if (!sessionAlive && wasLoggedIn) {
+    // 탭이 닫혔다가 다시 열린 경우 → 로그아웃 처리
+    try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+    try { localStorage.removeItem("auth:token"); } catch {}
+    try { localStorage.removeItem(USERNS_KEY); } catch {}
+
+    // 서버에 로그아웃 알림
+    try {
+      fetch(toAPI("/auth/logout"), { method: "POST", credentials: "include" }).catch(() => {});
+    } catch {}
+  }
+
+  // 세션 활성 표시 (탭이 열려있는 동안 유지)
+  try { sessionStorage.setItem(SESSION_ALIVE_KEY, "1"); } catch {}
+
   registerTab();
   startHeartbeat();
 
