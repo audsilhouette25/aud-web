@@ -627,97 +627,11 @@
   }
 
   // [ADD] admin helpers (place right after fetchMe)
-  const ADMIN_CACHE_KEY = "aud:admin-cache";
-  let __adminCache = null;  // null = 미확인, true/false = 확정
-  let __adminCheckPromise = null;
-
-  // 페이지 로드 시 localStorage에서 캐시 복원
-  try {
-    const stored = localStorage.getItem(ADMIN_CACHE_KEY);
-    if (stored === "1") __adminCache = true;
-    else if (stored === "0") __adminCache = false;
-  } catch {}
-
-  function isAdminSync() {
-    // 동기적으로 즉시 확인 가능한 경우만 반환 (서버 호출 없음)
-    if (__adminCache !== null) return __adminCache;
-
-    // localStorage에서 userns 확인
-    const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
-    if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
-      __adminCache = true;
-      try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
-      return true;
-    }
-
-    // 프로필 캐시 확인
-    try {
-      const cached = readProfileCache();
-      const cachedEmail = (cached?.email || "").toLowerCase();
-      if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
-        __adminCache = true;
-        try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
-        return true;
-      }
-    } catch {}
-
-    return null;  // 아직 확인 불가
-  }
-
+  // adminme.html은 관리자 전용 페이지이므로, 이 페이지에 접근한 사용자는 관리자로 간주
+  // 실제 권한 검증은 서버 API에서 수행됨
   async function isAdmin() {
-    // 동기 확인 먼저 시도
-    const syncResult = isAdminSync();
-    if (syncResult !== null) return syncResult;
-
-    // 이미 확인된 경우 캐시 반환
-    if (__adminCache !== null) return __adminCache;
-
-    // 진행 중인 확인이 있으면 그 결과를 기다림
-    if (__adminCheckPromise) return __adminCheckPromise;
-
-    __adminCheckPromise = (async () => {
-      try {
-        // 캐시에 없으면 서버 확인
-        const me = await fetchMe();
-        const email = (me?.email || me?.user?.email || "").toLowerCase();
-        if (email && ADMIN_EMAILS.includes(email)) {
-          __adminCache = true;
-          try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
-          return true;
-        }
-
-        // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
-        if (window.ENABLE_ADMIN_BACKEND === true) {
-          const res = await fetch(
-            (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/bootstrap",
-            { credentials: "include" }
-          ).catch(() => null);
-          if (res?.ok) {
-            const j = await res.json().catch(() => null);
-            if (j?.ok && (j.admin === true || j.role === "admin")) {
-              __adminCache = true;
-              try { localStorage.setItem(ADMIN_CACHE_KEY, "1"); } catch {}
-              return true;
-            }
-          }
-        }
-      } catch {}
-      __adminCache = false;
-      try { localStorage.setItem(ADMIN_CACHE_KEY, "0"); } catch {}
-      return false;
-    })();
-
-    return __adminCheckPromise;
+    return true;  // adminme 페이지 = 관리자 페이지
   }
-
-  // 로그아웃 시 관리자 캐시 초기화
-  window.addEventListener("auth:state", (e) => {
-    if (e?.detail?.authed === false) {
-      __adminCache = null;
-      __adminCheckPromise = null;
-      try { localStorage.removeItem(ADMIN_CACHE_KEY); } catch {}
-    }
-  });
 
   /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
   function ensureAdminLabModal() {
