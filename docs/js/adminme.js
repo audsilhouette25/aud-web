@@ -627,10 +627,49 @@
   }
 
   // [ADD] admin helpers (place right after fetchMe)
-  // adminme.html은 관리자 전용 페이지이므로, 이 페이지에 접근한 사용자는 관리자로 간주
-  // 실제 권한 검증은 서버 API에서 수행됨
+  let __adminCache = null;
+
+  function isAdminSync() {
+    // 이미 확인된 경우 캐시 반환
+    if (__adminCache !== null) return __adminCache;
+
+    // localStorage에서 userns 확인
+    const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
+    if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
+      __adminCache = true;
+      return true;
+    }
+
+    // 프로필 캐시 확인
+    try {
+      const cached = readProfileCache();
+      const cachedEmail = (cached?.email || "").toLowerCase();
+      if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
+        __adminCache = true;
+        return true;
+      }
+    } catch {}
+
+    return null;  // 아직 확인 불가
+  }
+
   async function isAdmin() {
-    return true;  // adminme 페이지 = 관리자 페이지
+    // 동기 확인 먼저 시도
+    const syncResult = isAdminSync();
+    if (syncResult !== null) return syncResult;
+
+    // 서버에서 확인
+    try {
+      const me = await fetchMe();
+      const email = (me?.email || me?.user?.email || "").toLowerCase();
+      if (email && ADMIN_EMAILS.includes(email)) {
+        __adminCache = true;
+        return true;
+      }
+    } catch {}
+
+    __adminCache = false;
+    return false;
   }
 
   /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
