@@ -194,39 +194,13 @@
   })();
 
   /* =========================
-   * Tab close handling (pagehide)
-   * 로그아웃은 오직: 1) 로그아웃 버튼 클릭 2) 모든 탭 닫힘
+   * Tab management (pagehide/pageshow)
+   * 로그아웃은 오직 로그아웃 버튼 클릭 시에만 발생
+   * 모든 탭 닫힘 시 로그아웃은 서버 세션 만료로 처리
    * ========================= */
-  window.addEventListener("pagehide", (e) => {
-    // 탭 레지스트리에서 현재 탭 제거
+  window.addEventListener("pagehide", () => {
+    // 탭 레지스트리에서 현재 탭 제거 (로그아웃 없음)
     unregisterTab();
-
-    // bfcache에 저장되는 경우 (뒤로가기/앞으로가기)는 무시
-    if (e.persisted) return;
-
-    // 로그인 상태가 아니면 처리 불필요
-    const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
-    if (!lsFlag) return;
-
-    // 다른 열린 탭이 있는지 확인
-    const openTabs = prune(readKV(TAB_REG_KEY));
-    const hasOtherTabs = Object.keys(openTabs).length > 0;
-
-    // 다른 탭이 있으면 로그아웃하지 않음
-    if (hasOtherTabs) return;
-
-    // 모든 탭이 닫히는 경우에만 로그아웃
-    try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-    try { localStorage.removeItem("auth:token"); } catch {}
-    try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-
-    try {
-      const blob = new Blob(
-        [JSON.stringify({ reason: "tab-close", t: Date.now(), force: true })],
-        { type: "application/json" }
-      );
-      navigator.sendBeacon?.(toAPI("/auth/logout-beacon"), blob);
-    } catch {}
   }, { capture: true });
 
   // bfcache 복구 시 탭 재등록
