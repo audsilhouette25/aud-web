@@ -301,6 +301,9 @@
     if (!input || !toggle) return;
     root.__pwBound = true;
 
+    // 비밀번호 보이기 상태에서도 영어 키보드 기본 유지
+    input.setAttribute("inputmode", "latin");
+
     const applyState = (visible) => {
       input.type = visible ? "text" : "password";
       toggle.dataset.state = visible ? "visible" : "hidden";
