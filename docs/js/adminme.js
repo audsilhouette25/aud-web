@@ -627,25 +627,70 @@
   }
 
   // [ADD] admin helpers (place right after fetchMe)
+  let __adminCache = null;  // null = 미확인, true/false = 확정
+  let __adminCheckPromise = null;
+
   async function isAdmin() {
-    try {
-      const me = await fetchMe();            // 이미 있는 helper 재사용
-      const email = (me?.email || me?.user?.email || "").toLowerCase();
-      if (email && ADMIN_EMAILS.includes(email)) return true;
-      // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
-      if (window.ENABLE_ADMIN_BACKEND === true) {
-        const res = await fetch(
-          (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/bootstrap",
-          { credentials: "include" }
-        ).catch(() => null);
-        if (res?.ok) {
-          const j = await res.json().catch(() => null);
-          if (j?.ok && (j.admin === true || j.role === "admin")) return true;
+    // 이미 확인된 경우 캐시 반환
+    if (__adminCache !== null) return __adminCache;
+
+    // 진행 중인 확인이 있으면 그 결과를 기다림
+    if (__adminCheckPromise) return __adminCheckPromise;
+
+    __adminCheckPromise = (async () => {
+      try {
+        // boot 과정에서 이미 로드된 프로필 캐시 먼저 확인 (서버 호출 없이)
+        const cached = readProfileCache();
+        const cachedEmail = (cached?.email || "").toLowerCase();
+        if (cachedEmail && ADMIN_EMAILS.includes(cachedEmail)) {
+          __adminCache = true;
+          return true;
         }
-      }
-    } catch {}
-    return false;
+
+        // localStorage에서 userns 확인
+        const storedNs = (localStorage.getItem("auth:userns") || "").toLowerCase();
+        if (storedNs && ADMIN_EMAILS.includes(storedNs)) {
+          __adminCache = true;
+          return true;
+        }
+
+        // 캐시에 없으면 서버 확인
+        const me = await fetchMe();
+        const email = (me?.email || me?.user?.email || "").toLowerCase();
+        if (email && ADMIN_EMAILS.includes(email)) {
+          __adminCache = true;
+          return true;
+        }
+
+        // 서버에 admin bootstrap 엔드포인트가 없으면 아예 호출하지 않음
+        if (window.ENABLE_ADMIN_BACKEND === true) {
+          const res = await fetch(
+            (window.PROD_BACKEND || window.API_BASE || location.origin) + "/api/admin/audlab/bootstrap",
+            { credentials: "include" }
+          ).catch(() => null);
+          if (res?.ok) {
+            const j = await res.json().catch(() => null);
+            if (j?.ok && (j.admin === true || j.role === "admin")) {
+              __adminCache = true;
+              return true;
+            }
+          }
+        }
+      } catch {}
+      __adminCache = false;
+      return false;
+    })();
+
+    return __adminCheckPromise;
   }
+
+  // 로그아웃 시 관리자 캐시 초기화
+  window.addEventListener("auth:state", (e) => {
+    if (e?.detail?.authed === false) {
+      __adminCache = null;
+      __adminCheckPromise = null;
+    }
+  });
 
   /* [ADD] Admin aud-lab modal (NSA: namespace switchable gallery) */
   function ensureAdminLabModal() {
@@ -2656,6 +2701,11 @@
     // 7) UI 핸들러(프로필 편집/아바타)
     $("#btn-edit")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openEditModal(); });
     $("#me-avatar")?.addEventListener("click", () => { try { window.auth?.markNavigate?.(); } catch {} openAvatarViewer(); });
+
+    // 8) 관리자 확인 미리 수행 (캐시에 저장해서 나중에 즉시 사용)
+    if (quick.authed) {
+      isAdmin().catch(() => {});  // 백그라운드에서 확인, 결과는 캐시됨
+    }
 
     // 10) 인사이트 계산(게시물 수 확정 후 방 구독은 유지)
     if (quick.authed) await loadLeaderboardsIntoInsights();
