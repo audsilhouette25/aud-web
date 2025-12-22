@@ -7,7 +7,6 @@
    * ========================= */
   const AUTH_FLAG_KEY = "auth:flag";
   const NAV_KEY = "auth:navigate";
-  const NAV_TTL_MS = 60000;
   const USERNS_KEY = "auth:userns";
 
   const TAB_ID_KEY = "auth:tab-id";
@@ -69,12 +68,6 @@
     } catch {}
   }
 
-  function isAppNavigation() {
-    try {
-      const ts = +(sessionStorage.getItem(NAV_KEY) || 0);
-      return ts && (now() - ts < NAV_TTL_MS);
-    } catch { return false; }
-  }
 
   /* =========================
    * Tab registry
@@ -201,22 +194,32 @@
   })();
 
   /* =========================
-   * Tab close logout (pagehide)
+   * Tab close handling (pagehide)
+   * 로그아웃은 오직: 1) 로그아웃 버튼 클릭 2) 모든 탭 닫힘
    * ========================= */
-  window.addEventListener("pagehide", () => {
-    // 내부 네비게이션이면 로그아웃 안 함
-    if (isAppNavigation()) return;
+  window.addEventListener("pagehide", (e) => {
+    // 탭 레지스트리에서 현재 탭 제거
+    unregisterTab();
+
+    // bfcache에 저장되는 경우 (뒤로가기/앞으로가기)는 무시
+    if (e.persisted) return;
 
     // 로그인 상태가 아니면 처리 불필요
     const lsFlag = localStorage.getItem(AUTH_FLAG_KEY) === "1";
     if (!lsFlag) return;
 
-    // ★ 즉시 localStorage에서 auth:flag 삭제 (다른 탭에서 감지)
+    // 다른 열린 탭이 있는지 확인
+    const openTabs = prune(readKV(TAB_REG_KEY));
+    const hasOtherTabs = Object.keys(openTabs).length > 0;
+
+    // 다른 탭이 있으면 로그아웃하지 않음
+    if (hasOtherTabs) return;
+
+    // 모든 탭이 닫히는 경우에만 로그아웃
     try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
     try { localStorage.removeItem("auth:token"); } catch {}
     try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
 
-    // ★ sendBeacon으로 서버에 로그아웃 알림
     try {
       const blob = new Blob(
         [JSON.stringify({ reason: "tab-close", t: Date.now(), force: true })],
