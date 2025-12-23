@@ -173,6 +173,37 @@ header.nav {
 /* 모션 민감 사용자 배려 */
 @media (prefers-reduced-motion: reduce){
   .title .title-swap .t{ transition: none; }
+  .subtitle-swap .s{ transition: none; }
+}
+
+/* =====================================================================
+   2.2) Subtitle Hover Swap — title 호버 시 연동
+===================================================================== */
+.subtitle.subtitle-swap{
+  display: inline-grid;
+  grid-template-areas: "stack";
+  white-space: nowrap;
+}
+.subtitle-swap .s{
+  grid-area: stack;
+  transition: opacity .1s ease;
+}
+.subtitle-swap .s-base{
+  opacity: 1;
+}
+.subtitle-swap .s-hover{
+  opacity: 0;
+  color: #FF884D;
+}
+
+/* title-swap 호버 시 subtitle도 전환 */
+.hero:has(.title-swap:hover) .subtitle-swap .s-base,
+.hero:has(.title-link:focus-visible) .subtitle-swap .s-base{
+  opacity: 0;
+}
+.hero:has(.title-swap:hover) .subtitle-swap .s-hover,
+.hero:has(.title-link:focus-visible) .subtitle-swap .s-hover{
+  opacity: 1;
 }
 
 /* =====================================================================
