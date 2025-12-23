@@ -193,7 +193,6 @@ header.nav {
 }
 .subtitle-swap .s-hover{
   opacity: 0;
-  color: #FF884D;
 }
 
 /* title-swap 호버 시 subtitle도 전환 */
