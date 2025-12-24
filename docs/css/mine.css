@@ -118,10 +118,10 @@ header.nav {
 .title { margin: 0; color: #111; letter-spacing: -2px; font-weight: 700; }
 @media (min-width: 1200px){ .title { font-size: 72px; line-height: 1.2; } }
 @media (max-width: 1199px){ .title { font-size: 62px; line-height: 1.1; } }
-.subtitle { margin-top: 5px; color: #888; font-size: 24px; font-weight: 400; }
+.subtitle { margin-top: 5px; color: #767676; font-size: 24px; font-weight: 400; }
 
 /* =====================================================================
-   2.1) Title Hover Swap — aud:(#111111) → audor(e)(#FF884D)
+   2.1) Title Hover Swap — aud:(#111111) → audor(e)(#C75C1D)
    - 링크는 audor(e) 앵커에만
 ===================================================================== */
 .title .title-swap{
@@ -147,7 +147,7 @@ header.nav {
 /* 숨김 시작: audor(e) (링크) */
 .title .title-swap .t-hover{
   opacity: 0; transform: translateY(0%);
-  color: #FF884D;
+  color: #C75C1D;
   text-decoration: none;
   pointer-events: none; /* 보일 때만 클릭 가능하게 */
 }
@@ -588,7 +588,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
     font-size:12px; color:#666;
   }
   .post-modal--split .pm-vote .vote-hint{
-    font-size:12px; color:#888;
+    font-size:12px; color:#767676;
   }
 
 /* =========================================================

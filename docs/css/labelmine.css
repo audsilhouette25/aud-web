@@ -133,7 +133,7 @@ header.nav {
 ===================================================================== */
 .labelmine-body .hero{ max-width:960px; margin:0 auto; text-align:center; padding-top:60px; }
 .labelmine-body .title{ margin:8px 0 0; font-weight:600; color:#111; letter-spacing:-.04em; text-transform:uppercase; line-height:1.1; font-size:40px; }
-.labelmine-body .subtitle{ margin-top:5px; font-size:24px; color:#888; font-weight:400; }
+.labelmine-body .subtitle{ margin-top:5px; font-size:24px; color:#767676; font-weight:400; }
 .labelmine-body .stack{ max-width:960px; margin:0 auto; text-align:center; padding-top:30px; display:flex; flex-direction:column; align-items:center; gap:10px; }
 
 /* =====================================================================
@@ -188,7 +188,7 @@ header.nav {
   box-shadow:0 4px 10px rgba(0,0,0,0.1);
 }
 .labelmine-body .sdf-save-btn.is-active,
-.labelmine-body .sdf-reset-btn.is-active{ background:#FF884D; color:#fff; }
+.labelmine-body .sdf-reset-btn.is-active{ background:#C75C1D; color:#fff; }
 /* Toolbar */
 .labelmine-body .sdf-toolbar{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:20; height:var(--TB-H); touch-action:none; }
 .labelmine-body .sdf-toolbar.is-floating{ transform:none; }
@@ -830,7 +830,7 @@ header.nav {
 
 /* ← 상대 버튼을 흐리게(회색/채도↓/살짝 블러) */
 .crop-btn.is-muted{
-  background:#f2f2f2; color:#888;
+  background:#f2f2f2; color:#767676;
   border-color:#e5e7eb;
   filter:saturate(.25) contrast(.95) blur(.2px);
   opacity:.55;
