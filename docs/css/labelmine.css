@@ -188,7 +188,7 @@ header.nav {
   box-shadow:0 4px 10px rgba(0,0,0,0.1);
 }
 .labelmine-body .sdf-save-btn.is-active,
-.labelmine-body .sdf-reset-btn.is-active{ background:#C75C1D; color:#fff; }
+.labelmine-body .sdf-reset-btn.is-active{ background:#FF884D; color:#fff; }
 /* Toolbar */
 .labelmine-body .sdf-toolbar{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:20; height:var(--TB-H); touch-action:none; }
 .labelmine-body .sdf-toolbar.is-floating{ transform:none; }

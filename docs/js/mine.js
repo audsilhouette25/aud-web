@@ -2829,6 +2829,34 @@
     if (hero) requestAnimationFrame(() => setTimeout(() => hero.classList.add("is-in"), 0));
   }
 
+  /* =========================================================
+   * 10-1) Touch/App 환경: 스크롤 시 타이틀 전환
+   * ========================================================= */
+  function bindHeroScrollToggle() {
+    // 호버 가능한 환경이면 스킵 (데스크톱)
+    if (window.matchMedia("(hover: hover)").matches) return;
+
+    const hero = $(".mine .hero");
+    if (!hero) return;
+
+    let ticking = false;
+    const SCROLL_THRESHOLD = 20; // 20px 이상 스크롤하면 전환
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const scrolled = window.scrollY > SCROLL_THRESHOLD;
+        hero.classList.toggle("is-scrolled", scrolled);
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    // 초기 상태 체크
+    onScroll();
+  }
+
   function idle(fn){ if ("requestIdleCallback" in window) return requestIdleCallback(fn, { timeout: 500 }); return setTimeout(fn, 0); }
   function onReady(fn) { document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", fn, { once: true }) : fn(); }
 
@@ -2962,6 +2990,7 @@
       await rehydrateFromLocalStorageIfSessionAuthed(); // why: fallback 렌더 전에 데이터 확보
       scheduleRender();
       heroIn();
+      bindHeroScrollToggle();
     }
 
     // server-side session probe
@@ -2994,6 +3023,7 @@
       renderTabsOnly();
       scheduleRender();
       heroIn();
+      bindHeroScrollToggle();
 
       // 초기 피드 로드 + 무한 스크롤 시작
       ensureMineFilterUI();

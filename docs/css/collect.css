@@ -231,7 +231,7 @@ header.nav {
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
-.btn-record { background: #C75C1D; color: #fff; }
+.btn-record { background: #FF884D; color: #fff; }
 .btn-submit { background: #E0E0E0; color: #000; }
 
 /* Error & Result */

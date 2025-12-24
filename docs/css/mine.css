@@ -147,7 +147,7 @@ header.nav {
 /* 숨김 시작: audor(e) (링크) */
 .title .title-swap .t-hover{
   opacity: 0; transform: translateY(0%);
-  color: #C75C1D;
+  color: #FF884D;
   text-decoration: none;
   pointer-events: none; /* 보일 때만 클릭 가능하게 */
 }
@@ -203,6 +203,26 @@ header.nav {
 .hero:has(.title-swap:hover) .subtitle-swap .s-hover,
 .hero:has(.title-link:focus-visible) .subtitle-swap .s-hover{
   opacity: 1;
+}
+
+/* =====================================================================
+   2.3) Touch/App 환경: 스크롤 시 타이틀 전환 (호버 불가능 기기)
+===================================================================== */
+@media (hover: none) and (pointer: coarse){
+  /* 스크롤되면 .is-scrolled 클래스가 붙음 (JS에서 처리) */
+  .hero.is-scrolled .title-swap .t-base{
+    opacity: 0;
+  }
+  .hero.is-scrolled .title-swap .t-hover{
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .hero.is-scrolled .subtitle-swap .s-base{
+    opacity: 0;
+  }
+  .hero.is-scrolled .subtitle-swap .s-hover{
+    opacity: 1;
+  }
 }
 
 /* =====================================================================
