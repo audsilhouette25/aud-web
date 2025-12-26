@@ -3718,26 +3718,10 @@
       return false;
     }
 
-    const go = async (ev) => {
+    const go = (ev) => {
       if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-      try { window.auth?.markNavigate?.(); } catch {}
-
-      // 현재 인증 여부(기존 로직 유지)
-      const authed = (typeof window.auth?.isAuthed === 'function')
-        ? !!window.auth.isAuthed()
-        : (sessionStorage.getItem('auth:flag') === '1');
-
-      // ★ 보강: 클릭 시점에 관리자 여부 재확인
-      const isAdminNow = await computeIsAdminSafe();
-
-      const target = isAdminNow ? './adminme.html' : './me.html';
-
-      if (authed) {
-        location.assign(target);
-      } else {
-        const next = encodeURIComponent(target);
-        location.assign(`${(typeof window.pageHref === 'function' ? window.pageHref('login.html') : './login.html')}?next=${next}`);
-      }
+      // game1 페이지 새로고침
+      location.reload();
     };
 
     // 클릭/키보드 접근성 처리
