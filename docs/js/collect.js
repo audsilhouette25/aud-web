@@ -241,107 +241,6 @@
   }
 
   /* ─────────────────────────────
-   *  Web Bluetooth API (브라우저에서 직접 BLE 스캔)
-   *   - 서버 없이 클라이언트에서 ESP32 비콘 수신
-   *   - Chrome/Edge 지원, iOS Safari 미지원
-   * ───────────────────────────── */
-  const WEB_BLE_COMPANY_ID = 0xFFFF;
-  let webBleScanning = false;
-  let webBleAbortController = null;
-
-  // Web Bluetooth 지원 여부 확인
-  function isWebBleSupported() {
-    return !!(navigator.bluetooth && navigator.bluetooth.requestLEScan);
-  }
-
-  // Manufacturer Data에서 UID 추출 (DataView 버전)
-  function extractUIDFromDataView(dataView) {
-    if (!dataView || dataView.byteLength < 6) return null;
-    const bytes = new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength);
-
-    // 'UID:' 시그니처 찾기
-    const sig = [0x55, 0x49, 0x44, 0x3A];
-    for (let i = 0; i <= bytes.length - sig.length; i++) {
-      if (bytes[i]===sig[0] && bytes[i+1]===sig[1] && bytes[i+2]===sig[2] && bytes[i+3]===sig[3]) {
-        let out = "";
-        for (let k = i + sig.length; k < bytes.length; k++) {
-          const c = bytes[k];
-          if ((c>=0x30&&c<=0x39)||(c>=0x41&&c<=0x46)||(c>=0x61&&c<=0x66)) {
-            out += String.fromCharCode(c).toUpperCase();
-          } else break;
-        }
-        return out || null;
-      }
-    }
-
-    // 'IDLE' 감지
-    const idleSig = [0x49, 0x44, 0x4C, 0x45];
-    for (let i = 0; i <= bytes.length - idleSig.length; i++) {
-      if (bytes[i]===idleSig[0] && bytes[i+1]===idleSig[1] && bytes[i+2]===idleSig[2] && bytes[i+3]===idleSig[3]) {
-        return null; // IDLE은 무시
-      }
-    }
-    return null;
-  }
-
-  // Web Bluetooth 스캔 시작
-  async function startWebBleScan() {
-    if (!isWebBleSupported()) {
-      log("Web Bluetooth not supported");
-      return false;
-    }
-    if (webBleScanning) return true;
-
-    try {
-      webBleAbortController = new AbortController();
-
-      await navigator.bluetooth.requestLEScan({
-        acceptAllAdvertisements: true,
-        keepRepeatedDevices: true,
-      });
-
-      webBleScanning = true;
-      log("Web Bluetooth scan started");
-
-      navigator.bluetooth.addEventListener("advertisementreceived", (evt) => {
-        // Manufacturer Data 확인
-        if (!evt.manufacturerData) return;
-
-        for (const [companyId, dataView] of evt.manufacturerData) {
-          if (companyId !== WEB_BLE_COMPANY_ID) continue;
-
-          const uid = extractUIDFromDataView(dataView);
-          if (uid) {
-            log("Web BLE UID:", uid, "from", evt.device?.name || "unknown");
-            handleUID(uid, null);
-          }
-        }
-      }, { signal: webBleAbortController.signal });
-
-      return true;
-    } catch (e) {
-      log("Web Bluetooth scan failed:", e?.message || e);
-      webBleScanning = false;
-      return false;
-    }
-  }
-
-  // Web Bluetooth 스캔 중지
-  function stopWebBleScan() {
-    if (webBleAbortController) {
-      webBleAbortController.abort();
-      webBleAbortController = null;
-    }
-    webBleScanning = false;
-    log("Web Bluetooth scan stopped");
-  }
-
-  // 전역 공개 (디버그용)
-  window.startWebBleScan = startWebBleScan;
-  window.stopWebBleScan = stopWebBleScan;
-  window.isWebBleSupported = isWebBleSupported;
-
-  /* ─────────────────────────────
    *  BLE/Beacon 이벤트 구독
    *   - 서버가 "ble" 또는 "beacon" 채널로 중계해도 잡아냄
    *   - 기존 "nfc" 채널도 유지
@@ -536,11 +435,6 @@
       hasSubmitted=false; lastResult=null; renderResult(); draw();
       isRecording=true;
       sessionUids = [];
-
-      // Web Bluetooth 스캔 시작 (지원되는 경우)
-      if (isWebBleSupported()) {
-        startWebBleScan().catch(() => {});
-      }
     }catch{
       cleanupAudio(); setButtonVisual(false);
       isRecording=false;
@@ -549,7 +443,6 @@
 
   async function stopRecording(){
     cleanupAudio();
-    stopWebBleScan(); // Web Bluetooth 스캔 중지
 
     // 최근 BLE/NFC 수신 또는 대기 중 값 우선
     const now = Date.now();
