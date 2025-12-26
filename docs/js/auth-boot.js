@@ -497,7 +497,10 @@
 
     const loginRes = await login(normEmail, password);
     if (redirect && loginRes?.ok) {
-      const to = next || new URLSearchParams(location.search).get("next") || "/me.html";
+      // admin 여부 확인하여 적절한 페이지로 리디렉션
+      const isAdmin = sessionStorage.getItem('auth:isAdmin') === '1';
+      const defaultPath = isAdmin ? "/adminme.html" : "/me.html";
+      const to = next || new URLSearchParams(location.search).get("next") || defaultPath;
       try { markNavigate(); } catch {}
       location.replace(to);
     }

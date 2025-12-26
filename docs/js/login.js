@@ -37,6 +37,7 @@
   const AUTH_FLAG_KEY  = "auth:flag";     // tab-scoped auth flag
   const NAV_MARK_KEY   = "auth:navigate"; // internal navigation mark
   const ME_PATH = (window.pageHref ? pageHref("me.html") : "./me.html");    // default landing
+  const ADMIN_PATH = (window.pageHref ? pageHref("adminme.html") : "./adminme.html"); // admin landing
 
   // Validate date string in MM/DD/YYYY format
   function isValidDate(str) {
@@ -202,20 +203,26 @@
   /* =============================================================
    *  3) SAFE NEXT URL RESOLUTION
    * ============================================================= */
+  // admin 여부 확인 (sessionStorage에 캐시됨)
+  function isAdmin() {
+    return sessionStorage.getItem('auth:isAdmin') === '1';
+  }
+
   function resolveNextUrl(){
     const u = new URL(location.href);
     const n = u.searchParams.get("next") || "";
-    // allow: same-origin & /.../(me|home|collect|gallery|labelmine|game).html
+    // allow: same-origin & /.../(me|adminme|home|collect|gallery|labelmine|game).html
     try {
       const t = new URL(n, location.href);       // relative or absolute both OK
       if (t.origin === location.origin) {
         const p = t.pathname;
-        if (/\/(me|home|collect|gallery|labelmine|game)\.html$/i.test(p)) {
+        if (/\/(me|adminme|home|collect|gallery|labelmine|game)\.html$/i.test(p)) {
           return p + t.search + t.hash;          // keep subpath (/aud-web/...)
         }
       }
     } catch {}
-    return ME_PATH;                             // fallback: ./me.html
+    // admin이면 adminme.html, 아니면 me.html
+    return isAdmin() ? ADMIN_PATH : ME_PATH;
   }
   function gotoNext(){ markNavigate(); location.assign(resolveNextUrl()); }
 
@@ -479,7 +486,7 @@
         }
 
         // Sync /auth/me (best-effort) and flush store snapshot if provided
-        let uid = null, eml = email;
+        let uid = null, eml = email, userIsAdmin = false;
         try {
           const me = await (window.auth?.apiFetch
             ? window.auth.apiFetch("/auth/me", { credentials:"include", cache:"no-store" })
@@ -487,17 +494,20 @@
           ).then(r => (r.json ? r.json() : r));
           if (me?.authenticated && me?.user?.id != null) uid = me.user.id;
           if (me?.user?.email) eml = me.user.email;
+          // admin 여부 확인 및 저장
+          userIsAdmin = !!(me?.user?.isAdmin || me?.user?.admin || me?.user?.role === 'admin');
+          try { sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0'); } catch {}
           try { await window.__flushStoreSnapshot?.({ server:true }); } catch {}
           try {
             const emailNs = String(eml || "").trim().toLowerCase();
             localStorage.setItem("auth:userns", emailNs);
             window.dispatchEvent(new CustomEvent("auth:state", {
-              detail: { authed:true, ready:true, ns: emailNs }
+              detail: { authed:true, ready:true, ns: emailNs, isAdmin: userIsAdmin }
             }));
           } catch {}
         } catch {}
 
-        onLoginSuccess({ id: uid, email: eml });
+        onLoginSuccess({ id: uid, email: eml, isAdmin: userIsAdmin });
         return { ok:true };
       }
 
@@ -512,8 +522,11 @@
         console.log("[LOGIN DEBUG] Login failed:", out?.error || out?.code);
         return { ok:false, msg:t.msg, field:t.field, code:out?.error || out?.code };
       }
+      // admin 여부 확인 및 저장
+      const fallbackIsAdmin = !!(out?.isAdmin || out?.admin || out?.user?.isAdmin || out?.user?.admin || out?.role === 'admin');
+      try { sessionStorage.setItem('auth:isAdmin', fallbackIsAdmin ? '1' : '0'); } catch {}
       console.log("[LOGIN DEBUG] Login successful, calling onLoginSuccess");
-      onLoginSuccess({ id: out.id, email, token: out.token });
+      onLoginSuccess({ id: out.id, email, token: out.token, isAdmin: fallbackIsAdmin });
       return { ok:true };
     } catch (e) {
       console.error("[LOGIN DEBUG] Exception caught:", e);

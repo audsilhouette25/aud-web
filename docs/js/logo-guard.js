@@ -18,9 +18,15 @@
     catch { return rel; }
   };
 
+  // admin 여부 확인
+  function isAdmin() {
+    return sessionStorage.getItem('auth:isAdmin') === '1';
+  }
+
   // 로고 클릭 시 이동할 경로 계산
   function computeLogoDest() {
     const me = absURL("me.html");
+    const adminme = absURL("adminme.html");
     const login = absURL("login.html");
 
     // ★ 핵심: localStorage의 auth:flag로 인증 상태 판단
@@ -29,11 +35,13 @@
     const authed = !!(authApi || lsFlag);
 
     if (authed) {
-      return me; // admin이든 일반 유저든 항상 me.html로 이동
+      // admin이면 adminme.html, 아니면 me.html
+      return isAdmin() ? adminme : me;
     }
 
+    const dest = isAdmin() ? adminme : me;
     const u = new URL(login);
-    u.searchParams.set("next", me);
+    u.searchParams.set("next", dest);
     return u.toString();
   }
 
