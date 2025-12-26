@@ -2250,12 +2250,13 @@ const btnReset   = document.getElementById("sdf-reset-btn");
   // ── after: function getLabel(){ ... }
 function goMineAfterShare(label = getLabel()) {
   try {
-    // me.html에서 바로 라벨 UI가 활성화되도록 선택값 브로드캐스트
+    // game1.html(Feed)에서 바로 라벨 UI가 활성화되도록 선택값 브로드캐스트
     if (label && typeof window.setSelectedLabel === "function") {
       window.setSelectedLabel(label);
     }
   } catch {}
-  const url = `${pageHref('me.html')}?label=${encodeURIComponent(label)}&posted=1`;
+  // 피드 공유 후 game1.html(Feed)로 이동
+  const url = `${pageHref('game1.html')}?label=${encodeURIComponent(label)}&posted=1`;
   // 뒤로가기로 작성 화면 복귀를 허용하려면 assign, 히스토리 덮으려면 replace
   location.assign(url);
 }
