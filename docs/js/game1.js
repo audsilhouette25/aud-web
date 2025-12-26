@@ -658,18 +658,20 @@
     const tabJib   = $("#tab-jibs");
     const panelLbl = $("#panel-labels");
     const panelJib = $("#panel-jibs");
-    if (!tabLbl || !tabJib || !panelLbl || !panelJib) return;
+
+    // labels 패널만 있으면 탭 없이도 작동
+    if (!panelLbl) return;
 
     const setActive = (name) => {
       const labels = (name === "labels");
-      tabLbl.setAttribute("aria-selected", String(labels));
-      tabJib.setAttribute("aria-selected", String(!labels));
+      if (tabLbl) tabLbl.setAttribute("aria-selected", String(labels));
+      if (tabJib) tabJib.setAttribute("aria-selected", String(!labels));
       panelLbl.hidden = !labels;
-      panelJib.hidden = labels;
+      if (panelJib) panelJib.hidden = labels;
     };
 
-    tabLbl.addEventListener("click", () => setActive("labels"));
-    tabJib.addEventListener("click", () => setActive("jibs"));
+    if (tabLbl) tabLbl.addEventListener("click", () => setActive("labels"));
+    if (tabJib) tabJib.addEventListener("click", () => setActive("jibs"));
     setActive("labels");
 
     try { window.setMineTabActive = setActive; } catch {}
@@ -814,7 +816,9 @@
     if (!__assetsReady) return;
     const gridLbl = $("#grid-labels");
     const gridJib = $("#grid-jibs");
-    if (!gridLbl || !gridJib) return;
+
+    // labels 그리드만 있어도 작동
+    if (!gridLbl) return;
 
     // 깜박임 방지: getCollected 준비 전에는 렌더하지 않음
     const regs = window.store?.getCollected?.()
@@ -827,12 +831,15 @@
       gridLbl.appendChild(makeLabelTile(lb));
     });
 
-    const jibs = window.jib?.getCollected?.() || [];
-    gridJib.innerHTML = "";
-    jibs.forEach(k => {
-      if (!JIBS[k]) return;
-      gridJib.appendChild(makeJibTile(k));
-    });
+    // jibs 그리드가 있을 때만 렌더
+    if (gridJib) {
+      const jibs = window.jib?.getCollected?.() || [];
+      gridJib.innerHTML = "";
+      jibs.forEach(k => {
+        if (!JIBS[k]) return;
+        gridJib.appendChild(makeJibTile(k));
+      });
+    }
   }
 
   function renderAll() {
