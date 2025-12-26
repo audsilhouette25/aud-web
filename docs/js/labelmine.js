@@ -3234,8 +3234,17 @@ function goMineAfterShare(label = getLabel()) {
       let zoom = 1;
       let minCover = 1;
 
-      // popover helpers
+      // popover helpers (토글 지원)
       function openPop(which){
+        // 이미 열려있으면 닫기 (토글)
+        if (which === "ratio" && ratioMenu.classList.contains("is-open")) {
+          closePops();
+          return;
+        }
+        if (which === "zoom" && zoomWrap.classList.contains("is-open")) {
+          closePops();
+          return;
+        }
         const openRatio = (which === "ratio");
         const openZoom  = (which === "zoom");
         ratioMenu.classList.toggle("is-open", openRatio);

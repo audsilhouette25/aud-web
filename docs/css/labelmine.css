@@ -860,11 +860,15 @@ header.nav {
   will-change:transform, opacity;
 }
 
-/* 각 팝오버 앵커(좌=비율, 우=줌) */
-.crop-menu{ left:16px; }
+/* 각 팝오버 앵커(좌=비율, 우=줌) - 버튼 중심과 팝업 중심 정렬 */
+.crop-menu{
+  /* 비율 버튼: left:16px, width:48px → 중심 = 16px + 24px = 40px from left */
+  /* 메뉴: min-width:92px + padding:20px ≈ 112px → 중심 = 56px */
+  /* 메뉴 left = 40px - 56px = -16px */
+  left: -16px;
+}
 .crop-zoom{
-  /* 줌 버튼 중심과 슬라이더 중심 정렬 */
-  /* 버튼: right:16px, width:48px → 중심 = 16px + 24px = 40px from right edge */
+  /* 줌 버튼: right:16px, width:48px → 중심 = 16px + 24px = 40px from right */
   /* 슬라이더: width:220px + padding:20px = 240px → 중심 = 120px */
   /* 슬라이더 right = 40px - 120px = -80px */
   right: -80px;
