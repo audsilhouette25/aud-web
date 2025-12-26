@@ -1,5 +1,5 @@
 /* =====================================================================
-   0) Base
+   Game Select Page - Base Styles
 ===================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -8,25 +8,6 @@
   --nav-h: 64px;
   --text: #111;
   --muted: #666;
-  --container-w: clamp(350px, 85vw, 1000px);
-  --feed-top-gap: 32px;
-  --feed-bottom-gap: 32px;
-  --heart-red: #E53935;
-  --pm-gutter: 14px;
-  --ig-blue: #275999;
-  --ig-blue-disabled: #B2DFFC;
-
-  /* === PM Layout tokens === */
-  --pm-left: 600px;            /* 좌측(미디어) 최대폭 */
-  --pm-right: 350px;           /* 우측(텍스트) 고정폭 */
-  --pm-left-min: 300px;        /* 단계C 임계: 좌측이 이보다 작아지면 세로 전환 */
-  --pm-lock-h: 350px;
-
-  /* === Sheet geometry === */
-  --sheet-w-max: 1280px;       /* 시트 가로 상한 (좌측 최대치 키우려면 ↑) */
-  --sheet-ar-num: 16;          /* 단계A 비율 (16:9 ~= 1.78, 600+350+gutter : 600 ≈ 1.77) */
-  --sheet-ar-den: 9;
-  --pm-fixed-h: 92dvh;         /* 단계B 고정 높이 (필요하면 88dvh~96dvh로 조절) */
 }
 
 html, body { height: 100%; }
@@ -39,7 +20,7 @@ body {
 }
 
 /* =====================================================================
-   1) Nav
+   Nav
 ===================================================================== */
 header.nav {
   position: sticky; top: 0; z-index: 100;
@@ -53,13 +34,11 @@ header.nav {
   height: 100%;
   padding: 0 27px;
 }
-
 .menu {
   display: flex;
   gap: 20px;
   list-style: none;
 }
-
 .menu a {
   color: #333;
   text-decoration: none;
@@ -69,941 +48,124 @@ header.nav {
   opacity:.9;
   transition:opacity .2s,color .2s;
 }
-
-.menu a:hover {
-  color: #000;
-  opacity: 1;
-}
-
-.menu a.active {
-  color: #000;
-  font-weight: 600;
-}
-
+.menu a:hover { color: #000; opacity: 1; }
+.menu a.active { color: #000; font-weight: 600; }
 .logo-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 27px;
   height: 27px;
-  position: relative;
 }
-
 .logo-cta img {
   display: block;
   width: 27px;
   height: 27px;
   object-fit: contain;
 }
-.logo-cta::after {
-  content: "MY";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  opacity: 0;
-  transition: opacity .2s ease;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.logo-cta:hover::after { opacity: 1; }
 
 /* =====================================================================
-   2) Hero
+   Hero
 ===================================================================== */
-.hero { max-width: 960px; margin: 0 auto; padding-top: 80px; text-align: center; }
-.title { margin: 0; color: #111; letter-spacing: -2px; font-weight: 700; }
-@media (min-width: 1200px){ .title { font-size: 72px; line-height: 1.2; } }
-@media (max-width: 1199px){ .title { font-size: 62px; line-height: 1.1; } }
-.subtitle { margin-top: 5px; color: #767676; font-size: 24px; font-weight: 400; }
-
-/* =====================================================================
-   2.1) Title Hover Swap — aud:(#111111) → audor(e)(#C75C1D)
-   - 링크는 audor(e) 앵커에만
-===================================================================== */
-.title .title-swap{
-  display: inline-grid;
-  align-items: center;
-  grid-template-areas: "stack";
-  white-space: nowrap;
-}
-.title .title-swap .t{
-  grid-area: stack;
-  line-height: 1;
-  transition: opacity .1s ease, transform .1s ease;
-  will-change: opacity, transform;
+.game-select {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 60px 20px;
 }
 
-/* 기본 보임: aud: (링크 아님) */
-.title .title-swap .t-base{
-  opacity: 1; transform: translateY(0%);
-  color: #111111;
-  pointer-events: none; /* 클릭 불가 */
+.game-select .hero {
+  text-align: center;
+  margin-bottom: 48px;
 }
 
-/* 숨김 시작: audor(e) (링크) */
-.title .title-swap .t-hover{
-  opacity: 0; transform: translateY(0%);
-  color: #FF884D;
-  text-decoration: none;
-  pointer-events: none; /* 보일 때만 클릭 가능하게 */
-}
-
-/* 마우스 호버 또는 키보드 포커스 시 전환 */
-.title .title-swap:hover .t-base,
-.title .title-swap:has(.title-link:focus-visible) .t-base{
-  opacity: 0; transform: translateY(0%);
-}
-.title .title-swap:hover .t-hover,
-.title .title-swap:has(.title-link:focus-visible) .t-hover{
-  opacity: 1; transform: translateY(0);
-  pointer-events: auto; /* 이때만 링크 활성화 */
-}
-
-/* 포커스 링은 audor(e) 앵커에 적용 */
-.title .title-link:focus-visible{
-  outline: 2px solid currentColor;
-  outline-offset: 4px;
-  border-radius: 6px;
-}
-
-/* 모션 민감 사용자 배려 */
-@media (prefers-reduced-motion: reduce){
-  .title .title-swap .t{ transition: none; }
-  .subtitle-swap .s{ transition: none; }
-}
-
-/* =====================================================================
-   2.2) Subtitle Hover Swap — title 호버 시 연동
-===================================================================== */
-.subtitle.subtitle-swap{
-  display: inline-grid;
-  grid-template-areas: "stack";
-  white-space: nowrap;
-}
-.subtitle-swap .s{
-  grid-area: stack;
-  transition: opacity .1s ease;
-}
-.subtitle-swap .s-base{
-  opacity: 1;
-}
-.subtitle-swap .s-hover{
-  opacity: 0;
-}
-
-/* title-swap 호버 시 subtitle도 전환 */
-.hero:has(.title-swap:hover) .subtitle-swap .s-base,
-.hero:has(.title-link:focus-visible) .subtitle-swap .s-base{
-  opacity: 0;
-}
-.hero:has(.title-swap:hover) .subtitle-swap .s-hover,
-.hero:has(.title-link:focus-visible) .subtitle-swap .s-hover{
-  opacity: 1;
-}
-
-/* =====================================================================
-   2.3) Touch/App 환경: 스크롤 시 타이틀 전환 (호버 불가능 기기)
-===================================================================== */
-@media (hover: none) and (pointer: coarse){
-  /* 스크롤되면 .is-scrolled 클래스가 붙음 (JS에서 처리) */
-  .hero.is-scrolled .title-swap .t-base{
-    opacity: 0;
-  }
-  .hero.is-scrolled .title-swap .t-hover{
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .hero.is-scrolled .subtitle-swap .s-base{
-    opacity: 0;
-  }
-  .hero.is-scrolled .subtitle-swap .s-hover{
-    opacity: 1;
-  }
-}
-
-/* =====================================================================
-   3) Hero Animation
-===================================================================== */
-.game .hero { opacity: 0; transform: translateY(24px); will-change: transform, opacity; }
-.game .hero.is-in { animation: heroUp .7s cubic-bezier(.22,.61,.36,1) 60ms forwards; }
-@keyframes heroUp { 0%{ opacity:0; transform:translateY(24px);} 100%{ opacity:1; transform:translateY(0);} }
-
-/* =====================================================================
-   4) Grid
-===================================================================== */
-.mine-section { padding-block: 12px 48px; }
-.container { width: var(--container-w); margin: 0 auto; }
-
-.mine-grid {
-  display: grid; justify-content: center; align-items: start;
-  gap: 45px; padding: 0; min-width: 350px;
-}
-@media (min-width: 1100px){
-  .mine-grid { grid-template-columns: repeat(3, 260px); padding: 65px 10px 50px; gap: 60px; }
-  .tile { height: 253.5px; width: 260px; }
-}
-@media (min-width: 625px) and (max-width: 1099px){
-  .mine-grid {
-    grid-template-columns: repeat(2, minmax(230px, 1fr));
-    padding: 50px 10px 50px; gap: 45px; max-width: 900px; margin: 0 auto;
-  }
-  .tile { height: 230px; width: 100%; }
-}
-@media (max-width: 624px){
-  .mine-grid {
-    grid-template-columns: minmax(200px, 1fr);
-    padding: 25px 10px 50px; gap: 40px; max-width: 900px;
-  }
-  .tile { height: 200px; width: 100%; }
-}
-
-.tile{
-  border: none; outline: none; border-radius: 16px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; background: #F5F5F5;
-}
-.tile__content{
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
-}
-
-/* =====================================================================
-   5) Media Scaling (grid tiles)
-===================================================================== */
-.label-tile .tile__content :is(video,img){ width: 190%; height: 190%; object-fit: contain; display: block; }
-.jib-tile   .tile__content :is(video,img){ width: 250%; height: 250%; object-fit: contain; display: block; }
-
-/* =====================================================================
-   6) Unregistered Overlay
-===================================================================== */
-.tile.unregistered::after{
-  content: ""; position: absolute; inset: 0;
-  background: rgba(255,255,255,.25); backdrop-filter: blur(6px);
-  border-radius: 16px;
-}
-
-@media (max-width: 624px){
-
-}
-
-/* =====================================================================
-   9) Avatar Customizer
-===================================================================== */
-.avatar-custom{
-  width: var(--container-w);
-  margin: 24px auto 0;
-  display: grid; grid-template-columns: 1fr; gap: 20px;
-}
-.avatar-stage{ display: grid; justify-items: center; gap: 12px; }
-.avatar-canvas{
-  position: relative; width: min(520px, 80vw); aspect-ratio: 1 / 1;
-  border-radius: 24px; background: transparent; overflow: hidden;
-}
-.avatar-canvas .layer{
-  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
-}
-.avatar-canvas .layer :is(video,img){ width: 100%; height: 100%; object-fit: contain; }
-.avatar-canvas .layer-label :is(video,img){ width: 72%; height: 72%; }
-.avatar-canvas .layer-jib{ width: 100%; height: 100%; }
-
-/* Actions */
-.avatar-actions{ display: flex; gap: 8px; }
-.btn-ghost{
-  border: 1px solid rgba(0,0,0,.14); background: #fff; color: #111;
-  border-radius: 9999px; padding: 10px 16px; font-weight: 600; cursor: pointer;
-}
-.btn-primary{
-  border: 0; background: var(--accent); color: #111;
-  border-radius: 9999px; padding: 10px 18px; font-weight: 700; cursor: pointer;
-}
-.btn-primary[aria-busy="true"]{ opacity: .8; pointer-events: none; }
-.tabbar{ display: flex; gap: 10px; }
-.tabbar [role="tab"]{
-  appearance: none; border: 1px solid rgba(0,0,0,.1);
-  background: #fff; color: #111; padding: 8px 14px;
-  border-radius: 9999px; font-weight: 600; cursor: pointer;
-}
-.tabbar [role="tab"][aria-selected="true"]{ background: #111; color: #fff; }
-
-/* 선택 강조 */
-.tile[data-selected="true"]{
-  outline: 3px solid var(--accent); outline-offset: 2px;
-  box-shadow: 0 4px 18px rgba(0,0,0,.08);
-}
-
-/* =====================================================================
-   9.3) Global Account / Avatar (all pages)
-===================================================================== */
-:root{
-  --avatar-xs: 24px;
-  --avatar-sm: 28px;
-  --avatar-md: 40px;
-  --avatar-lg: 56px;
-}
-
-/* 전역 아바타 룰 */
-img.avatar{
-  width: var(--avatar-md);
-  height: var(--avatar-md);
-  aspect-ratio: 1 / 1;
-  border-radius: 9999px;
-  object-fit: cover;
-  background: #EDEFF3;
-  display: block;
-  flex: 0 0 auto;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
-}
-img.avatar.avatar--xs{ width: var(--avatar-xs); height: var(--avatar-xs); }
-img.avatar.avatar--sm{ width: var(--avatar-sm); height: var(--avatar-sm); }
-img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
-
-/* 공통 계정 라인업(어디서든 사용 가능) */
-.account{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;               /* 말줄임 가능 */
-}
-.account .name{
+.game-select .title {
+  font-size: 48px;
   font-weight: 700;
-  color: var(--text);
+  color: #111;
+  letter-spacing: -2px;
+}
+
+.game-select .subtitle {
+  margin-top: 12px;
+  font-size: 18px;
+  color: #666;
+}
+
+/* =====================================================================
+   Game Grid
+===================================================================== */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (max-width: 800px) {
+  .game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .game-grid {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+}
+
+/* =====================================================================
+   Game Card
+===================================================================== */
+.game-card {
+  display: block;
+  text-decoration: none;
+  background: #FFFFFF;
+  border-radius: 20px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.account .meta{
-  font-size: 12px;
-  color: var(--muted);
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
-/* 모달 헤더에서는 살짝 크게 (기존 규칙 유지) */
-.post-modal--split .pm-right-head .avatar{
-  width: 44px; height: 44px;
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
-/* 내 카드만 링 강조(기존 룰 유지) — 타 계정도 동일 룩(원형+cover)은 그대로 */
-.feed-card[data-owner="me"] .avatar{
-  box-shadow: inset 0 0 0 2px var(--accent);
+.game-card-inner {
+  padding: 32px 24px;
+  text-align: center;
 }
 
-/* =====================================================================
-   10) Feed  — 3열 고정, 순서 보존(row-first) Masonry by CSS Grid
-===================================================================== */
-.feed { width: 100%; max-width: 900px; }
-
-[data-feed-grid],
-.feed-grid{
-  display: grid !important;                 /* Grid로 고정 */
-  grid-template-columns: repeat(3, 1fr);    /* 3열 고정 */
-  gap: 1px;                                 /* 기존 간격 유지 */
-  grid-auto-flow: row;                      /* 행 우선(순서 보존: 좌→우, 위→아래) */
-  grid-auto-rows: var(--cell, 280px);       /* 한 칸의 높이(아래 JS가 동적으로 채움) */
-}
-
-/* =====================================================================
-   11) Feed Card
-===================================================================== */
-/* 카드가 열 안에서 쪼개지지 않도록(브라우저 호환 보강) */
-/* 카드 한 칸(1:1) */
-.feed-card{
-  position: relative; overflow: hidden;
-  background: #f6f6f6;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
-}
-
-/* 1:1 기본 — 한 행(span 1) */
-.feed-card:not([data-ar="1:2"]){ grid-row: span 1; }
-
-/* 1:2(세로 긴 카드) — 두 행(span 2) */
-.feed-card[data-ar="1:2"]{ grid-row: span 2; }
-
-/* 미디어가 그리드 셀 높이에 딱 맞게 */
-.feed-card .media{
-  position: relative;
-  width: 100%;
-  height: 100%;                 /* aspect-ratio 대신 셀 높이에 맞춘다 */
-  display: grid; place-items: center;
-  background: var(--bg, #f6f6f6);
-}
-.feed-card .media img{
-  display: block; width: 100%; height: 100%;
-  object-fit: cover; background: transparent;
-}
-
-.feed-card .media img{ display: block; width: 100%; height: auto; object-fit: contain; background: transparent; }
-.feed-card > .meta, .feed-card > .actions, .feed-card .meta, .feed-card .actions { display: flex; align-items: center; }
-.feed-card .meta{ padding: 8px 10px 4px; color: #444; font-size: 13px; }
-.feed-card .actions{ padding: 4px 10px 10px; }
-.feed-card .actions .btn-like, .feed-card .actions .btn-comments{
-  appearance: none; border: 0; background: #f4f4f5; color: #111;
-  padding: 6px 10px; border-radius: 10px; cursor: pointer; font-weight: 600;
-}
-.feed-card .comments{ padding: 0 10px 10px; }
-.feed-card .media.broken{ background: repeating-linear-gradient(45deg, #eceef2 0 8px, #f6f7f9 8px 16px); }
-.feed-card > .meta, .feed-card > .actions { display: none; }
-.feed-card::after{ content: none !important; }
-
-.feed-card .hover-ui{
-  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center;
-  background: rgba(32,32,34,.55); color: #fff; opacity: 0; transition: opacity .18s ease;
-  pointer-events: none; text-align: center;
-}
-.feed-card:hover .hover-ui{ opacity: 1; }
-@media (hover: none) and (pointer: coarse){ .feed-card .hover-ui{ opacity: 1; } }
-.feed-card .hover-ui .actions{
-  display: inline-flex; gap: 28px; align-items: center; justify-content: center;
-  pointer-events: auto; filter: drop-shadow(0 2px 8px rgba(0,0,0,.45));
-}
-.feed-card .hover-ui .stat{
-  all: unset; display: inline-flex; align-items: center; gap: 8px;
-  font-weight: 700; font-size: 22px; line-height: 1; color: #fff;
-}
-.feed-card .hover-ui .stat svg{ width: 24px; height: 24px; display:inline-block; color: currentColor; }
-.feed-card .caption{ display: none; }
-.feed-scroll{ height: 500px; overflow: auto; overscroll-behavior: contain; }
-
-.feed-card .btn-del-thumb{
-  --ico: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox=%220 0 24 24%22><path d=%22m16.5,13.5c0,.553-.447,1-1,1h-2.5v2.5c0,.553-.447,1-1,1s-1-.447-1-1v-2.5h-2.5c-.553,0-1-.447-1-1s.447-1,1-1h2.5v-2.5c0-.553.447-1,1-1s1,.447,1,1v2.5h2.5c.553,0,1,.447,1,1Zm6.5-8.5c0,.553-.447,1-1,1h-.886l-1.277,13.472c-.244,2.581-2.384,4.528-4.977,4.528h-5.728c-2.59,0-4.729-1.943-4.977-4.521l-1.296-13.479h-.861c-.553,0-1-.447-1-1s.447-1,1-1h4.101c.465-2.279,2.485-4,4.899-4h2c2.414,0,4.435,1.721,4.899,4h4.101c.553,0,1,.447,1,1Zm-14.828-1h7.656c-.413-1.164-1.524-2-2.828-2h-2c-1.304,0-2.415.836-2.828,2Zm10.934,2H4.87l1.277,13.287c.149,1.547,1.433,2.713,2.986,2.713h5.728c1.556,0,2.839-1.168,2.986-2.717l1.259-13.283Z%22/></svg>');
-  position: absolute; top: 8px; right: 8px; z-index: 3;
-  /* 하트(.stat)와 동일한 텍스트/아이콘 룩 */
-  all: unset;
+.game-number {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: #F5F5F5;
+  border-radius: 50%;
+  font-size: 20px;
   font-weight: 700;
-  font-size: 22px;      /* .hover-ui .stat 와 동일 */
-  line-height: 1;
-  color: #fff;
-  cursor: pointer;
-
-  /* 패딩/배경/보더 제거(하트처럼 네이키드) */
-  padding: 0;
-}
-
-/* 아이콘 크기: 하트 아이콘(24px)과 동일 */
-.feed-card .btn-del-thumb::before{
-  content: "";
-  width: 24px; height: 24px;
-  background: currentColor;
-  -webkit-mask: var(--ico-trash, var(--ico)) no-repeat center / 100% 100%;
-          mask: var(--ico-trash, var(--ico)) no-repeat center / 100% 100%;
-}
-
-/* 호버/포커스 인터랙션: 하트 느낌으로 색만 변경 */
-.feed-card .btn-del-thumb:hover,
-.feed-card .btn-del-thumb:focus-visible{
-  color: var(--heart-red);   /* 이미 토큰 정의되어 있음 */
-}
-
-/* 터치 기기에서도 보이도록(선택) */
-@media (hover: none) and (pointer: coarse){
-  .feed-card .btn-del-thumb{ opacity: 1; }
-}
-
-/* 만약 .hover-ui 중앙 액션 줄에 넣을 거라면 위치 해제 */
-.feed-card .hover-ui .actions .btn-del-thumb{
-  position: static;
-}
-
-.feed-card .btn-del-thumb{ display:none !important; }
-.feed-card[data-owner="me"] .btn-del-thumb{ display:inline-flex !important; }
-
-/***** Mine-only toolbar *****/
-#feed-root { position: relative; }
-
-.feed-toolbar{
-  position: sticky;
-  top: 12px;
-  z-index: 30;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 12px 0 18px;
-  padding: 0;
-  background: transparent;
-}
-
-.feed-toolbar .btn{
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid #D0D5DD;
-  border-radius: 9999px;
-  padding: 7px 12px;
-  background: #fff;
   color: #111;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(16,24,40,.06);
-  transition: transform .06s ease, filter .12s ease;
+  margin-bottom: 16px;
 }
 
-.feed-toolbar .btn:hover{ filter: brightness(0.98); }
-.feed-toolbar .btn:active{ transform: translateY(1px); }
-
-.feed-toolbar .btn[aria-pressed="true"]{
-  background: #111111;
-  border-color: #111111;
-  color: #fff;
+.game-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
 }
 
-.feed-toolbar .btn:focus-visible{
-  outline: 2px solid #111111;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(42,95,95,.15);
+.game-desc {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
 }
 
-/* (보강) 토글이 켜지면 내 카드만 보이도록 — JS가 hidden도 설정하지만 CSS로 한 번 더 */
-[data-feed-grid][data-filter-mine="1"] .feed-card[data-owner="other"]{
-  display: none !important;
-}
-
-/* =====================================================================
-   12) Post Modal — 공통 레이아웃 (3단계 전환)
-===================================================================== */
-.ico{ display: inline-block; width: 1em; height: 1em; background-color: currentColor;
-  -webkit-mask: var(--ico) no-repeat center / 100% 100%;
-          mask: var(--ico) no-repeat center / 100% 100%; }
-.stat .ico{ width: 24px; height: 24px; }
-.ico-heart{ --ico: url('data:image/svg+xml;utf8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/%3E%3C/svg%3E'); }
-.ico-comment{ --ico: url('data:image/svg+xml;utf8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill-rule="evenodd" clip-rule="evenodd" d="M3 5.983C3 4.888 3.895 4 5 4h14c1.105 0 2 .888 2 1.983v8.923a1.992 1.992 0 0 1-2 1.983h-6.6l-2.867 2.7c-.955.899-2.533.228-2.533-1.08v-1.62H5c-1.105 0-2-.888-2-1.983V5.983Zm5.706 3.809a1 1 0 1 0-1.412 1.417 1 1 0 1 0 1.412-1.417Zm2.585.002a1 1 0 1 1 .003 1.414 1 1 0 0 1-.003-1.414Zm5.415-.002a1 1 0 1 0-1.412 1.417 1 1 0 1 0 1.412-1.417Z"/%3E%3C/svg%3E'); }
-
-/* 투표 */
-.post-modal--split .pm-vote{
-  padding:14px; border-bottom:1px solid #f1f1f1; display:grid; gap:10px;
-}
-.post-modal--split .pm-vote .vote-list{
-  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;
-}
-
-@container (min-width: 700px){
-  .post-modal--split .pm-vote .vote-list{
-    grid-template-columns:repeat(3, minmax(0,1fr));
-  } }
-  .post-modal--split .pm-vote .vote-opt{
-    appearance:none; border:1px solid #e6e6eb; background:#fff; color:#111; border-radius:9999px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:700; cursor:pointer;
-  }
-  .post-modal--split .pm-vote .vote-opt .label{
-    font-weight:700;
-  }
-  .post-modal--split .pm-vote .vote-opt .count{
-    font-variant-numeric: tabular-nums; opacity:.8;
-  }
-  .post-modal--split .pm-vote .vote-opt:hover{
-    background:#f7f7f9;
-  }
-  .post-modal--split .pm-vote .vote-opt:focus{
-    outline:none; box-shadow:0 0 0 3px rgba(255,167,101,.25);
-  }
-  .post-modal--split .pm-vote .vote-opt[aria-pressed="true"]{
-    background:#111; color:#fff; border-color:#111;
-  }
-  .post-modal--split .pm-vote .vote-meta{
-    font-size:12px; color:#666;
-  }
-  .post-modal--split .pm-vote .vote-hint{
-    font-size:12px; color:#767676;
-  }
-
-/* =========================================================
-   Post Modal — Unified (Fit-to-content, Square Left, Fixed Right)
-   1) pm-left 정사각, 가로축소/높이고정
-   2) pm-right 고정폭 + 내부 flex 채움
-   3) pm-sheet는 내부 크기에 정확히 fit
-   4) 임계 이하에서 세로 스택 전환
-========================================================= */
-
-/* 오버레이 */
-.post-modal[hidden]{ display:none !important; }
-.post-modal{
-  position: fixed; inset: 0; z-index: 1000;
-  display: grid; place-items: center;
-  background: rgba(0,0,0,.45);
-}
-
-/* 시트 컨테이너 */
-.pm-sheet{
-  /* ---- 토큰 ---- */
-  --pm-gap: var(--pm-gutter, 14px);
-  --pm-right: 420px;      /* 우측 고정폭 */
-  --pm-min: 600px;        /* 고정 높이(=최소 변) */
-  --sheet-w-max: 1280px;  /* 가로 상한 */
-  --stack-threshold: 480px;
-
-  /* ---- 고정 높이 + 가로는 화면에 따라 축소 ---- */
-  --pm-fixed-h: calc(var(--pm-min) + 100px);
-  --sheet-w: min(96vw, var(--sheet-w-max));
-  --side-by-width: calc(var(--sheet-w) - var(--pm-right) - var(--pm-gap));
-  /* 좌측 실제 가로폭: 화면 가로제약과 고정높이 중 작은 값,
-     단 최소폭(--pm-left-min) 이하로는 떨어지지 않게 */
-  --left-w: max(var(--pm-left-min, 300px), min(var(--side-by-width), var(--pm-fixed-h)));
-
-  /* 시트 자체 크기 = 내부 레이아웃에 정확히 fit */
-  width:  calc(var(--left-w) + var(--pm-right));
-  height: var(--pm-fixed-h);
-
-  background:#fff; color:#111;
-  border-radius:14px; overflow:hidden;
-  box-shadow:0 12px 30px rgba(0,0,0,.28);
-
-  display:grid;
-  grid-template-rows: auto 1fr; /* 헤더 + 콘텐츠 */
-
-  container-type: inline-size;  /* 컨테이너 쿼리 기준 */
-}
-
-/* 헤더 */
-.pm-head{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:10px; padding:12px 14px; border-bottom:1px solid #eee;
-}
-.pm-title{ font-size:16px; font-weight:700; }
-.pm-head-actions{ display:flex; align-items:center; gap:8px; }
-.pm-close, .pm-prev, .pm-next{
-  appearance:none; border:0; background:#f4f4f5; color:#111;
-  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:700;
-}
-.pm-close:hover, .pm-prev:hover, .pm-next:hover{ background:#e9e9ec; }
-.pm-prev[disabled], .pm-next[disabled]{ opacity:.5; cursor:default; }
-
-.post-modal .pm-content{ overflow:hidden; min-height:0; }
-
-/* ---- 2열 레이아웃 (좌 가변폭, 우 고정폭, 고정높이) ---- */
-.pm-layout{
-  height: 100%;
-  display: grid;
-  grid-template-columns: var(--left-w) var(--pm-right);
-  grid-auto-rows: var(--pm-fixed-h);
-  gap: 0;
-  align-items: stretch;
-}
-
-/* 좌측 패널 */
-.pm-left{
-  display:grid; place-items:center; background: var(--bg, #000);
-  overflow:hidden;
-}
-/* 좌측 미디어: 항상 정사각, 가로만 줄고 높이는 고정 컨테이너 기준 */
-.pm-left .media{
-  width: min(100%, var(--pm-fixed-h));
-  height: auto;
-  aspect-ratio: 1 / 1;
-  display:grid; place-items:center;
-  background: var(--bg, #000);
-  margin-inline: auto;
-}
-.pm-left .media :is(img,video){
-  width: 100%; height: 100%; object-fit: contain; display:block;
-}
-
-/* 우측 패널: 내부 flex로 칸 채우기 */
-.pm-right{
-  display: flex; flex-direction: column;  /* grid → flex */
-  min-width: var(--pm-right);
-  overflow: hidden;
-  scrollbar-gutter: stable;
-}
-.pm-caption{ flex: 0 0 auto; padding:12px; border-bottom:1px solid #eee; display:grid; gap:8px; }
-.pm-caption .meta{ color:#444; display:flex; gap:6px; align-items:center; }
-.pm-caption .caption-text{ color:#222; line-height:1.45; white-space:pre-wrap; }
-.pm-caption .actions{ display:flex; gap:10px; }
-.pm-comments{
-  flex: 1 1 auto;
-  min-height: 0;
-  padding:12px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* =========================================================
-   Variant: Split (좌 정사각 / 우 정보)
-   - 헤더 숨김
-   - 우측 레일: head / thread / caption / foot 을 flex로
-   - 좌측 미디어 기본 cover (필요시 contain으로 교체)
-========================================================= */
-.post-modal--split .pm-head{ display:none; }
-.post-modal--split .pm-content{ height:auto; overflow:hidden; }
-.post-modal--split .pm-sheet{ grid-template-rows: 1fr; } /* 헤더 제거 */
-
-.post-modal--split .pm-layout{
-  grid-template-columns: var(--left-w) var(--pm-right);
-  grid-auto-rows: var(--pm-fixed-h);
-}
-
-.post-modal--split .pm-left{
-  background:#fff; border-right:1px solid #eee;
-}
-.post-modal--split .pm-left .media{
-  aspect-ratio: 1 / 1; background:#fff;
-}
-.post-modal--split .pm-left .media :is(img,video){
-  object-fit: cover; object-position:50% 50%;
-  /* 필요 시: object-fit: contain; */
-}
-
-/* 우측을 flex로 채우기 */
-.post-modal--split .pm-right{ display:flex; flex-direction:column; }
-.post-modal--split .pm-right-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid #eee; }
-.post-modal--split .pm-thread{
-  flex:1 1 auto; min-height:0; overflow:auto;
-  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-}
-.post-modal--split .pm-caption{ flex:0 0 auto; padding:14px; border-bottom:1px solid #f1f1f1; display:grid; gap:8px; }
-.post-modal--split .sticky-foot{ flex:0 0 auto; position:static; display:grid; gap:8px; padding:10px 0; background:#fff; border-top:none; }
-.post-modal--split .sticky-foot .actions{ display:flex; align-items:center; gap:8px; justify-content:flex-start; }
-.post-modal--split .sticky-foot .actions .btn-like,
-.post-modal--split .sticky-foot .actions .btn-comments{ appearance:none; border:0; background:transparent; color:#111; padding:0; border-radius:8px; cursor:pointer; }
-.post-modal--split .sticky-foot .actions svg{ width:24px; height:24px; display:inline-block; }
-.post-modal--split .sticky-foot .actions [data-like-count],
-.post-modal--split .sticky-foot .actions [data-cmt-count]{ display:none !important; }
-.post-modal--split .sticky-foot .foot-meta{ display:grid; gap:4px; }
-.post-modal--split .sticky-foot .likes-line{ font-weight:700; }
-.post-modal--split .sticky-foot .date-line{ font-size:12px; color:#666; }
-.post-modal--split .sticky-foot .actions{ padding: 0 var(--pm-gap); }
-
-/* 글씨 줄만 살짝 우측으로(2px는 시작값, 1~3px에서 조절 가능) */
-:root{ --pm-like-nudge: 2px; }
-
-.post-modal--split .sticky-foot .foot-meta{
-  padding: 0 calc(var(--pm-gap) + var(--pm-like-nudge));
-}
-
-/* === HEART (CSS-only) — replaces ensureHeartCSS() ===================== */
-
-/* 터치 타깃 + 포인터 */
-.sticky-foot .btn-like{
-  pointer-events:auto;
-  cursor:pointer;
-  min-width:max(44px, var(--pm-heart-size, 28px));
-  min-height:max(44px, var(--pm-heart-size, 28px));
-  padding:0;
-  display:flex;                 /* ← 콘텐츠 박스를 flex로 */
-  align-items:center;           /* 수직 가운데 */
-  justify-content:flex-start;   /* 수평 왼쪽 정렬 */
-  text-align:left;              /* 일부 UA 기본값 보정 */
-}
-
-/* 조상에서 필터/블렌드로 죽는 이슈 무력화 */
-.post-modal .sticky-foot,
-.post-modal .sticky-foot *,
-.sticky-foot .btn-like,
-.sticky-foot .btn-like svg,
-.sticky-foot .btn-like svg path{
-  filter:none !important;
-  -webkit-filter:none !important;
-  mix-blend-mode:normal !important;
-  opacity:1 !important;
-}
-
-/* 상태별 색(현재색 기반) */
-.sticky-foot .btn-like{ color:#777; }
-.sticky-foot .btn-like[aria-pressed="true"],
-.sticky-foot .btn-like.is-liked{ color: var(--heart-red, #E53935); }
-
-/* 크기 토큰 */
-.post-modal{ --pm-heart-size: 28px; } /* 필요시 값만 바꾸면 됨 */
-.sticky-foot .btn-like svg{
-  width:var(--pm-heart-size);
-  height:var(--pm-heart-size);
-  display:inline-block;
-}
-
-/* 하트 path 룩 (스파이크 방지: round join/cap) */
-.sticky-foot .btn-like svg path{
-  transition: fill .15s, stroke .15s;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.sticky-foot .btn-like[aria-pressed="false"] svg path,
-.sticky-foot .btn-like:not([aria-pressed]) svg path{
-  fill:none;
-  stroke: currentColor;      /* 기본 #777 */
-  stroke-width:1.5;
-}
-.sticky-foot .btn-like[aria-pressed="true"] svg path,
-.sticky-foot .btn-like.is-liked svg path{
-  fill: currentColor;        /* var(--heart-red) */
-  stroke: currentColor;
-  stroke-width:0;
-}
-
-/* 로딩 힌트 */
-.sticky-foot .btn-like[aria-busy="true"]{ opacity:.65; }
-
-/* (레거시) 업그레이드 전 .ico-heart 마스크 아이콘도 상태 동기화 */
-.sticky-foot .btn-like .ico-heart{
-  display:inline-block;
-  width:var(--pm-heart-size);
-  height:var(--pm-heart-size);
-  line-height:var(--pm-heart-size);
-  background-size:100% 100%;
-}
-.sticky-foot .btn-like[aria-pressed="true"] .ico-heart{ color: var(--heart-red, #E53935); }
-.sticky-foot .btn-like[aria-pressed="false"] .ico-heart{ color:#777; }
-
-/* 읽기전용 하트(그리드 오버레이) — 항상 외곽선 */
-.feed-card .hover-ui .stat svg path{
-  fill:none;
-  stroke: currentColor;      /* .stat { color:#fff } */
-  stroke-width:1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* =========================================================
-   Stack 전환(≤750px): 이미지 → 투표만 노출 (중첩 안전)
-========================================================= */
-@media (max-width: 750px) {
-  /* 시트 */
-  .post-modal .pm-sheet{
-    width: 420px;
-    height: auto;
-    border-radius: 12px;
-  }
-
-  /* 1열 전환 */
-  .post-modal .pm-layout{
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
-    align-items: start;
-    gap: 0;
-  }
-
-  /* 위: 이미지 */
-  .post-modal .pm-left{
-    border-right: none;
-    background: var(--bg, #000);
-  }
-  .post-modal .pm-left .media{
-    width: 100%;
-    max-width: var(--pm-fixed-h, 92dvh);
-    height: auto;
-    aspect-ratio: 1 / 1;
-    margin-inline: auto;
-  }
-  .post-modal .pm-left .media :is(img, video){
-    width: 100%; height: 100%; object-fit: contain; display: block;
-  }
-
-  /* 아래: 투표만 남기기 */
-  .post-modal--split .pm-right{
-    display: block;
-    min-height: unset;
-    overflow: visible;
-  }
-  /* 초기화 */
-  .post-modal--split .pm-right > * { display: revert !important; }
-
-  /* .pm-vote 포함하지 않는 형제 숨김 */
-  .post-modal--split .pm-right:has(.pm-vote)
-  > *:not(.pm-vote):not(:has(.pm-vote)) {
-    display: none !important;
-  }
-  /* 중첩 컨테이너 케이스 */
-  .post-modal--split .pm-right .sticky-foot:has(.pm-vote) > *:not(.pm-vote),
-  .post-modal--split .pm-right .pm-caption:has(.pm-vote) > *:not(.pm-vote),
-  .post-modal--split .pm-right .pm-thread:has(.pm-vote) > *:not(.pm-vote) {
-    display: none !important;
-  }
-
-  /* 보장 */
-  .post-modal--split .pm-vote {
-    display: block !important;
-    visibility: visible !important;
-    padding: 14px;
-    border-top: 1px solid #eee;
-    border-bottom: 0; /* 경계선 중복 방지 */
-  }
-
-  /* 투표 그리드 */
-  .post-modal--split .pm-vote .vote-list{
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-    .post-modal--split .pm-vote .vote-meta{
-    margin-top: 10px;
-    line-height: 1.45;
-  }
-  .post-modal--split .pm-vote .vote-hint{
-    margin-top: 4px;
-    line-height: 1.45;
-    opacity: .9;                          /* 가독성 미세 개선 */
-  }
-}
-@media (max-width: 430px){
-  .post-modal--split .pm-vote .vote-list{ grid-template-columns: 1fr; }
-}
-
-#post-modal { position: fixed; inset: 0; /* 배경 클릭 영역 */ }
-
-/* =========================================================
-   Fallbacks
-========================================================= */
-@supports not (scrollbar-gutter: stable){
-  .pm-comments, .post-modal--split .pm-thread { overflow-y: scroll; }
-}
-
-/* 클릭 차단된 오버레이를 임시 무력화할 때 붙이는 클래스 */
-.pe-none { pointer-events: none !important; }
-
-/* 모달 하단 발판(푸터)에서 클릭을 보장 */
-.pm-foot-click { pointer-events: auto !important; z-index: 10000 !important; }
-
-/* === Avatar normalization verify — 2025-09-22 === */
-/* mine.css 전역 아바타 규칙 검증 완료. 추가 변경 없음(전역 규칙 유지). */
-
-
-/* === UX tweak: tighter avatar–name spacing in post modal head (2025-09-22) === */
-.post-modal--split .pm-right-head .account{ gap: 6px; }  /* 기존 10px → 6px */
-@container (min-width: 640px){
-  .post-modal--split .pm-right-head .account{ gap: 8px; } /* 큰 화면에서 8px로 살짝 여유 */
-}
-
-/* === Tall(1:2) in Post Modal — keep height, shrink width ================== */
-/* 1) 좌측 칼럼 폭을 고정 높이의 절반으로 (단, 최소폭 보호) */
-.post-modal .pm-sheet[data-ar="1:2"]{
-  --left-w: max(var(--pm-left-min, 300px),
-               min(var(--side-by-width), calc(var(--pm-fixed-h) / 2)));
-}
-
-/* 2) 좌측 미디어 박스를 세로 기준으로 맞춤: 높이를 고정, 가로는 자동 */
-.post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
-  width: auto;                       /* 정사각 기본(width) → Tall에서는 height 기준 */
-  height: var(--pm-fixed-h);         /* 모달 고정 높이와 동일 */
-  aspect-ratio: 1 / 2;               /* 1:2 비율 */
-}
-
-/* 3) Tall일 때는 전체가 잘 보이도록 contain */
-.post-modal .pm-sheet[data-ar="1:2"] .pm-left .media :is(img,video){
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* (선택) 모바일 스택 전환 구간에서도 Tall 규칙이 우선 적용되도록 보강 */
-@media (max-width: 750px){
-  .post-modal .pm-sheet[data-ar="1:2"] .pm-left .media{
-    max-width: calc(var(--pm-fixed-h, 92dvh) / 2);
-    aspect-ratio: 1 / 2;
-  }
-}
-
-/* === Tall(1:2) 카드 전용 규칙 === */
-.feed-card[data-ar="1:2"] .media{
-  aspect-ratio: 1 / 2;
-}
-.feed-card[data-ar="1:2"] .media img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* Coming Soon state */
+.game-card:has(.game-title:contains("Coming Soon")) {
+  opacity: 0.6;
 }

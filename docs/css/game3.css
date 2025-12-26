@@ -1,0 +1,82 @@
+/* =====================================================================
+   Game 3 - Base Styles
+===================================================================== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --accent: #FFA765;
+  --nav-h: 64px;
+  --text: #111;
+  --muted: #666;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  background: #F5F5F5;
+  min-width: 400px;
+}
+
+/* Nav */
+header.nav {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  background: #F5F5F5;
+}
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 27px;
+}
+.menu {
+  display: flex;
+  gap: 20px;
+  list-style: none;
+}
+.menu a {
+  color: #333;
+  text-decoration: none;
+  letter-spacing: -.2px;
+  font-size: 15px;
+  font-weight: 500;
+  opacity:.9;
+  transition:opacity .2s,color .2s;
+}
+.menu a:hover { color: #000; opacity: 1; }
+.menu a.active { color: #000; font-weight: 600; }
+.logo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+}
+.logo-cta img {
+  display: block;
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+
+/* Hero */
+.game3 .hero {
+  max-width: 960px;
+  margin: 0 auto;
+  padding-top: 120px;
+  text-align: center;
+}
+.game3 .title {
+  font-size: 48px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -2px;
+}
+.game3 .subtitle {
+  margin-top: 12px;
+  font-size: 20px;
+  color: #666;
+}

@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- ✅ VAPID 공개키를 head 안에, 실제 키 문자열로 -->
   <script src="./js/config.js"></script>
   <script src="./js/app-config.js"></script>
-  <meta charset="UTF-8" />
   <title>Game</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/game.css" />
 </head>
@@ -32,82 +29,41 @@
   </header>
 
   <!-- ===== Hero ===== -->
-  <section class="game">
+  <section class="game-select">
     <div class="hero">
-      <h1 class="title">
-        <span class="title-swap">
-          <span class="t t-base" aria-hidden="true">aud:</span>
-          <a href="./me.html" id="title-link" class="t t-hover title-link">audor(e)</a>
-        </span>
-      </h1>
-      <p class="subtitle subtitle-swap">
-        <span class="s s-base">what you have collected</span>
-        <span class="s s-hover">click to view my page</span>
-      </p>
+      <h1 class="title">GAME</h1>
+      <p class="subtitle">Select a game to play</p>
     </div>
 
-    <!-- ===== Feed (카드 클릭 → JS 모달) ===== -->
-    <section class="avatar-custom" aria-label="Feed">
-      <div class="avatar-stage">
-        <section id="feed-root" class="feed" aria-live="polite">
-          <!-- ✨ 스크롤 컨테이너 (고정 높이 + 내부 스크롤) -->
-          <div class="feed-scroll" data-feed-scroll>
-            <div class="feed-grid" data-feed-grid></div>
-
-            <!-- 스크롤 하단 (더 보기 버튼은 폴백에서만 사용) -->
-            <div class="feed-bottom">
-              <button id="feed-more" class="btn-more" type="button" aria-label="포스트 더 보기">더 보기</button>
-              <!-- 무한 스크롤 트리거: 반드시 스크롤 컨테이너 내부에 위치 -->
-              <div id="feed-sentinel" aria-hidden="true"></div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <!-- 탭 -->
-      <div class="avatar-tabs">
-        <div class="tabbar" role="tablist" aria-label="꾸미기">
-          <button id="tab-labels" role="tab" data-tab="labels" aria-selected="true">aud:</button>
-          <button id="tab-jibs" role="tab" data-tab="jibs" aria-selected="false">JIBBITZ</button>
+    <!-- ===== Game Cards ===== -->
+    <div class="game-grid">
+      <a href="./game1.html" class="game-card">
+        <div class="game-card-inner">
+          <span class="game-number">1</span>
+          <h2 class="game-title">Feed</h2>
+          <p class="game-desc">Share and collect moments</p>
         </div>
-
-        <div id="panel-labels" role="tabpanel" aria-labelledby="tab-labels">
-          <div class="mine-grid" id="grid-labels"></div>
+      </a>
+      <a href="./game2.html" class="game-card">
+        <div class="game-card-inner">
+          <span class="game-number">2</span>
+          <h2 class="game-title">Coming Soon</h2>
+          <p class="game-desc">New game in development</p>
         </div>
-        <div id="panel-jibs" role="tabpanel" aria-labelledby="tab-jibs" hidden>
-          <div class="mine-grid" id="grid-jibs"></div>
+      </a>
+      <a href="./game3.html" class="game-card">
+        <div class="game-card-inner">
+          <span class="game-number">3</span>
+          <h2 class="game-title">Coming Soon</h2>
+          <p class="game-desc">New game in development</p>
         </div>
-      </div>
-    </section>
+      </a>
+    </div>
   </section>
-<!-- 소켓 (선택) -->
-
-  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js"></script>
 
   <script src="./js/fetch-sanitizer.js"></script>
-
-  <!-- 1) 전역 인증 부팅 -->
   <script src="./js/auth-boot.js" defer></script>
-
-  <!-- 3) 세션 keepalive -->
   <script src="./js/auth-keepalive.js" defer></script>
-
-  <script src="./js/app-config.js"></script>
-
-  <script src="./js/app-assets.js"></script>
-
-  <!-- 2) Store (module) -->
-  <script type="module" src="./js/store.js"></script>
-
-  <!-- 5) UI 라우팅 가드/로고 -->
   <script src="./js/logo-guard.js" defer></script>
-
-  <!-- 6) 소켓 초기화 (필요 시) -->
-  <script src="./js/socket-init.js" defer></script>
-
-  <!-- 7) 페이지 전용 스크립트 -->
-  <script type="module" src="./js/game.js"></script>
-
-
 </body>
 </html>
