@@ -228,8 +228,8 @@ header.nav {
 /* =====================================================================
    3) Hero Animation
 ===================================================================== */
-.mine .hero { opacity: 0; transform: translateY(24px); will-change: transform, opacity; }
-.mine .hero.is-in { animation: heroUp .7s cubic-bezier(.22,.61,.36,1) 60ms forwards; }
+.game .hero { opacity: 0; transform: translateY(24px); will-change: transform, opacity; }
+.game .hero.is-in { animation: heroUp .7s cubic-bezier(.22,.61,.36,1) 60ms forwards; }
 @keyframes heroUp { 0%{ opacity:0; transform:translateY(24px);} 100%{ opacity:1; transform:translateY(0);} }
 
 /* =====================================================================
