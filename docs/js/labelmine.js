@@ -1755,7 +1755,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
             if (!snap) throw new Error("No canvas to snapshot");
           }
           await window.store.addToGalleryFromCanvas(snap, label);
-          if (btnSave){ btnSave.textContent = ""; btnSave.append(Icons.check?.() || document.createTextNode("LABELS")); btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.textContent = "Save"; }, 900); }
+          if (btnSave){ btnSave.textContent = "Saved"; btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.textContent = "Save"; }, 1200); }
         } catch (err) {
           console.error("[Save] 실패:", err);
           if (btnSave){ btnSave.textContent = "Error"; btnSave.classList.add("is-active"); setTimeout(()=>{ btnSave.classList.remove("is-active"); btnSave.innerHTML = prevHTML || "Save"; }, 1200); }
