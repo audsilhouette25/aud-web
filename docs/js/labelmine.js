@@ -3153,9 +3153,7 @@ function goMineAfterShare(label = getLabel()) {
       stage.append(canvas, overlay);
       body.append(stage);
 
-      // Tools (inside STAGE)
-      const tools = document.createElement("div");
-      tools.className = "crop-tools";
+      // Tools (버튼들은 stage에 직접 붙임)
 
       // Aspect Ratio
       const ratioBtn = document.createElement("button");
@@ -3198,7 +3196,8 @@ function goMineAfterShare(label = getLabel()) {
       zoomInput.value = "1";
       zoomWrap.append(zoomInput);
 
-      tools.append(ratioBtn, ratioMenu, zoomBtn, zoomWrap);
+      // 버튼들을 stage에 직접 붙임 (position:absolute가 stage 기준으로 작동하도록)
+      stage.append(ratioBtn, ratioMenu, zoomBtn, zoomWrap);
 
       ratioMenu.addEventListener("click", (ev) => {
         const btn = ev.target.closest("button[data-ar]");
@@ -3214,7 +3213,6 @@ function goMineAfterShare(label = getLabel()) {
       globalClose.innerHTML = '<span class="im-x"></span>';
 
       shell.append(head, body);
-      stage.appendChild(tools);
       back.append(shell, globalClose);
       document.body.append(back);
 
