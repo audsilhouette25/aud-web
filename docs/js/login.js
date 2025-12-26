@@ -36,7 +36,7 @@
   const DATE_RX        = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/; // MM/DD/YYYY
   const AUTH_FLAG_KEY  = "auth:flag";     // tab-scoped auth flag
   const NAV_MARK_KEY   = "auth:navigate"; // internal navigation mark
-  const MINE_PATH = (window.pageHref ? pageHref("mine.html") : "./mine.html");    // default landing
+  const ME_PATH = (window.pageHref ? pageHref("me.html") : "./me.html");    // default landing
 
   // Validate date string in MM/DD/YYYY format
   function isValidDate(str) {
@@ -205,17 +205,17 @@
   function resolveNextUrl(){
     const u = new URL(location.href);
     const n = u.searchParams.get("next") || "";
-    // allow: same-origin & /.../(mine|home|collect|gallery|labelmine).html
+    // allow: same-origin & /.../(me|home|collect|gallery|labelmine|game).html
     try {
       const t = new URL(n, location.href);       // relative or absolute both OK
       if (t.origin === location.origin) {
         const p = t.pathname;
-        if (/\/(mine|home|collect|gallery|labelmine)\.html$/i.test(p)) {
+        if (/\/(me|home|collect|gallery|labelmine|game)\.html$/i.test(p)) {
           return p + t.search + t.hash;          // keep subpath (/aud-web/...)
         }
       }
     } catch {}
-    return MINE_PATH;                             // fallback: ./mine.html
+    return ME_PATH;                             // fallback: ./me.html
   }
   function gotoNext(){ markNavigate(); location.assign(resolveNextUrl()); }
 

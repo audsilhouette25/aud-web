@@ -20,7 +20,7 @@
 
   // 로고 클릭 시 이동할 경로 계산
   function computeLogoDest() {
-    const mine = absURL("mine.html");
+    const me = absURL("me.html");
     const login = absURL("login.html");
 
     // ★ 핵심: localStorage의 auth:flag로 인증 상태 판단
@@ -29,11 +29,11 @@
     const authed = !!(authApi || lsFlag);
 
     if (authed) {
-      return mine; // admin이든 일반 유저든 항상 mine.html로 이동
+      return me; // admin이든 일반 유저든 항상 me.html로 이동
     }
 
     const u = new URL(login);
-    u.searchParams.set("next", mine);
+    u.searchParams.set("next", me);
     return u.toString();
   }
 

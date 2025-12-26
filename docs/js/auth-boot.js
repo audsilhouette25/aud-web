@@ -497,7 +497,7 @@
 
     const loginRes = await login(normEmail, password);
     if (redirect && loginRes?.ok) {
-      const to = next || new URLSearchParams(location.search).get("next") || "/mine.html";
+      const to = next || new URLSearchParams(location.search).get("next") || "/me.html";
       try { markNavigate(); } catch {}
       location.replace(to);
     }

@@ -56,7 +56,7 @@ const BOOT_SEEN_KEY  = "aud:boot:seen";
 const SELECTED_KEY = "aud:selectedLabel";          // sessionStorage
 const MIRROR_KEY   = "aud:selectedLabel:mirror";   // localStorage broadcast
 const EVT          = "aud:selectedLabel-changed";
-const FALLBACK_URL = pageHref("mine.html");
+const FALLBACK_URL = pageHref("me.html");
 
 /* ---- app data (map, stars, assets) ---- */
 const MAX_STARS = 3;
@@ -2250,12 +2250,12 @@ const btnReset   = document.getElementById("sdf-reset-btn");
   // ── after: function getLabel(){ ... }
 function goMineAfterShare(label = getLabel()) {
   try {
-    // mine.html에서 바로 라벨 UI가 활성화되도록 선택값 브로드캐스트
+    // me.html에서 바로 라벨 UI가 활성화되도록 선택값 브로드캐스트
     if (label && typeof window.setSelectedLabel === "function") {
       window.setSelectedLabel(label);
     }
   } catch {}
-  const url = `${pageHref('mine.html')}?label=${encodeURIComponent(label)}&posted=1`;
+  const url = `${pageHref('me.html')}?label=${encodeURIComponent(label)}&posted=1`;
   // 뒤로가기로 작성 화면 복귀를 허용하려면 assign, 히스토리 덮으려면 replace
   location.assign(url);
 }
