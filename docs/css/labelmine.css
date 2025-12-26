@@ -839,8 +839,8 @@ header.nav {
 
 /* 각각의 버튼 절대 위치 - 좌우 대칭으로 배치 */
 /* 팝업이 화면 밖으로 나가지 않도록 적정 거리 유지 */
-.crop-btn[data-role="ratio"]{ position:absolute; left:72px; bottom:16px; }
-.crop-btn[data-role="zoom"] { position:absolute; right:72px; bottom:16px; }
+.crop-btn[data-role="ratio"]{ position:absolute; left:96px; bottom:16px; }
+.crop-btn[data-role="zoom"] { position:absolute; right:96px; bottom:16px; }
 
 /* === 팝오버 공통(버튼 '위'에 뜸) === */
 .crop-pop{
@@ -863,16 +863,16 @@ header.nav {
 
 /* 각 팝오버 앵커(좌=비율, 우=줌) - 버튼 중심과 팝업 중심 정렬 */
 .crop-menu{
-  /* 비율 버튼: left:72px, width:48px → 중심 = 72px + 24px = 96px from left */
+  /* 비율 버튼: left:96px, width:48px → 중심 = 96px + 24px = 120px from left */
   /* 메뉴: min-width:92px + padding:20px ≈ 112px → 중심 = 56px */
-  /* 메뉴 left = 96px - 56px = 40px */
-  left: 40px;
+  /* 메뉴 left = 120px - 56px = 64px */
+  left: 64px;
 }
 .crop-zoom{
-  /* 줌 버튼: right:72px, width:48px → 중심 = 72px + 24px = 96px from right */
+  /* 줌 버튼: right:96px, width:48px → 중심 = 96px + 24px = 120px from right */
   /* 슬라이더: width:220px + padding:20px = 240px → 중심 = 120px */
-  /* 슬라이더 right = 96px - 120px = -24px */
-  right: -24px;
+  /* 슬라이더 right = 120px - 120px = 0px */
+  right: 0;
 }
 
 /* 비율 메뉴 항목 */
