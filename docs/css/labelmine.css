@@ -860,15 +860,15 @@ header.nav {
   will-change:transform, opacity;
 }
 
-/* 각 팝오버 앵커 - 줌은 왼쪽 정렬, 비율은 오른쪽 정렬 */
+/* 각 팝오버 앵커 - 줌은 모달 왼쪽 끝, 비율은 모달 오른쪽 끝 */
 .crop-zoom{
-  /* 줌 버튼(left:16px) 기준 → 팝업 왼쪽 끝을 버튼 왼쪽에 맞춤 */
-  left: 16px;
+  /* 줌 팝업 → 모달 왼쪽 끝에 붙임 */
+  left: 0;
   right: auto;
 }
 .crop-menu{
-  /* 비율 버튼(right:16px) 기준 → 팝업 오른쪽 끝을 버튼 오른쪽에 맞춤 */
-  right: 16px;
+  /* 비율 팝업 → 모달 오른쪽 끝에 붙임 */
+  right: 0;
   left: auto;
 }
 
