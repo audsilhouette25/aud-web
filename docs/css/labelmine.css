@@ -838,8 +838,8 @@ header.nav {
 }
 
 /* 각각의 버튼 절대 위치 - 좌우 끝에 배치 */
-.crop-btn[data-role="ratio"]{ position:absolute; left:16px; bottom:16px; }
-.crop-btn[data-role="zoom"] { position:absolute; right:16px; bottom:16px; }
+.crop-btn[data-role="zoom"] { position:absolute; left:16px; bottom:16px; }
+.crop-btn[data-role="ratio"]{ position:absolute; right:16px; bottom:16px; }
 
 /* === 팝오버 공통(버튼 '위'에 뜸) === */
 .crop-pop{
@@ -860,14 +860,14 @@ header.nav {
   will-change:transform, opacity;
 }
 
-/* 각 팝오버 앵커 - 비율은 오른쪽 정렬, 줌은 왼쪽 정렬 */
-.crop-menu{
-  /* 비율 버튼(left:16px) 기준 → 팝업 오른쪽 끝을 버튼 오른쪽에 맞춤 */
+/* 각 팝오버 앵커 - 줌은 왼쪽 정렬, 비율은 오른쪽 정렬 */
+.crop-zoom{
+  /* 줌 버튼(left:16px) 기준 → 팝업 왼쪽 끝을 버튼 왼쪽에 맞춤 */
   left: 16px;
   right: auto;
 }
-.crop-zoom{
-  /* 줌 버튼(right:16px) 기준 → 팝업 왼쪽 끝을 버튼 왼쪽에 맞춤 */
+.crop-menu{
+  /* 비율 버튼(right:16px) 기준 → 팝업 오른쪽 끝을 버튼 오른쪽에 맞춤 */
   right: 16px;
   left: auto;
 }
