@@ -7,7 +7,10 @@
   <title>Custom</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./css/custom.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- Inter Font (필수 가중치만 로드) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <!-- ===== Navigation ===== -->
@@ -44,31 +47,24 @@
     </section>
   </section>
 
-  <!-- 소켓 (선택) -->
-  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js"></script>
+  <!-- ===== Scripts (defer로 비동기 로딩) ===== -->
+  <script src="./js/fetch-sanitizer.js" defer></script>
+  <script src="./js/app-config.js" defer></script>
+  <script src="./js/app-assets.js" defer></script>
 
-  <script src="./js/fetch-sanitizer.js"></script>
-
-  <!-- 1) 전역 인증 부팅 -->
+  <!-- 인증 -->
   <script src="./js/auth-boot.js" defer></script>
-
-  <!-- 3) 세션 keepalive (쿠키/플래그 유지) -->
   <script src="./js/auth-keepalive.js" defer></script>
 
-  <!-- SSOT: 라벨/지비츠 + 에셋 맵 -->
-  <script src="./js/app-config.js"></script>
-  <script src="./js/app-assets.js"></script>
-
-  <!-- 2) Store (module: 전역 상태/NS 키 제공) -->
+  <!-- Store & UI -->
   <script type="module" src="./js/store.js"></script>
-
-  <!-- 4) UI 라우팅 가드/로고 -->
   <script src="./js/logo-guard.js" defer></script>
 
-  <!-- 5) 소켓 초기화 (필요 시) -->
-  <script src="./js/socket-init.js" defer></script>
-
-  <!-- 6) 페이지 전용 스크립트 -->
+  <!-- 페이지별 스크립트 -->
   <script type="module" src="./js/custom.js"></script>
+
+  <!-- Socket.io (non-critical, load last) -->
+  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" defer></script>
+  <script src="./js/socket-init.js" defer></script>
 </body>
 </html>

@@ -78,33 +78,49 @@
     } catch { return false; }
   }
 
-  // ====== 비디오 생성 공통 함수 ======
+  // ====== 비디오 생성 공통 함수 (lazy loading) ======
   function createVideo(src, speed = 1) {
     const video = document.createElement("video");
-    video.autoplay = true;
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
-    video.preload = "metadata";
+    video.preload = "none"; // lazy loading: 처음엔 로드 안함
     video.style.width = "190%";
     video.style.height = "190%";
     video.style.objectFit = "contain";
-    video.playbackRate = speed;
+    video.dataset.src = src; // 실제 src는 나중에 설정
+    video.dataset.speed = speed;
 
-    const source = document.createElement("source");
-    source.src = src;
-    source.type = "video/mp4";
-    video.appendChild(source);
-    video.play().catch(()=>{});
+    // IntersectionObserver로 화면에 보일 때만 로드
     if ("IntersectionObserver" in window) {
       const io = new IntersectionObserver(entries => {
         for (const ent of entries) {
           const v = ent.target;
-          if (ent.isIntersecting) v.play().catch(()=>{});
-          else v.pause();
+          if (ent.isIntersecting) {
+            // 아직 로드 안됐으면 로드
+            if (!v.querySelector("source")) {
+              const source = document.createElement("source");
+              source.src = v.dataset.src;
+              source.type = "video/mp4";
+              v.appendChild(source);
+              v.playbackRate = parseFloat(v.dataset.speed) || 1;
+              v.load();
+            }
+            v.play().catch(()=>{});
+          } else {
+            v.pause();
+          }
         }
-      }, { threshold: 0.2 });
+      }, { threshold: 0.1, rootMargin: "50px" }); // 50px 전에 미리 로드 시작
       io.observe(video);
+    } else {
+      // fallback: IntersectionObserver 없으면 바로 로드
+      const source = document.createElement("source");
+      source.src = src;
+      source.type = "video/mp4";
+      video.appendChild(source);
+      video.playbackRate = speed;
+      video.play().catch(()=>{});
     }
     return video;
   }
@@ -171,7 +187,10 @@
     } catch {}
 
     const regSet = new Set(collected);
-    LABELS.forEach(label=> grid.appendChild(makeTile(label, regSet.has(label))));
+    // DocumentFragment로 배치 DOM 업데이트 (reflow 최소화)
+    const frag = document.createDocumentFragment();
+    LABELS.forEach(label => frag.appendChild(makeTile(label, regSet.has(label))));
+    grid.appendChild(frag);
   }
   window.renderGrid = renderGrid;
 

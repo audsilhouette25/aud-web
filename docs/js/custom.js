@@ -54,14 +54,9 @@
     wrap.className = 'tile__content';
 
     const video = document.createElement('video');
-    video.autoplay = true; video.muted = true; video.loop = true; video.playsInline = true;
-    video.preload = 'metadata';
-
-    const src = document.createElement('source');
-    src.type = 'video/mp4';
-    // SSOT 경로
-    src.src = window.ASSETS?.getJibVideo?.(kind) || "";
-    video.appendChild(src);
+    video.muted = true; video.loop = true; video.playsInline = true;
+    video.preload = 'none'; // lazy loading: 처음엔 로드 안함
+    video.dataset.src = window.ASSETS?.getJibVideo?.(kind) || "";
 
     // 실패 시 텍스트 폴백
     video.addEventListener('error', () => {
@@ -72,6 +67,36 @@
         wrap.appendChild(fb);
       }
     }, { once: true });
+
+    // IntersectionObserver로 화면에 보일 때만 로드
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver(entries => {
+        for (const ent of entries) {
+          const v = ent.target;
+          if (ent.isIntersecting) {
+            // 아직 로드 안됐으면 로드
+            if (!v.querySelector("source")) {
+              const src = document.createElement('source');
+              src.type = 'video/mp4';
+              src.src = v.dataset.src;
+              v.appendChild(src);
+              v.load();
+            }
+            v.play().catch(()=>{});
+          } else {
+            v.pause();
+          }
+        }
+      }, { threshold: 0.1, rootMargin: "50px" });
+      io.observe(video);
+    } else {
+      // fallback: IntersectionObserver 없으면 바로 로드
+      const src = document.createElement('source');
+      src.type = 'video/mp4';
+      src.src = video.dataset.src;
+      video.appendChild(src);
+      video.play().catch(()=>{});
+    }
 
     wrap.appendChild(video);
     btn.appendChild(wrap);
@@ -98,8 +123,10 @@
     // 기존 수동 타일 제거(HTML에서 ./asset를 뺐기 때문에 비어있게 유지하는 게 목표)
     container.innerHTML = "";
 
-    // SSOT 목록으로 전부 동적 생성
-    JIBS.forEach(kind => container.appendChild(mkTile(kind)));
+    // DocumentFragment로 배치 DOM 업데이트 (reflow 최소화)
+    const frag = document.createDocumentFragment();
+    JIBS.forEach(kind => frag.appendChild(mkTile(kind)));
+    container.appendChild(frag);
   }
 
   function heroIn() {
