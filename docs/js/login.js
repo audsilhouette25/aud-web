@@ -431,6 +431,11 @@
       }
     }
 
+    // isAdmin 값을 sessionStorage에 저장 (gotoNext에서 사용)
+    try {
+      sessionStorage.setItem('auth:isAdmin', user?.isAdmin ? '1' : '0');
+    } catch {}
+
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
     try { window.setSessionUserNS?.(emailNs); } catch {}
     setAuthedFlag();
