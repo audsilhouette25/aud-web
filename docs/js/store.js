@@ -749,13 +749,26 @@ async function pullStateFromServerOnce() {
   if (!isEmailNS(USER_NS)) return; // ★ 이메일 NS만 서버 Pull
   try {
     let data = null;
-    if (window.auth?.loadState) {
-      data = await window.auth.loadState(USER_NS);          // => {…state}
-    } else {
-      const res = await apiFetch(`${SERVER_ENDPOINT_STATE}?ns=${encodeURIComponent(USER_NS)}`, { method: "GET" });
-      if (!res || !res.ok) return;
-      const j = await res.json();
-      data = j?.state || j || null;                          // 둘 다 수용
+    // ★ HTML에서 미리 fetch한 데이터가 있으면 우선 사용 (더 빠름)
+    if (window.__prefetchState) {
+      try {
+        const prefetched = await window.__prefetchState;
+        if (prefetched?.state || prefetched?.labels) {
+          data = prefetched?.state || prefetched;
+          window.__prefetchState = null; // 사용 후 정리
+        }
+      } catch {}
+    }
+    // prefetch 없으면 기존 방식
+    if (!data) {
+      if (window.auth?.loadState) {
+        data = await window.auth.loadState(USER_NS);          // => {…state}
+      } else {
+        const res = await apiFetch(`${SERVER_ENDPOINT_STATE}?ns=${encodeURIComponent(USER_NS)}`, { method: "GET" });
+        if (!res || !res.ok) return;
+        const j = await res.json();
+        data = j?.state || j || null;                          // 둘 다 수용
+      }
     }
     if (!data || typeof data !== "object") return;
 

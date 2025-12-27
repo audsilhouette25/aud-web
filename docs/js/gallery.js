@@ -163,6 +163,14 @@
   }
 
   // ====== 렌더링 ======
+  let gridShown = false;
+  function showGrid() {
+    if (gridShown) return;
+    gridShown = true;
+    const grid = document.querySelector(".gallery-grid");
+    if (grid) grid.style.opacity = "1";
+  }
+
   function renderGrid(){
     const grid = document.querySelector(".gallery-grid");
     if(!grid) return;
@@ -191,6 +199,9 @@
     const frag = document.createDocumentFragment();
     LABELS.forEach(label => frag.appendChild(makeTile(label, regSet.has(label))));
     grid.appendChild(frag);
+
+    // 그리드 표시
+    showGrid();
   }
   window.renderGrid = renderGrid;
 
