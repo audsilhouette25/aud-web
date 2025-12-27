@@ -112,6 +112,15 @@
     return btn;
   }
 
+  let gridShown = false;
+  function showGrid() {
+    if (gridShown) return;
+    gridShown = true;
+    const container = document.getElementById('custom-jib-list') ||
+      document.querySelector('.custom .custom-grid');
+    if (container) container.style.opacity = "1";
+  }
+
   function renderTiles() {
     const container =
       document.getElementById('custom-jib-list') ||
@@ -127,6 +136,9 @@
     const frag = document.createDocumentFragment();
     JIBS.forEach(kind => frag.appendChild(mkTile(kind)));
     container.appendChild(frag);
+
+    // 그리드 표시
+    showGrid();
   }
 
   function heroIn() {

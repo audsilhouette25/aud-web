@@ -6,7 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="./js/config.js"></script>
   <title>me · 마이페이지</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Inter Font (필수 가중치만 로드) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/adminme.css" />
 </head>
 <body>
@@ -116,17 +119,32 @@
     </div>
   </footer>2
 
-  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" crossorigin="anonymous"></script>
-  <script src="./js/socket-init.js"></script>
-  <script src="./js/fetch-sanitizer.js"></script>
+  <!-- 서버 상태 미리 fetch (렌더링 차단 없이 백그라운드에서) -->
+  <script>
+  (function(){
+    var ns = (localStorage.getItem('auth:userns') || '').toLowerCase();
+    if (!ns || ns.indexOf('@') < 0) return; // 이메일 NS만
+    var api = (window.API_BASE || 'https://aud-api-cdvn.onrender.com') + '/api/state?ns=' + encodeURIComponent(ns);
+    window.__prefetchState = fetch(api, { credentials: 'include', cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+  })();
+  </script>
+
+  <!-- Scripts (defer로 비동기 로딩) -->
+  <script src="./js/fetch-sanitizer.js" defer></script>
+  <script src="./js/app-config.js" defer></script>
   <script src="./js/auth-boot.js" defer></script>
   <script src="./js/logo-guard.js" defer></script>
-  <script src="./js/app-config.js"></script>
   <script type="module" src="./js/store.js"></script>
   <script>
     window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-cdvn.onrender.com";
   </script>
   <script src="./js/adminme.js" type="module"></script>
+
+  <!-- Socket.io (non-critical, load last) -->
+  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" defer></script>
+  <script src="./js/socket-init.js" defer></script>
 
 </body>
 </html>
