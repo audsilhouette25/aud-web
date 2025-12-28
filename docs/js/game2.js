@@ -129,12 +129,22 @@
     }
   }
 
+  // ====== 배열 셔플 (Fisher-Yates) ======
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   // ====== 소스 아이템 초기화 ======
   function initSourceItems() {
     sourceItems.innerHTML = '';
 
-    // 시퀀스에 사용된 유니크 라벨들만 표시
-    const uniqueLabels = [...new Set(answerSequence)];
+    // 시퀀스에 사용된 유니크 라벨들을 셔플해서 랜덤 순서로 표시
+    const uniqueLabels = shuffle([...new Set(answerSequence)]);
 
     uniqueLabels.forEach(label => {
       const item = document.createElement('div');
