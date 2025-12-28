@@ -27,6 +27,7 @@
       imgBlack:   `${BASE}${lb}black.png`,     // e.g. thumpblack.png
       video:      `${BASE}${lb}video.mp4`,     // e.g. thumpvideo.mp4
       videoBlack: `${BASE}black${lb}.mp4`,
+      audio:      `${BASE}${lb}.mp3`,          // e.g. thump.mp3
     };
   }
 
@@ -46,6 +47,10 @@
   function getLabelVideo(label, opt = {}) {
     const m = LABEL_MAP[label]; if (!m) return "";
     return opt.black ? m.videoBlack : m.video;
+  }
+  function getLabelAudio(label) {
+    const m = LABEL_MAP[label]; if (!m) return "";
+    return m.audio;
   }
   function getJibImg(jib)   { return JIB_MAP[jib]?.img   || ""; }
   function getJibVideo(jib) { return JIB_MAP[jib]?.video || ""; }
@@ -91,14 +96,26 @@
     return { ICONS, JIBS: JMAP };
   }
 
+  // === 5) 홈 랜덤 이미지 ===
+  const HOME_RANDOMS = [
+    `${BASE}black-01.png`,
+    `${BASE}black-02.png`,
+    `${BASE}black-03.png`,
+    `${BASE}black-04.png`,
+    `${BASE}black-05.png`,
+    `${BASE}black-06.png`,
+  ];
+  function getHomeRandomImages() { return HOME_RANDOMS.slice(); }
+
   const api = Object.freeze({
     base: BASE,
     labels: Object.freeze({ ...LABEL_MAP }),
     jibs:   Object.freeze({ ...JIB_MAP }),
-    getLabelImg, getLabelVideo,
+    getLabelImg, getLabelVideo, getLabelAudio,
     getJibImg, getJibVideo,
     attachLabelImg,
     mapForGallery, mapForMine,
+    getHomeRandomImages,
   });
 
   try { window.ASSETS = Object.freeze({ ...(window.ASSETS || {}), ...api }); }

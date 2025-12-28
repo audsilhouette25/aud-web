@@ -1,30 +1,51 @@
 /* =====================================================================
-   Game 2 - Base Styles
+   Game 2 - ASMR Sequence
 ===================================================================== */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* =====================================================================
+   0) Base
+===================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 :root {
   --accent: #FFA765;
   --nav-h: 64px;
   --text: #111;
   --muted: #666;
+  --bg: #F5F5F5;
+  --card-bg: #fff;
+  --border: #e5e7eb;
+  --radius: 12px;
+  --radius-lg: 16px;
 }
 
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+}
 
 body {
-  font-family: 'Inter', sans-serif;
-  color: var(--text);
-  background: #F5F5F5;
   min-width: 400px;
+  color: var(--text);
+  background: var(--bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 }
 
-/* Nav */
+/* =====================================================================
+   1) Navigation
+===================================================================== */
 header.nav {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 100;
   height: var(--nav-h);
-  background: #F5F5F5;
+  background: var(--bg);
 }
+
 .nav-inner {
   display: flex;
   align-items: center;
@@ -32,29 +53,42 @@ header.nav {
   height: 100%;
   padding: 0 27px;
 }
+
 .menu {
   display: flex;
   gap: 20px;
   list-style: none;
 }
+
 .menu a {
   color: #333;
   text-decoration: none;
   letter-spacing: -.2px;
   font-size: 15px;
   font-weight: 500;
-  opacity:.9;
-  transition:opacity .2s,color .2s;
+  opacity: .9;
+  transition: opacity .2s, color .2s;
 }
-.menu a:hover { color: #000; opacity: 1; }
-.menu a.active { color: #000; font-weight: 600; }
+
+.menu a:hover {
+  color: #000;
+  opacity: 1;
+}
+
+.menu a.active {
+  color: #000;
+  font-weight: 600;
+}
+
 .logo-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 27px;
   height: 27px;
+  position: relative;
 }
+
 .logo-cta img {
   display: block;
   width: 27px;
@@ -62,21 +96,432 @@ header.nav {
   object-fit: contain;
 }
 
-/* Hero */
-.game2 .hero {
-  max-width: 960px;
+.logo-cta::after {
+  content: "MY";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+}
+
+.logo-cta:hover::after {
+  opacity: 1;
+}
+
+/* =====================================================================
+   2) Hero
+===================================================================== */
+.game2 {
+  padding-bottom: 60px;
+}
+
+.hero {
+  text-align: center;
+  padding: 50px 20px 30px;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin: 0;
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* =====================================================================
+   3) Game Container
+===================================================================== */
+.game-container {
+  max-width: 700px;
   margin: 0 auto;
-  padding-top: 120px;
+  padding: 0 20px;
+}
+
+/* Setup Box */
+.setup-box {
+  background: var(--card-bg);
+  padding: 40px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   text-align: center;
 }
-.game2 .title {
-  font-size: 48px;
-  font-weight: 700;
-  color: #111;
-  letter-spacing: -2px;
+
+.setup-box label {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text);
 }
-.game2 .subtitle {
-  margin-top: 12px;
-  font-size: 20px;
-  color: #666;
+
+.setup-box input[type="number"] {
+  width: 80px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  margin-right: 16px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.setup-box input[type="number"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 167, 101, 0.2);
+}
+
+/* =====================================================================
+   4) Buttons
+===================================================================== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, transform .1s, box-shadow .2s;
+}
+
+.btn-primary:hover {
+  background: #333;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary.playing {
+  background: var(--accent);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+
+.btn-ghost:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: #ccc;
+}
+
+/* =====================================================================
+   5) Audio Controls
+===================================================================== */
+.audio-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.replay-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.replay-badge.low {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+/* =====================================================================
+   6) Stack Board (Slots)
+===================================================================== */
+.stack-board {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin: 32px 0;
+  min-height: 120px;
+}
+
+.slot {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  background: var(--card-bg);
+  border: 2px dashed #ccc;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.slot-number {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #bbb;
+}
+
+.slot.over {
+  border-color: var(--accent);
+  background: #fff8f3;
+  transform: scale(1.02);
+}
+
+.slot.filled {
+  border-style: solid;
+  border-color: var(--border);
+}
+
+.slot.playing {
+  border-color: var(--accent);
+  background: #fff8f3;
+  box-shadow: 0 0 0 4px rgba(255, 167, 101, 0.3);
+}
+
+.placed-item {
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placed-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+/* =====================================================================
+   7) Source Items (Draggable)
+===================================================================== */
+.source-section {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.instruction {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.source-items {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.source-item {
+  width: 90px;
+  padding: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: grab;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent);
+}
+
+.source-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.source-item img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.item-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* =====================================================================
+   8) Action Area
+===================================================================== */
+.action-area {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 40px;
+}
+
+/* =====================================================================
+   9) Result Modal
+===================================================================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .3s, visibility .3s;
+}
+
+.modal.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 400px;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  transform: translateY(20px);
+  transition: transform .3s;
+}
+
+.modal.is-open .modal-content {
+  transform: translateY(0);
+}
+
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.result-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.result-message {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* =====================================================================
+   10) Responsive
+===================================================================== */
+@media (max-width: 600px) {
+  .title {
+    font-size: 32px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .slot {
+    width: 80px;
+    height: 80px;
+  }
+
+  .placed-item {
+    width: 55px;
+    height: 55px;
+  }
+
+  .source-item {
+    width: 75px;
+    padding: 10px;
+  }
+
+  .source-item img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .setup-box {
+    padding: 30px 20px;
+  }
+
+  .audio-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
 }

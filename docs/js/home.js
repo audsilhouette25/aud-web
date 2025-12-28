@@ -69,15 +69,17 @@
   // 3) random-photo.js 내용
   // =========================
   onReady(function () {
-    // 랜덤 후보
-    var sources = [
-      "./asset/black-01.png",
-      "./asset/black-02.png",
-      "./asset/black-03.png",
-      "./asset/black-04.png",
-      "./asset/black-05.png",
-      "./asset/black-06.png"
-    ];
+    // 랜덤 후보 (ASSETS API 사용)
+    var sources = (window.ASSETS && window.ASSETS.getHomeRandomImages)
+      ? window.ASSETS.getHomeRandomImages()
+      : [
+          "./asset/black-01.png",
+          "./asset/black-02.png",
+          "./asset/black-03.png",
+          "./asset/black-04.png",
+          "./asset/black-05.png",
+          "./asset/black-06.png"
+        ];
 
     var slot = document.getElementById("randomSlot");
     if (!slot) return;

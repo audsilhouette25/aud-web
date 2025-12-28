@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="./js/config.js"></script>
-  <script src="./js/app-config.js"></script>
-  <title>Game 2</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <title>Game 2 - ASMR Sequence</title>
+  <!-- Inter Font (필수 가중치만 로드) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/game2.css" />
 </head>
 <body>
-  <!-- ===== Navigation ===== -->
   <header class="nav">
     <div class="nav-inner">
       <ul class="menu">
@@ -18,7 +19,7 @@
         <li><a href="./collect.html">Collect</a></li>
         <li><a href="./gallery.html">Gallery</a></li>
         <li><a href="./custom.html">Custom</a></li>
-        <li><a href="./game.html">Game</a></li>
+        <li><a href="./game.html" class="active">Game</a></li>
       </ul>
       <div class="logo-cta">
         <a href="./me.html">
@@ -28,17 +29,87 @@
     </div>
   </header>
 
-  <!-- ===== Content ===== -->
   <section class="game2">
     <div class="hero">
-      <h1 class="title">GAME 2</h1>
-      <p class="subtitle">Coming Soon</p>
+      <h1 class="title">ASMR Sequence</h1>
+      <p class="subtitle">Listen to the sounds and arrange them in the correct order</p>
+    </div>
+
+    <!-- 설정 영역 -->
+    <div id="setup-area" class="game-container">
+      <div class="setup-box">
+        <label for="stack-count">Select sequence length (2-10):</label>
+        <input type="number" id="stack-count" min="2" max="10" value="4">
+        <button id="start-btn" class="btn-primary">Start Game</button>
+      </div>
+    </div>
+
+    <!-- 게임 영역 -->
+    <div id="game-area" class="game-container" style="display: none;">
+      <div class="audio-controls">
+        <button id="play-audio-btn" class="btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span>Play Sound</span>
+        </button>
+        <span id="replay-count" class="replay-badge">3 / 3</span>
+      </div>
+
+      <!-- 드롭 슬롯 영역 -->
+      <div id="stack-board" class="stack-board"></div>
+
+      <!-- 드래그 소스 아이템 -->
+      <div class="source-section">
+        <p class="instruction">Drag the icons to the slots above</p>
+        <div id="source-items" class="source-items"></div>
+      </div>
+
+      <!-- 액션 버튼 -->
+      <div class="action-area">
+        <button id="check-answer-btn" class="btn-primary" disabled>Check Answer</button>
+        <button id="reset-game-btn" class="btn-ghost">Reset</button>
+      </div>
+    </div>
+
+    <!-- 결과 모달 -->
+    <div id="result-modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div id="result-icon" class="result-icon"></div>
+        <h2 id="result-title" class="result-title"></h2>
+        <p id="result-message" class="result-message"></p>
+        <div class="modal-actions">
+          <button id="play-again-btn" class="btn-primary">Play Again</button>
+          <button id="close-modal-btn" class="btn-ghost">Close</button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <script src="./js/fetch-sanitizer.js"></script>
+  <!-- 서버 상태 미리 fetch -->
+  <script>
+  (function(){
+    var ns = (localStorage.getItem('auth:userns') || '').toLowerCase();
+    if (!ns || ns.indexOf('@') < 0) return;
+    var api = (window.API_BASE || 'https://aud-api-cdvn.onrender.com') + '/api/state?ns=' + encodeURIComponent(ns);
+    window.__prefetchState = fetch(api, { credentials: 'include', cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+  })();
+  </script>
+
+  <!-- Scripts -->
+  <script src="./js/app-config.js" defer></script>
+  <script src="./js/fetch-sanitizer.js" defer></script>
   <script src="./js/auth-boot.js" defer></script>
-  <script src="./js/auth-keepalive.js" defer></script>
   <script src="./js/logo-guard.js" defer></script>
+  <script type="module" src="./js/store.js"></script>
+  <script src="./js/game2.js" defer></script>
+
+  <!-- Socket.io (non-critical, load last) -->
+  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" defer></script>
+  <script src="./js/socket-init.js" defer></script>
 </body>
 </html>
