@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="./js/config.js"></script>
-  <script src="./js/app-config.js"></script>
-  <title>Game 3</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <title>Game 3 - Waveform Match</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/game3.css" />
 </head>
 <body>
-  <!-- ===== Navigation ===== -->
   <header class="nav">
     <div class="nav-inner">
       <ul class="menu">
@@ -18,7 +18,7 @@
         <li><a href="./collect.html">Collect</a></li>
         <li><a href="./gallery.html">Gallery</a></li>
         <li><a href="./custom.html">Custom</a></li>
-        <li><a href="./game.html">Game</a></li>
+        <li><a href="./game.html" class="active">Game</a></li>
       </ul>
       <div class="logo-cta">
         <a href="./me.html">
@@ -28,17 +28,69 @@
     </div>
   </header>
 
-  <!-- ===== Content ===== -->
   <section class="game3">
     <div class="hero">
-      <h1 class="title">GAME 3</h1>
-      <p class="subtitle">Coming Soon</p>
+      <h1 class="title">WAVEFORM MATCH</h1>
+      <p class="subtitle">Watch the silent waveform and guess which sound it represents</p>
+    </div>
+
+    <div class="game-container">
+      <!-- 캔버스 영역 -->
+      <div class="canvas-wrapper">
+        <canvas id="mainCanvas"></canvas>
+        <div id="scanLine" class="scan-line"></div>
+        <div id="statusMsg" class="status-msg">Ready</div>
+      </div>
+
+      <!-- 시작 버튼 -->
+      <div class="controls">
+        <button id="playBtn" class="btn-primary">Start Waveform Scan</button>
+      </div>
+
+      <!-- 선택지 영역 -->
+      <div id="choiceArea" class="choice-area" style="display: none;">
+        <p class="instruction">Which sound does this waveform represent?</p>
+        <div id="choiceButtons" class="choice-buttons">
+          <!-- JS에서 동적 생성 -->
+        </div>
+      </div>
+
+      <!-- 결과 영역 -->
+      <div id="resultArea" class="result-area" style="display: none;">
+        <div id="resultIcon" class="result-icon"></div>
+        <h2 id="resultTitle" class="result-title"></h2>
+        <p id="resultDesc" class="result-desc"></p>
+        <div class="result-actions">
+          <button id="playAgainBtn" class="btn-primary">Play Again</button>
+          <button id="backToGamesBtn" class="btn-ghost">Back to Games</button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <script src="./js/fetch-sanitizer.js"></script>
+  <!-- 서버 상태 미리 fetch -->
+  <script>
+  (function(){
+    var ns = (localStorage.getItem('auth:userns') || '').toLowerCase();
+    if (!ns || ns.indexOf('@') < 0) return;
+    var api = (window.API_BASE || 'https://aud-api-cdvn.onrender.com') + '/api/state?ns=' + encodeURIComponent(ns);
+    window.__prefetchState = fetch(api, { credentials: 'include', cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+  })();
+  </script>
+
+  <!-- Scripts -->
+  <script src="./js/app-config.js" defer></script>
+  <script src="./js/app-assets.js" defer></script>
+  <script src="./js/fetch-sanitizer.js" defer></script>
   <script src="./js/auth-boot.js" defer></script>
-  <script src="./js/auth-keepalive.js" defer></script>
   <script src="./js/logo-guard.js" defer></script>
+  <script type="module" src="./js/store.js"></script>
+  <script src="./js/game3.js" defer></script>
+
+  <!-- Socket.io (non-critical, load last) -->
+  <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" defer></script>
+  <script src="./js/socket-init.js" defer></script>
 </body>
 </html>

@@ -1,30 +1,53 @@
 /* =====================================================================
-   Game 3 - Base Styles
+   Game 3 - Waveform Match
 ===================================================================== */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* =====================================================================
+   0) Base
+===================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 :root {
   --accent: #FFA765;
   --nav-h: 64px;
   --text: #111;
   --muted: #666;
+  --bg: #F5F5F5;
+  --card-bg: #fff;
+  --border: #e5e7eb;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --correct-color: #2D5AFE;
+  --wrong-color: #FF4D4D;
 }
 
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+}
 
 body {
-  font-family: 'Inter', sans-serif;
-  color: var(--text);
-  background: #F5F5F5;
   min-width: 400px;
+  color: var(--text);
+  background: var(--bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 }
 
-/* Nav */
+/* =====================================================================
+   1) Navigation
+===================================================================== */
 header.nav {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 100;
   height: var(--nav-h);
-  background: #F5F5F5;
+  background: var(--bg);
 }
+
 .nav-inner {
   display: flex;
   align-items: center;
@@ -32,29 +55,42 @@ header.nav {
   height: 100%;
   padding: 0 27px;
 }
+
 .menu {
   display: flex;
   gap: 20px;
   list-style: none;
 }
+
 .menu a {
   color: #333;
   text-decoration: none;
   letter-spacing: -.2px;
   font-size: 15px;
   font-weight: 500;
-  opacity:.9;
-  transition:opacity .2s,color .2s;
+  opacity: .9;
+  transition: opacity .2s, color .2s;
 }
-.menu a:hover { color: #000; opacity: 1; }
-.menu a.active { color: #000; font-weight: 600; }
+
+.menu a:hover {
+  color: #000;
+  opacity: 1;
+}
+
+.menu a.active {
+  color: #000;
+  font-weight: 600;
+}
+
 .logo-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 27px;
   height: 27px;
+  position: relative;
 }
+
 .logo-cta img {
   display: block;
   width: 27px;
@@ -62,21 +98,301 @@ header.nav {
   object-fit: contain;
 }
 
-/* Hero */
-.game3 .hero {
-  max-width: 960px;
+.logo-cta::after {
+  content: "MY";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+}
+
+.logo-cta:hover::after {
+  opacity: 1;
+}
+
+/* =====================================================================
+   2) Hero
+===================================================================== */
+.game3 {
+  padding-bottom: 60px;
+}
+
+.hero {
+  text-align: center;
+  padding: 50px 20px 30px;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin: 0;
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* =====================================================================
+   3) Game Container
+===================================================================== */
+.game-container {
+  max-width: 700px;
   margin: 0 auto;
-  padding-top: 120px;
+  padding: 0 20px;
+}
+
+/* =====================================================================
+   4) Canvas Wrapper
+===================================================================== */
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+  display: none;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.status-msg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
+/* =====================================================================
+   5) Controls
+===================================================================== */
+.controls {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+/* =====================================================================
+   6) Buttons
+===================================================================== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, transform .1s, box-shadow .2s;
+}
+
+.btn-primary:hover {
+  background: #333;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+
+.btn-ghost:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: #ccc;
+}
+
+/* =====================================================================
+   7) Choice Area
+===================================================================== */
+.choice-area {
   text-align: center;
 }
-.game3 .title {
-  font-size: 48px;
-  font-weight: 700;
-  color: #111;
-  letter-spacing: -2px;
+
+.instruction {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 20px;
 }
-.game3 .subtitle {
-  margin-top: 12px;
-  font-size: 20px;
-  color: #666;
+
+.choice-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.choice-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 100px;
+}
+
+.choice-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.icon-box {
+  width: 60px;
+  height: 60px;
+  background: #f5f5f5;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.icon-box img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+
+.choice-btn span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* =====================================================================
+   8) Result Area
+===================================================================== */
+.result-area {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.result-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.result-desc {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* =====================================================================
+   9) Responsive
+===================================================================== */
+@media (max-width: 600px) {
+  .title {
+    font-size: 32px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .canvas-wrapper {
+    height: 160px;
+  }
+
+  .choice-btn {
+    padding: 16px 20px;
+    min-width: 90px;
+  }
+
+  .icon-box {
+    width: 50px;
+    height: 50px;
+  }
+
+  .icon-box img {
+    width: 40px;
+    height: 40px;
+  }
+
+  .result-area {
+    padding: 30px 16px;
+  }
+
+  .result-title {
+    font-size: 24px;
+  }
 }
