@@ -19,10 +19,10 @@
     <div class="nav-inner">
       <ul class="menu" role="navigation" aria-label="Main menu">
         <li><a href="./home.html">HOME</a></li>
-        <li><a href="./collect.html" data-tooltip="Register new aud:" data-tooltip-pos="bottom">Collect</a></li>
-        <li><a href="./gallery.html" data-tooltip="Browse all aud:" data-tooltip-pos="bottom">Gallery</a></li>
-        <li><a href="./custom.html" data-tooltip="Customize your aud: container" data-tooltip-pos="bottom">Custom</a></li>
-        <li><a href="./game.html" data-tooltip="Play sound-related games with aud:" data-tooltip-pos="bottom">Game</a></li>
+        <li><a href="./collect.html">Collect</a></li>
+        <li><a href="./gallery.html">Gallery</a></li>
+        <li><a href="./custom.html">Custom</a></li>
+        <li><a href="./game.html">Game</a></li>
       </ul>
       <div class="logo-cta">
         <a href="./me.html" aria-label="Go to My Page">
@@ -52,19 +52,19 @@
 
     <!-- Insights (unchanged) -->
     <section class="insights" aria-label="Vote insights">
-      <article class="panel kpi-box" data-tooltip="Number of posts you've created" data-tooltip-pos="bottom" data-tooltip-wrap>
+      <article class="panel kpi-box">
         <div class="kpi-lg">
           <b id="m-posts">0</b>
           <span>My post</span>
         </div>
       </article>
-      <article class="panel kpi-box" data-tooltip="Number of votes on your feed posts" data-tooltip-pos="bottom" data-tooltip-wrap>
+      <article class="panel kpi-box">
         <div class="kpi-lg">
           <b id="m-participated">0</b>
           <span>Post participated in vote</span>
         </div>
       </article>
-      <article class="panel rate-box" data-tooltip="Match rate between votes received and your actual label" data-tooltip-pos="bottom" data-tooltip-wrap>
+      <article class="panel rate-box">
         <h3>aud: match rate</h3>
         <div class="rate">
           <div class="bar" aria-hidden="true"><i id="m-rate-bar"></i></div>
@@ -75,7 +75,7 @@
 
     <!-- Quick + Laboratory (side-by-side on wide screen) -->
     <section class="quick lab-wrap" aria-label="Quick info and laboratory">
-      <article class="panel" data-tooltip="Your collection summary: aud: labels, Jibbitz, and posts" data-tooltip-pos="bottom" data-tooltip-wrap>
+      <article class="panel">
         <h3>Collection</h3>
         <div class="grid-3">
           <div class="kpi"><b id="k-labels">0</b><span>aud:</span></div>
@@ -85,7 +85,7 @@
       </article>
 
       <!-- NEW: aud laboratory -->
-      <article class="panel lab" aria-label="aud laboratory" data-tooltip="Draw sounds! Your artwork can become a new aud:" data-tooltip-pos="bottom" data-tooltip-wrap>
+      <article class="panel lab" aria-label="aud laboratory">
         <header class="lab-head">
           <h3>aud laboratory</h3>
           <div class="lab-stats" aria-live="polite">
@@ -157,6 +157,9 @@
     window.PROD_BACKEND = window.PROD_BACKEND || "https://aud-api-cdvn.onrender.com";
   </script>
   <script src="./js/me.js" type="module"></script>
+
+  <!-- Tutorial system -->
+  <script src="./js/tutorial.js" defer></script>
 
   <!-- Socket.io (non-critical, load last) -->
   <script src="https://aud-api-cdvn.onrender.com/socket.io/socket.io.js" defer></script>
