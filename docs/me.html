@@ -18,11 +18,11 @@
   <header class="nav" role="banner">
     <div class="nav-inner">
       <ul class="menu" role="navigation" aria-label="Main menu">
-        <li><a href="./home.html">HOME</a></li>
-        <li><a href="./collect.html">Collect</a></li>
-        <li><a href="./gallery.html">Gallery</a></li>
-        <li><a href="./custom.html">Custom</a></li>
-        <li><a href="./game.html">Game</a></li>
+        <li><a href="./home.html" data-tooltip="Main page with feed and updates" data-tooltip-pos="bottom">HOME</a></li>
+        <li><a href="./collect.html" data-tooltip="Listen to aud: and vote for a label" data-tooltip-pos="bottom">Collect</a></li>
+        <li><a href="./gallery.html" data-tooltip="Browse all aud: labels you've collected" data-tooltip-pos="bottom">Gallery</a></li>
+        <li><a href="./custom.html" data-tooltip="Customize your crocs with Jibbitz" data-tooltip-pos="bottom">Custom</a></li>
+        <li><a href="./game.html" data-tooltip="Play games and earn rewards" data-tooltip-pos="bottom">Game</a></li>
       </ul>
       <div class="logo-cta">
         <a href="./me.html" aria-label="Go to My Page">
@@ -51,20 +51,20 @@
     </section>
 
     <!-- Insights (unchanged) -->
-    <section class="insights" aria-label="투표 인사이트">
-      <article class="panel kpi-box">
+    <section class="insights" aria-label="Vote insights">
+      <article class="panel kpi-box" data-tooltip="Number of posts you've created" data-tooltip-pos="bottom" data-tooltip-wrap>
         <div class="kpi-lg">
           <b id="m-posts">0</b>
           <span>My post</span>
         </div>
       </article>
-      <article class="panel kpi-box">
+      <article class="panel kpi-box" data-tooltip="Posts where you voted for a label" data-tooltip-pos="bottom" data-tooltip-wrap>
         <div class="kpi-lg">
           <b id="m-participated">0</b>
           <span>Post participated in vote</span>
         </div>
       </article>
-      <article class="panel rate-box">
+      <article class="panel rate-box" data-tooltip="How often your vote matched the final result" data-tooltip-pos="bottom" data-tooltip-wrap>
         <h3>aud: match rate</h3>
         <div class="rate">
           <div class="bar" aria-hidden="true"><i id="m-rate-bar"></i></div>
@@ -74,8 +74,8 @@
     </section>
 
     <!-- Quick + Laboratory (side-by-side on wide screen) -->
-    <section class="quick lab-wrap" aria-label="빠른 정보 및 실험실">
-      <article class="panel">
+    <section class="quick lab-wrap" aria-label="Quick info and laboratory">
+      <article class="panel" data-tooltip="Your collection summary: aud: labels, Jibbitz, and posts" data-tooltip-pos="bottom" data-tooltip-wrap>
         <h3>Collection</h3>
         <div class="grid-3">
           <div class="kpi"><b id="k-labels">0</b><span>aud:</span></div>
@@ -85,7 +85,7 @@
       </article>
 
       <!-- NEW: aud laboratory -->
-      <article class="panel lab" aria-label="aud laboratory">
+      <article class="panel lab" aria-label="aud laboratory" data-tooltip="Draw sounds! Your artwork can become a new aud: label" data-tooltip-pos="bottom" data-tooltip-wrap>
         <header class="lab-head">
           <h3>aud laboratory</h3>
           <div class="lab-stats" aria-live="polite">
