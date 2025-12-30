@@ -50,7 +50,7 @@
 
   const STORAGE_KEY = 'aud:tutorial-done';
   let currentStep = 0;
-  let overlay = null;
+  let highlight = null;
   let tooltip = null;
   let isActive = false;
 
@@ -63,12 +63,12 @@
     // return !localStorage.getItem(STORAGE_KEY);
   }
 
-  // Create overlay element
-  function createOverlay() {
-    overlay = document.createElement('div');
-    overlay.className = 'tutorial-overlay';
-    overlay.addEventListener('click', nextStep);
-    document.body.appendChild(overlay);
+  // Create highlight box element
+  function createHighlight() {
+    highlight = document.createElement('div');
+    highlight.className = 'tutorial-highlight';
+    highlight.addEventListener('click', nextStep);
+    document.body.appendChild(highlight);
   }
 
   // Create tooltip element
@@ -136,8 +136,7 @@
   }
 
   // Position tooltip below target element with fixed gap
-  function positionTooltip(target) {
-    const rect = target.getBoundingClientRect();
+  function positionTooltip(rect) {
     const tooltipRect = tooltip.getBoundingClientRect();
 
     // Always position below the element
@@ -181,13 +180,12 @@
       return;
     }
 
-    // Remove previous highlight
-    document.querySelectorAll('[data-tutorial-active]').forEach(el => {
-      el.removeAttribute('data-tutorial-active');
-    });
-
-    // Add highlight to current target
-    target.setAttribute('data-tutorial-active', '');
+    // Position highlight box over target
+    const rect = target.getBoundingClientRect();
+    highlight.style.top = `${rect.top}px`;
+    highlight.style.left = `${rect.left}px`;
+    highlight.style.width = `${rect.width}px`;
+    highlight.style.height = `${rect.height}px`;
 
     // Update tooltip content
     tooltip.querySelector('.tutorial-content').textContent = step.text;
@@ -213,7 +211,14 @@
     // Wait for scroll and layout then position
     setTimeout(() => {
       requestAnimationFrame(() => {
-        positionTooltip(target);
+        // Update highlight position after scroll
+        const newRect = target.getBoundingClientRect();
+        highlight.style.top = `${newRect.top}px`;
+        highlight.style.left = `${newRect.left}px`;
+        highlight.style.width = `${newRect.width}px`;
+        highlight.style.height = `${newRect.height}px`;
+
+        positionTooltip(newRect);
         tooltip.classList.add('active');
       });
     }, 300);
@@ -233,13 +238,8 @@
   function endTutorial() {
     isActive = false;
 
-    // Remove highlight
-    document.querySelectorAll('[data-tutorial-active]').forEach(el => {
-      el.removeAttribute('data-tutorial-active');
-    });
-
-    // Hide overlay and tooltip
-    overlay.classList.remove('active');
+    // Remove highlight and tooltip
+    if (highlight) highlight.remove();
     tooltip.classList.remove('active');
 
     // Mark as done
@@ -272,12 +272,11 @@
     isActive = true;
     currentStep = 0;
 
-    createOverlay();
+    createHighlight();
     createTooltip();
 
-    // Activate overlay
+    // Start tutorial
     requestAnimationFrame(() => {
-      overlay.classList.add('active');
       showStep();
     });
 

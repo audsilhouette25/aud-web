@@ -898,31 +898,14 @@ progress#m-rate-bar::-webkit-progress-value{
    15) Tutorial System
 ===================================================================== */
 
-/* Tutorial overlay */
-.tutorial-overlay{
+/* Tutorial highlight box - creates overlay with hole */
+.tutorial-highlight{
   position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.6);
-  z-index: 9998;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity .3s ease, visibility .3s ease;
-}
-.tutorial-overlay.active{
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Tutorial highlight - element being focused */
-[data-tutorial-active]{
-  position: relative !important;
-  z-index: 9999 !important;
-  box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5) !important;
+  z-index: 9999;
   border-radius: 12px;
-}
-/* When nav link is highlighted, lift the entire nav above overlay */
-header.nav:has([data-tutorial-active]){
-  z-index: 9999 !important;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 9999px rgba(0,0,0,.6);
+  pointer-events: none;
+  transition: top .3s ease, left .3s ease, width .3s ease, height .3s ease;
 }
 
 /* Tutorial tooltip */
