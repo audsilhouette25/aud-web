@@ -63,7 +63,10 @@
   // Get current page name
   function getPageName() {
     const path = window.location.pathname;
-    const page = path.split('/').pop() || 'index.html';
+    let page = path.split('/').pop() || 'index.html';
+    // Handle query strings and hash
+    page = page.split('?')[0].split('#')[0];
+    console.log('[Tutorial] Detected page:', page);
     return page;
   }
 
