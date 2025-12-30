@@ -3875,4 +3875,23 @@
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
   })();
 
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * Tutorial: Game1 (Feed) onboarding
+   * ──────────────────────────────────────────────────────────────────────────── */
+  (() => {
+    const TUTORIAL_KEY = 'aud:tutorial-done:game1';
+    if (localStorage.getItem(TUTORIAL_KEY)) return;
+
+    const steps = [
+      { selector: '#feed-root', text: 'Vote and like posts from other users. Help identify which sound each drawing represents!' },
+      { selector: '#grid-labels', text: 'Create posts with your collected aud:. Draw your interpretation and let others vote on it!' }
+    ];
+
+    setTimeout(() => {
+      if (typeof window.AUDTutorial?.start === 'function') {
+        window.AUDTutorial.start(steps, TUTORIAL_KEY);
+      }
+    }, 600);
+  })();
+
 })();

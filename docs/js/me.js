@@ -2511,4 +2511,30 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
     btnSubmit&& btnSubmit.addEventListener("click", submitLab);
   })();
 
+  /* ─────────────────────────────────────────────────────────────────────────────
+   * Tutorial: My Page onboarding
+   * ──────────────────────────────────────────────────────────────────────────── */
+  (() => {
+    const TUTORIAL_KEY = 'aud:tutorial-done:me';
+    if (localStorage.getItem(TUTORIAL_KEY)) return;
+
+    const steps = [
+      { selector: '.menu a[href="./collect.html"]', text: 'Register new aud:', offsetX: 60 },
+      { selector: '.menu a[href="./gallery.html"]', text: "Overview of all aud:. If you've collected one, you'll see its full appearance here!" },
+      { selector: '.menu a[href="./custom.html"]', text: "Customize your avatar with aud: and jibbitz. If you've collected jibbitz, press the Collect button to add them to your collection!" },
+      { selector: '.menu a[href="./game.html"]', text: 'Play aud: games and compete with friends' },
+      { selector: '.stat-item:first-child', text: 'Number of aud: you have collected' },
+      { selector: '.stat-item:nth-child(2)', text: 'Your total points from games and activities' },
+      { selector: '.stat-item:nth-child(3)', text: 'Your current rank among all users' },
+      { selector: '#insight-posts', text: 'Posts you created in Feed games' },
+      { selector: '#insight-rate', text: 'How often your votes match the community consensus' }
+    ];
+
+    setTimeout(() => {
+      if (typeof window.AUDTutorial?.start === 'function') {
+        window.AUDTutorial.start(steps, TUTORIAL_KEY);
+      }
+    }, 600);
+  })();
+
 })();
