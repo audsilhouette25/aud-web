@@ -12,7 +12,8 @@
     'me.html': [
       {
         selector: '.menu a[href="./collect.html"]',
-        text: 'Register new aud:'
+        text: 'Register new aud:',
+        offsetX: 60
       },
       {
         selector: '.menu a[href="./gallery.html"]',
@@ -176,12 +177,16 @@
   }
 
   // Position tooltip below target element with fixed gap
-  function positionTooltip(rect) {
+  function positionTooltip(rect, step) {
     const tooltipRect = tooltip.getBoundingClientRect();
 
     // Always position below the element
     let top = rect.bottom + TOOLTIP_GAP;
     let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+
+    // Apply horizontal offset if specified
+    const offsetX = step.offsetX || 0;
+    left += offsetX;
 
     // Keep tooltip within viewport horizontally
     const padding = 16;
@@ -260,7 +265,7 @@
         highlight.style.width = `${newRect.width + pad * 2}px`;
         highlight.style.height = `${newRect.height + pad * 2}px`;
 
-        positionTooltip(newRect);
+        positionTooltip(newRect, step);
         tooltip.classList.add('active');
       });
     }, 300);
