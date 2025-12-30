@@ -920,11 +920,9 @@ progress#m-rate-bar::-webkit-progress-value{
   box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5) !important;
   border-radius: 12px;
 }
-/* Nav links need special handling */
-.menu a[data-tutorial-active]{
-  display: inline-block;
-  padding: 8px 12px !important;
-  margin: -8px -12px;
+/* When nav link is highlighted, lift the entire nav above overlay */
+header.nav:has([data-tutorial-active]){
+  z-index: 9999 !important;
 }
 
 /* Tutorial tooltip */
