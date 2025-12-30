@@ -1008,7 +1008,7 @@ progress#m-rate-bar::-webkit-progress-value{
 
 /* Back button */
 .tutorial-tooltip .tutorial-back{
-  flex: 0 0 56px;
+  flex: 0 0 54px;
   padding: 8px 14px;
   background: #f3f4f6;
   color: #555;
@@ -1056,7 +1056,7 @@ progress#m-rate-bar::-webkit-progress-value{
 
 /* Next button (pill shape) */
 .tutorial-tooltip .tutorial-next{
-  flex: 0 0 56px;
+  flex: 0 0 54px;
   padding: 8px 16px;
   background: var(--accent);
   color: #111;
