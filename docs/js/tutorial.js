@@ -180,12 +180,13 @@
       return;
     }
 
-    // Position highlight box over target
+    // Position highlight box over target (with 4px padding)
     const rect = target.getBoundingClientRect();
-    highlight.style.top = `${rect.top}px`;
-    highlight.style.left = `${rect.left}px`;
-    highlight.style.width = `${rect.width}px`;
-    highlight.style.height = `${rect.height}px`;
+    const pad = 4;
+    highlight.style.top = `${rect.top - pad}px`;
+    highlight.style.left = `${rect.left - pad}px`;
+    highlight.style.width = `${rect.width + pad * 2}px`;
+    highlight.style.height = `${rect.height + pad * 2}px`;
 
     // Update tooltip content
     tooltip.querySelector('.tutorial-content').textContent = step.text;
@@ -211,12 +212,13 @@
     // Wait for scroll and layout then position
     setTimeout(() => {
       requestAnimationFrame(() => {
-        // Update highlight position after scroll
+        // Update highlight position after scroll (with 4px padding)
         const newRect = target.getBoundingClientRect();
-        highlight.style.top = `${newRect.top}px`;
-        highlight.style.left = `${newRect.left}px`;
-        highlight.style.width = `${newRect.width}px`;
-        highlight.style.height = `${newRect.height}px`;
+        const pad = 4;
+        highlight.style.top = `${newRect.top - pad}px`;
+        highlight.style.left = `${newRect.left - pad}px`;
+        highlight.style.width = `${newRect.width + pad * 2}px`;
+        highlight.style.height = `${newRect.height + pad * 2}px`;
 
         positionTooltip(newRect);
         tooltip.classList.add('active');
