@@ -242,6 +242,9 @@ header.nav {
   padding: 8px;
   border-radius: 50%;
 }
+.labelmine-body .sdf-toolbar.is-collapsed .sdf-tools{
+  display: none;
+}
 .labelmine-body .sdf-handle{ width:var(--TB-ITEM); height:var(--TB-ITEM); display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center; cursor:grab; flex:0 0 auto; user-select:none; border:0; background:transparent; }
 .labelmine-body .sdf-dot{ width:4px; height:4px; border-radius:50%; background:#d1d5db; display:block; }
 .labelmine-body .sdf-tools{ display:flex; align-items:center; gap:8px; overflow:hidden; }
@@ -301,6 +304,7 @@ header.nav {
 /* Size Buttons */
 .labelmine-body .sdf-size-btns{
   display:flex;
+  flex-direction:column;
   align-items:center;
   gap:4px;
 }
