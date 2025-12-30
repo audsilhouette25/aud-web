@@ -2524,11 +2524,11 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       { selector: '.menu a[href="./gallery.html"]', text: "Overview of all aud:. If you've collected one, you'll see its full appearance here!" },
       { selector: '.menu a[href="./custom.html"]', text: "Customize your avatar with aud: and jibbitz. If you've collected jibbitz, press the Collect button to add them to your collection!" },
       { selector: '.menu a[href="./game.html"]', text: 'Play aud: games and compete with friends' },
-      { selector: '.stat-item:first-child', text: 'Number of aud: you have collected' },
-      { selector: '.stat-item:nth-child(2)', text: 'Your total points from games and activities' },
-      { selector: '.stat-item:nth-child(3)', text: 'Your current rank among all users' },
-      { selector: '#insight-posts', text: 'Posts you created in Feed games' },
-      { selector: '#insight-rate', text: 'How often your votes match the community consensus' }
+      { selector: '.insights .kpi-box:first-child', text: 'Number of posts you created in Feed games' },
+      { selector: '.insights .kpi-box:nth-child(2)', text: 'Posts you participated in by voting' },
+      { selector: '.insights .rate-box', text: 'How often your votes match the community consensus' },
+      { selector: '.grid-3', text: 'Your collection stats: aud:, Jibbitz, and Posts' },
+      { selector: '.lab', text: 'Draw sounds here and submit to the aud laboratory!' }
     ];
 
     setTimeout(() => {

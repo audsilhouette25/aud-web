@@ -3885,7 +3885,7 @@
 
     const steps = [
       { selector: '#feed-root', text: 'Vote and like posts from other users. Help identify which sound each drawing represents!' },
-      { selector: '#grid-labels', text: 'Create posts with your collected aud:. Draw your interpretation and let others vote on it!' }
+      { selector: '#grid-labels > *:first-child', text: 'Create posts with your collected aud:. Draw your interpretation and let others vote on it!', position: 'right' }
     ];
 
     setTimeout(() => {

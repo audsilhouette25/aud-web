@@ -107,24 +107,47 @@
 
   function positionTooltip(rect, step) {
     const tooltipRect = tooltip.getBoundingClientRect();
-    let top = rect.bottom + TOOLTIP_GAP;
-    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-
-    const offsetX = step.offsetX || 0;
-    left += offsetX;
-
     const padding = 16;
-    const clampedLeft = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-    top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+    const pos = step.position || 'bottom';
 
-    const targetCenterX = rect.left + rect.width / 2;
-    const arrowLeft = targetCenterX - clampedLeft;
-    const clampedArrowLeft = Math.max(20, Math.min(arrowLeft, tooltipRect.width - 20));
+    let top, left;
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${clampedLeft}px`;
-    tooltip.style.setProperty('--arrow-left', `${clampedArrowLeft}px`);
-    tooltip.setAttribute('data-pos', 'bottom');
+    if (pos === 'right') {
+      // Position to the right of the target
+      left = rect.right + TOOLTIP_GAP;
+      top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+
+      // Clamp to viewport
+      top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+
+      // If no room on right, fall back to bottom
+      if (left + tooltipRect.width > window.innerWidth - padding) {
+        return positionTooltip(rect, { ...step, position: 'bottom' });
+      }
+
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${left}px`;
+      tooltip.setAttribute('data-pos', 'right');
+    } else {
+      // Default: bottom position
+      top = rect.bottom + TOOLTIP_GAP;
+      left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+
+      const offsetX = step.offsetX || 0;
+      left += offsetX;
+
+      const clampedLeft = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
+      top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+
+      const targetCenterX = rect.left + rect.width / 2;
+      const arrowLeft = targetCenterX - clampedLeft;
+      const clampedArrowLeft = Math.max(20, Math.min(arrowLeft, tooltipRect.width - 20));
+
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${clampedLeft}px`;
+      tooltip.style.setProperty('--arrow-left', `${clampedArrowLeft}px`);
+      tooltip.setAttribute('data-pos', 'bottom');
+    }
   }
 
   function showStep() {
