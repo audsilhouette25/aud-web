@@ -2516,7 +2516,8 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
    * ──────────────────────────────────────────────────────────────────────────── */
   (() => {
     const TUTORIAL_KEY = 'aud:tutorial-done:me';
-    if (localStorage.getItem(TUTORIAL_KEY)) return;
+    // TODO: 프로덕션에서는 주석 해제
+    // if (localStorage.getItem(TUTORIAL_KEY)) return;
 
     const steps = [
       { selector: '.menu a[href="./collect.html"]', text: 'Register new aud:', offsetX: 60 },

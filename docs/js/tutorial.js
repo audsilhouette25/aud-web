@@ -16,6 +16,24 @@
   let highlight = null;
   let tooltip = null;
   let isActive = false;
+  let currentTarget = null;
+
+  // Update highlight/tooltip position on scroll/resize
+  function updatePosition() {
+    if (!isActive || !currentTarget || !highlight || !tooltip) return;
+    const rect = currentTarget.getBoundingClientRect();
+    const pad = 4;
+    highlight.style.top = `${rect.top - pad}px`;
+    highlight.style.left = `${rect.left - pad}px`;
+    highlight.style.width = `${rect.width + pad * 2}px`;
+    highlight.style.height = `${rect.height + pad * 2}px`;
+    positionTooltip(rect, steps[currentStep]);
+  }
+
+  function handleScroll() {
+    if (!isActive) return;
+    requestAnimationFrame(updatePosition);
+  }
 
   function createOverlay() {
     overlay = document.createElement('div');
@@ -124,6 +142,7 @@
       return;
     }
 
+    currentTarget = target;
     const rect = target.getBoundingClientRect();
     const pad = 4;
     highlight.style.top = `${rect.top - pad}px`;
@@ -169,11 +188,14 @@
 
   function endTutorial() {
     isActive = false;
+    currentTarget = null;
     if (overlay) overlay.remove();
     if (highlight) highlight.remove();
     if (tooltip) tooltip.classList.remove('active');
     if (storageKey) localStorage.setItem(storageKey, 'true');
     document.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('scroll', handleScroll, true);
+    window.removeEventListener('resize', handleScroll);
   }
 
   function handleKeydown(e) {
@@ -217,6 +239,8 @@
     });
 
     document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll);
   }
 
   window.AUDTutorial = {

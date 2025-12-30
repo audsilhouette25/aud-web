@@ -3880,7 +3880,8 @@
    * ──────────────────────────────────────────────────────────────────────────── */
   (() => {
     const TUTORIAL_KEY = 'aud:tutorial-done:game1';
-    if (localStorage.getItem(TUTORIAL_KEY)) return;
+    // TODO: 프로덕션에서는 주석 해제
+    // if (localStorage.getItem(TUTORIAL_KEY)) return;
 
     const steps = [
       { selector: '#feed-root', text: 'Vote and like posts from other users. Help identify which sound each drawing represents!' },
