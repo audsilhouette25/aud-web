@@ -6,54 +6,47 @@
 (function() {
   'use strict';
 
-  // Tutorial steps configuration
+  // Tutorial steps configuration (all positioned below the element)
   const STEPS = [
     {
       selector: '.menu a[href="./collect.html"]',
-      text: 'Register new aud:',
-      pos: 'bottom'
+      text: 'Register new aud:'
     },
     {
       selector: '.menu a[href="./gallery.html"]',
-      text: 'Browse all aud:',
-      pos: 'bottom'
+      text: 'Browse all aud:'
     },
     {
       selector: '.menu a[href="./custom.html"]',
-      text: 'Customize your aud: container',
-      pos: 'bottom'
+      text: 'Customize your aud: container'
     },
     {
       selector: '.menu a[href="./game.html"]',
-      text: 'Play sound-related games with aud:',
-      pos: 'bottom'
+      text: 'Play sound-related games with aud:'
     },
     {
       selector: '.panel.kpi-box:nth-child(1)',
-      text: 'Number of posts you\'ve created',
-      pos: 'bottom'
+      text: 'Number of posts you\'ve created'
     },
     {
       selector: '.panel.kpi-box:nth-child(2)',
-      text: 'Number of votes on your feed posts',
-      pos: 'bottom'
+      text: 'Number of votes on your feed posts'
     },
     {
       selector: '.panel.rate-box',
-      text: 'Match rate between votes received and your actual label',
-      pos: 'bottom'
+      text: 'Match rate between votes received and your actual label'
     },
     {
       selector: '.quick .panel:first-child',
-      text: 'Your collection summary: aud:, Jibbitz, and posts',
-      pos: 'bottom'
+      text: 'Your collection summary: aud:, Jibbitz, and posts'
     },
     {
       selector: '.panel.lab',
-      text: 'Draw sounds! Your artwork can become a new aud:',
-      pos: 'top'
+      text: 'Draw sounds! Your artwork can become a new aud:'
     }
   ];
+
+  const TOOLTIP_GAP = 12; // Fixed gap between element and tooltip
 
   const STORAGE_KEY = 'aud:tutorial-done';
   let currentStep = 0;
@@ -104,44 +97,25 @@
     document.body.appendChild(tooltip);
   }
 
-  // Position tooltip relative to target element
-  function positionTooltip(target, pos) {
+  // Position tooltip below target element with fixed gap
+  function positionTooltip(target) {
     const rect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    const gap = 16;
 
-    let top, left;
+    // Always position below the element
+    let top = rect.bottom + TOOLTIP_GAP;
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
 
-    switch (pos) {
-      case 'bottom':
-        top = rect.bottom + gap;
-        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-        break;
-      case 'top':
-        top = rect.top - tooltipRect.height - gap;
-        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-        break;
-      case 'left':
-        top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
-        left = rect.left - tooltipRect.width - gap;
-        break;
-      case 'right':
-        top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
-        left = rect.right + gap;
-        break;
-      default:
-        top = rect.bottom + gap;
-        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-    }
-
-    // Keep tooltip within viewport
+    // Keep tooltip within viewport horizontally
     const padding = 16;
     left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
+
+    // Keep tooltip within viewport vertically
     top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
 
     tooltip.style.top = `${top}px`;
     tooltip.style.left = `${left}px`;
-    tooltip.setAttribute('data-pos', pos);
+    tooltip.setAttribute('data-pos', 'bottom');
   }
 
   // Show current step
@@ -177,14 +151,16 @@
     // Position and show tooltip
     tooltip.classList.remove('active');
 
-    // Wait for layout then position
-    requestAnimationFrame(() => {
-      positionTooltip(target, step.pos);
-      tooltip.classList.add('active');
+    // Scroll target into view first, then position tooltip
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Scroll target into view if needed
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    // Wait for scroll and layout then position
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        positionTooltip(target);
+        tooltip.classList.add('active');
+      });
+    }, 300);
   }
 
   // Go to next step
