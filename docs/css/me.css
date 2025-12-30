@@ -905,7 +905,6 @@ progress#m-rate-bar::-webkit-progress-value{
   border-radius: 12px;
   box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 9999px rgba(0,0,0,.6);
   pointer-events: none;
-  transition: top .3s ease, left .3s ease, width .3s ease, height .3s ease;
 }
 
 /* Tutorial tooltip */
