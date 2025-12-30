@@ -915,10 +915,12 @@ progress#m-rate-bar::-webkit-progress-value{
 
 /* Tutorial highlight - element being focused */
 [data-tutorial-active]{
-  position: relative;
-  z-index: 9999;
-  box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5);
+  position: relative !important;
+  z-index: 9999 !important;
+  display: inline-block;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5) !important;
   border-radius: 12px;
+  background: inherit;
 }
 
 /* Tutorial tooltip */
