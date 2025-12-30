@@ -2527,7 +2527,7 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
       { selector: '.insights .kpi-box:first-child', text: 'Number of posts you created in Feed games' },
       { selector: '.insights .kpi-box:nth-child(2)', text: 'Posts you participated in by voting' },
       { selector: '.insights .rate-box', text: 'How often your votes match the community consensus' },
-      { selector: '.grid-3', text: 'Your collection stats: aud:, Jibbitz, and Posts' },
+      { selector: '.quick.lab-wrap > .panel:first-child', text: 'Your collection stats: aud:, Jibbitz, and Posts' },
       { selector: '.lab', text: 'Draw sounds here and submit to the aud laboratory!' }
     ];
 

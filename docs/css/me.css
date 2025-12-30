@@ -967,7 +967,7 @@ progress#m-rate-bar::-webkit-progress-value{
 }
 .tutorial-tooltip[data-pos="right"]::before{
   right: 100%;
-  top: 50%;
+  top: var(--arrow-top, 50%);
   transform: translateY(-50%);
   border-right-color: #fff;
 }

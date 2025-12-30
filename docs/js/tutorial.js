@@ -32,7 +32,7 @@
 
   function handleScroll() {
     if (!isActive) return;
-    requestAnimationFrame(updatePosition);
+    updatePosition();
   }
 
   function createOverlay() {
@@ -118,15 +118,21 @@
       top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
 
       // Clamp to viewport
-      top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+      const clampedTop = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
 
       // If no room on right, fall back to bottom
       if (left + tooltipRect.width > window.innerWidth - padding) {
         return positionTooltip(rect, { ...step, position: 'bottom' });
       }
 
-      tooltip.style.top = `${top}px`;
+      // Calculate arrow position to point at target's vertical center
+      const targetCenterY = rect.top + rect.height / 2;
+      const arrowTop = targetCenterY - clampedTop;
+      const clampedArrowTop = Math.max(20, Math.min(arrowTop, tooltipRect.height - 20));
+
+      tooltip.style.top = `${clampedTop}px`;
       tooltip.style.left = `${left}px`;
+      tooltip.style.setProperty('--arrow-top', `${clampedArrowTop}px`);
       tooltip.setAttribute('data-pos', 'right');
     } else {
       // Default: bottom position
@@ -137,7 +143,7 @@
       left += offsetX;
 
       const clampedLeft = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-      top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+      // No vertical clamping - tooltip always stays below highlight even if clipped
 
       const targetCenterX = rect.left + rect.width / 2;
       const arrowLeft = targetCenterX - clampedLeft;
