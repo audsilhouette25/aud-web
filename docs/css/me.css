@@ -919,6 +919,8 @@ progress#m-rate-bar::-webkit-progress-value{
   z-index: 9999 !important;
   box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5) !important;
   border-radius: 12px;
+  background-color: #1a1a1a !important;
+  padding: 8px 12px !important;
 }
 
 /* Tutorial tooltip */
