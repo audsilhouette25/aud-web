@@ -146,13 +146,22 @@
 
     // Keep tooltip within viewport horizontally
     const padding = 16;
-    left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
+    const clampedLeft = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
 
     // Keep tooltip within viewport vertically
     top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
 
+    // Calculate arrow position: target center relative to tooltip left
+    const targetCenterX = rect.left + rect.width / 2;
+    const arrowLeft = targetCenterX - clampedLeft;
+    // Clamp arrow within tooltip bounds (with padding)
+    const arrowMin = 20;
+    const arrowMax = tooltipRect.width - 20;
+    const clampedArrowLeft = Math.max(arrowMin, Math.min(arrowLeft, arrowMax));
+
     tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    tooltip.style.left = `${clampedLeft}px`;
+    tooltip.style.setProperty('--arrow-left', `${clampedArrowLeft}px`);
     tooltip.setAttribute('data-pos', 'bottom');
   }
 

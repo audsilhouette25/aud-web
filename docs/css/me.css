@@ -955,7 +955,7 @@ progress#m-rate-bar::-webkit-progress-value{
 /* Arrow positions */
 .tutorial-tooltip[data-pos="bottom"]::before{
   bottom: 100%;
-  left: 50%;
+  left: var(--arrow-left, 50%);
   transform: translateX(-50%);
   border-bottom-color: #fff;
 }
