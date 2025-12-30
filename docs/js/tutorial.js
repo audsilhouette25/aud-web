@@ -107,7 +107,6 @@
 
   function positionTooltip(rect, step) {
     const tooltipRect = tooltip.getBoundingClientRect();
-    const padding = 16;
     const pos = step.position || 'bottom';
 
     let top, left;
@@ -117,22 +116,8 @@
       left = rect.right + TOOLTIP_GAP;
       top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
 
-      // Clamp to viewport
-      const clampedTop = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
-
-      // If no room on right, fall back to bottom
-      if (left + tooltipRect.width > window.innerWidth - padding) {
-        return positionTooltip(rect, { ...step, position: 'bottom' });
-      }
-
-      // Calculate arrow position to point at target's vertical center
-      const targetCenterY = rect.top + rect.height / 2;
-      const arrowTop = targetCenterY - clampedTop;
-      const clampedArrowTop = Math.max(20, Math.min(arrowTop, tooltipRect.height - 20));
-
-      tooltip.style.top = `${clampedTop}px`;
+      tooltip.style.top = `${top}px`;
       tooltip.style.left = `${left}px`;
-      tooltip.style.setProperty('--arrow-top', `${clampedArrowTop}px`);
       tooltip.setAttribute('data-pos', 'right');
     } else {
       // Default: bottom position
@@ -142,16 +127,8 @@
       const offsetX = step.offsetX || 0;
       left += offsetX;
 
-      const clampedLeft = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-      // No vertical clamping - tooltip always stays below highlight even if clipped
-
-      const targetCenterX = rect.left + rect.width / 2;
-      const arrowLeft = targetCenterX - clampedLeft;
-      const clampedArrowLeft = Math.max(20, Math.min(arrowLeft, tooltipRect.width - 20));
-
       tooltip.style.top = `${top}px`;
-      tooltip.style.left = `${clampedLeft}px`;
-      tooltip.style.setProperty('--arrow-left', `${clampedArrowLeft}px`);
+      tooltip.style.left = `${left}px`;
       tooltip.setAttribute('data-pos', 'bottom');
     }
   }
