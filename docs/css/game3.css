@@ -141,7 +141,7 @@ header.nav {
   pointer-events: none;
 }
 
-.logo-cta:hover::after {
+.logo-cta:hover::after, .logo-cta:focus-within::after {
   opacity: 1;
 }
 

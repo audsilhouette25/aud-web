@@ -145,7 +145,7 @@ header.nav {
   pointer-events: none;
   white-space: nowrap;
 }
-.logo-cta:hover::after { opacity: 1; }
+.logo-cta:hover::after, .logo-cta:focus-within::after { opacity: 1; }
 
 /* =====================================================================
    3) Profile Hero
