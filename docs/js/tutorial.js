@@ -1,54 +1,87 @@
 /**
  * Tutorial System for AUD
  * Step-based onboarding for new users
+ * Supports multiple pages with different tutorial steps
  */
 
 (function() {
   'use strict';
 
-  // Tutorial steps configuration (all positioned below the element)
-  const STEPS = [
-    {
-      selector: '.menu a[href="./collect.html"]',
-      text: 'Register new aud:'
-    },
-    {
-      selector: '.menu a[href="./gallery.html"]',
-      text: 'Browse all aud:'
-    },
-    {
-      selector: '.menu a[href="./custom.html"]',
-      text: 'Customize your aud: container'
-    },
-    {
-      selector: '.menu a[href="./game.html"]',
-      text: 'Play sound-related games with aud:'
-    },
-    {
-      selector: '.panel.kpi-box:nth-child(1)',
-      text: 'Number of posts you\'ve created'
-    },
-    {
-      selector: '.panel.kpi-box:nth-child(2)',
-      text: 'Number of votes on your feed posts'
-    },
-    {
-      selector: '.panel.rate-box',
-      text: 'Match rate between votes received and your actual label'
-    },
-    {
-      selector: '.quick .panel:first-child',
-      text: 'Your collection summary: aud:, Jibbitz, and posts'
-    },
-    {
-      selector: '.panel.lab',
-      text: 'Draw sounds! Your artwork can become a new aud:'
-    }
-  ];
+  // Tutorial steps configuration per page
+  const PAGE_STEPS = {
+    'me.html': [
+      {
+        selector: '.menu a[href="./collect.html"]',
+        text: 'Register new aud:'
+      },
+      {
+        selector: '.menu a[href="./gallery.html"]',
+        text: 'Browse all aud:'
+      },
+      {
+        selector: '.menu a[href="./custom.html"]',
+        text: 'Customize your aud: container'
+      },
+      {
+        selector: '.menu a[href="./game.html"]',
+        text: 'Play sound-related games with aud:'
+      },
+      {
+        selector: '.panel.kpi-box:nth-child(1)',
+        text: 'Number of posts you\'ve created'
+      },
+      {
+        selector: '.panel.kpi-box:nth-child(2)',
+        text: 'Number of votes on your feed posts'
+      },
+      {
+        selector: '.panel.rate-box',
+        text: 'Match rate between votes received and your actual label'
+      },
+      {
+        selector: '.quick .panel:first-child',
+        text: 'Your collection summary: aud:, Jibbitz, and posts'
+      },
+      {
+        selector: '.panel.lab',
+        text: 'Draw sounds! Your artwork can become a new aud:'
+      }
+    ],
+    'game1.html': [
+      {
+        selector: '#feed-root',
+        text: 'Vote and like posts from other users. Help identify which sound each drawing represents!'
+      },
+      {
+        selector: '#grid-labels .card:first-child, #grid-labels > *:first-child',
+        text: 'Create posts with your collected aud:. Draw your interpretation and let others vote on it!'
+      }
+    ]
+  };
+
+  // Get current page name
+  function getPageName() {
+    const path = window.location.pathname;
+    const page = path.split('/').pop() || 'index.html';
+    return page;
+  }
+
+  // Get steps for current page
+  function getSteps() {
+    const page = getPageName();
+    return PAGE_STEPS[page] || [];
+  }
+
+  // Get storage key for current page
+  function getStorageKey() {
+    const page = getPageName();
+    return `aud:tutorial-done:${page}`;
+  }
 
   const TOOLTIP_GAP = 12; // Fixed gap between element and tooltip
 
-  const STORAGE_KEY = 'aud:tutorial-done';
+  let steps = [];
+  let storageKey = '';
   let currentStep = 0;
   let overlay = null;
   let highlight = null;
@@ -61,7 +94,7 @@
     return true;
 
     // For production: only run for first-time users
-    // return !localStorage.getItem(STORAGE_KEY);
+    // return !localStorage.getItem(storageKey);
   }
 
   // Create overlay to block all page interactions
@@ -85,7 +118,7 @@
 
     // Build progress dots
     let dotsHTML = '';
-    for (let i = 0; i < STEPS.length; i++) {
+    for (let i = 0; i < steps.length; i++) {
       dotsHTML += `<button class="tutorial-dot" data-step="${i}" aria-label="Step ${i + 1}"></button>`;
     }
 
@@ -127,9 +160,9 @@
   }
 
   // Go to specific step
-  function goToStep(step) {
-    if (step >= 0 && step < STEPS.length) {
-      currentStep = step;
+  function goToStep(stepNum) {
+    if (stepNum >= 0 && stepNum < steps.length) {
+      currentStep = stepNum;
       showStep();
     }
   }
@@ -173,12 +206,12 @@
 
   // Show current step
   function showStep() {
-    if (currentStep >= STEPS.length) {
+    if (currentStep >= steps.length) {
       endTutorial();
       return;
     }
 
-    const step = STEPS[currentStep];
+    const step = steps[currentStep];
     const target = document.querySelector(step.selector);
 
     if (!target) {
@@ -208,7 +241,7 @@
     const nextBtn = tooltip.querySelector('.tutorial-next');
 
     backBtn.disabled = currentStep === 0;
-    nextBtn.textContent = currentStep === STEPS.length - 1 ? 'Done' : 'Next';
+    nextBtn.textContent = currentStep === steps.length - 1 ? 'Done' : 'Next';
 
     // Position and show tooltip
     tooltip.classList.remove('active');
@@ -236,7 +269,7 @@
   // Go to next step
   function nextStep() {
     currentStep++;
-    if (currentStep >= STEPS.length) {
+    if (currentStep >= steps.length) {
       endTutorial();
     } else {
       showStep();
@@ -253,7 +286,7 @@
     tooltip.classList.remove('active');
 
     // Mark as done
-    localStorage.setItem(STORAGE_KEY, 'true');
+    localStorage.setItem(storageKey, 'true');
 
     // Remove keyboard listener
     document.removeEventListener('keydown', handleKeydown);
@@ -277,6 +310,13 @@
 
   // Start tutorial
   function startTutorial() {
+    // Initialize steps and storage key for current page
+    steps = getSteps();
+    storageKey = getStorageKey();
+
+    // Don't run if no steps for this page
+    if (steps.length === 0) return;
+
     if (!shouldRunTutorial()) return;
 
     isActive = true;
@@ -312,7 +352,8 @@
     start: startTutorial,
     end: endTutorial,
     reset: () => {
-      localStorage.removeItem(STORAGE_KEY);
+      const key = getStorageKey();
+      localStorage.removeItem(key);
       location.reload();
     }
   };

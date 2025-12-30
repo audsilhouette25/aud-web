@@ -1036,3 +1036,163 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   height: 100%;
   object-fit: cover;
 }
+
+/* =====================================================================
+   Tutorial System
+===================================================================== */
+
+/* Full-screen overlay to block all page interactions */
+.tutorial-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* Tutorial highlight box - creates visual hole effect */
+.tutorial-highlight{
+  position: fixed;
+  z-index: 9999;
+  border-radius: 24px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+
+/* Tutorial tooltip */
+.tutorial-tooltip{
+  position: fixed;
+  z-index: 10000;
+  padding: 38px 18px 16px;
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  border-radius: 28px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  min-width: 260px;
+  max-width: 320px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity .25s ease, transform .25s ease, visibility .25s ease;
+}
+.tutorial-tooltip.active{
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.tutorial-tooltip::before{
+  content: "";
+  position: absolute;
+  border: 8px solid transparent;
+}
+/* Arrow positions */
+.tutorial-tooltip[data-pos="bottom"]::before{
+  bottom: 100%;
+  left: var(--arrow-left, 50%);
+  transform: translateX(-50%);
+  border-bottom-color: #fff;
+}
+.tutorial-tooltip[data-pos="top"]::before{
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: #fff;
+}
+
+/* Skip button (top-right) */
+.tutorial-tooltip .tutorial-close{
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #888;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color .15s ease;
+}
+.tutorial-tooltip .tutorial-close:hover{
+  color: #333;
+}
+
+/* Tutorial footer */
+.tutorial-tooltip .tutorial-footer{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,.08);
+  gap: 16px;
+}
+
+/* Back button */
+.tutorial-tooltip .tutorial-back{
+  flex: 0 0 54px;
+  padding: 8px 14px;
+  background: #f3f4f6;
+  color: #555;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.tutorial-tooltip .tutorial-back:hover:not(:disabled){
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+.tutorial-tooltip .tutorial-back:disabled{
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Progress dots */
+.tutorial-tooltip .tutorial-dots{
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+.tutorial-tooltip .tutorial-dot{
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #ddd;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+.tutorial-tooltip .tutorial-dot:hover{
+  background: #bbb;
+  transform: scale(1.2);
+}
+.tutorial-tooltip .tutorial-dot.active{
+  background: var(--accent);
+}
+
+/* Next button (pill shape) */
+.tutorial-tooltip .tutorial-next{
+  flex: 0 0 54px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #111;
+  border: none;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, filter .15s ease;
+}
+.tutorial-tooltip .tutorial-next:hover{
+  filter: brightness(0.95);
+}
