@@ -1217,8 +1217,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       const btnColor   = document.getElementById("sdf-color-btn");
       const chipColor  = document.getElementById("sdf-color-chip");
       const inputSize  = document.getElementById("sdf-size");
-      const btnSizeDec = document.getElementById("sdf-size-dec");
-      const btnSizeInc = document.getElementById("sdf-size-inc");
+      const sliderSize = document.getElementById("sdf-size-slider");
       let sctx = null;
 
       if (btnSave && !btnSave.type) btnSave.type = "button";           // 암묵적 submit 방지
@@ -1237,13 +1236,15 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       const SIZE_MAX = 120;
       let size = clamp(+inputSize?.value || 12, SIZE_MIN, SIZE_MAX);
       if (inputSize) inputSize.value = String(size);
-      function setStrokeSize(next, { fromInput = false, focusInput = false } = {}){
+      if (sliderSize) sliderSize.value = String(size);
+      function setStrokeSize(next, { fromInput = false, fromSlider = false, focusInput = false } = {}){
         const numeric = Number(next);
         const base = Number.isFinite(numeric) ? numeric : size;
         const clamped = clamp(Math.round(base), SIZE_MIN, SIZE_MAX);
-        if (clamped !== size || fromInput){
+        if (clamped !== size || fromInput || fromSlider){
           size = clamped;
           if (inputSize && inputSize.value !== String(clamped)) inputSize.value = String(clamped);
+          if (sliderSize && sliderSize.value !== String(clamped)) sliderSize.value = String(clamped);
           updateCursor();
         }
         if (focusInput && inputSize){
@@ -1423,8 +1424,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       btnEraser?.addEventListener("click", ()=> setMode("eraser"));
       inputSize?.addEventListener("input", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
       inputSize?.addEventListener("change", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
-      btnSizeInc?.addEventListener("click", (e)=>{ e.preventDefault(); setStrokeSize(size + 1, { focusInput:true }); });
-      btnSizeDec?.addEventListener("click", (e)=>{ e.preventDefault(); setStrokeSize(size - 1, { focusInput:true }); });
+      sliderSize?.addEventListener("input", ()=>{ setStrokeSize(+sliderSize.value || size, { fromSlider:true }); });
+      sliderSize?.addEventListener("change", ()=>{ setStrokeSize(+sliderSize.value || size, { fromSlider:true }); });
 
       btnColor?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); pickerOpen ? closeColorPicker() : openColorPicker(); });
 

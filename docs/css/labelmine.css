@@ -15,7 +15,7 @@
   --nav-h:64px; --radius:12px; --radius-lg:16px; --radius-xx:9999px;
 
   /* SimpleDraw Toolbar */
-  --TB-H:52px; --TB-ITEM:44px; --TB-PAD-V:4px; --TB-PAD-H:15px;
+  --TB-ITEM:44px;
 
   /* Others */
   --edgeR:12px;                /* 내부 버튼(Reset/Save) 우측 인셋 */
@@ -198,17 +198,14 @@ header.nav {
 .labelmine-body .sdf-save-btn.is-active,
 .labelmine-body .sdf-reset-btn.is-active{ background:#FF884D; color:#fff; }
 /* Toolbar */
-.labelmine-body .sdf-toolbar{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:20; height:var(--TB-H); touch-action:none; }
+.labelmine-body .sdf-toolbar{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:20; touch-action:none; }
 .labelmine-body .sdf-toolbar.is-floating{ transform:none; }
 .labelmine-body .sdf-toolbar-inner{
   display: flex;
   align-items: center;
   gap: 0;
-  height: var(--TB-H);
 
-  padding-block: var(--TB-PAD-V);
-  padding-inline-start: 6px;
-  padding-inline-end: 6px;
+  padding: 8px 12px;
 
   border: 1px solid #e5e7eb;
   border-radius: 9999px;
@@ -216,18 +213,16 @@ header.nav {
   box-shadow: 0 6px 14px rgba(0,0,0,0.08);
   overflow: hidden;
 
-  width: 310px;
-  transition: padding 160ms ease, width 160ms ease, gap 160ms ease, border-radius 160ms ease;
+  transition: padding 160ms ease, border-radius 160ms ease;
 }
 
 .labelmine-body .sdf-toolbar.is-collapsed .sdf-toolbar-inner{
-  width: var(--TB-H);
-  padding: 0;
+  padding: 8px;
   border-radius: 50%;
 }
-.labelmine-body .sdf-handle{ width:var(--TB-H); height:var(--TB-H); display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center; cursor:grab; flex:0 0 auto; user-select:none; border:0; background:transparent; }
+.labelmine-body .sdf-handle{ width:var(--TB-ITEM); height:var(--TB-ITEM); display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center; cursor:grab; flex:0 0 auto; user-select:none; border:0; background:transparent; }
 .labelmine-body .sdf-dot{ width:4px; height:4px; border-radius:50%; background:#d1d5db; display:block; }
-.labelmine-body .sdf-tools{ display:flex; align-items:center; gap:8px; height:calc(var(--TB-H) - var(--TB-PAD-V) * 2); overflow:hidden; }
+.labelmine-body .sdf-tools{ display:flex; align-items:center; gap:8px; overflow:hidden; }
 .labelmine-body .sdf-divider{ width:1px; height:24px; background:#e5e7eb; margin:0 4px; }
 .labelmine-body .sdf-circle-btn{
   width:var(--TB-ITEM);
@@ -278,10 +273,48 @@ header.nav {
 .labelmine-body .sdf-size-wrap{
   display:flex;
   align-items:center;
-  gap:6px;
-  height:var(--TB-ITEM);
-  margin-left:2px;
+  gap:8px;
+  margin-left:4px;
 }
+/* Range Slider */
+.labelmine-body .sdf-size-slider{
+  -webkit-appearance:none;
+  appearance:none;
+  width:70px;
+  height:6px;
+  background:#e5e7eb;
+  border-radius:3px;
+  outline:none;
+  cursor:pointer;
+}
+.labelmine-body .sdf-size-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  appearance:none;
+  width:18px;
+  height:18px;
+  background:#fff;
+  border:2px solid #333;
+  border-radius:50%;
+  cursor:pointer;
+  transition:transform .1s ease, box-shadow .1s ease;
+}
+.labelmine-body .sdf-size-slider::-webkit-slider-thumb:hover{
+  transform:scale(1.1);
+  box-shadow:0 2px 6px rgba(0,0,0,0.15);
+}
+.labelmine-body .sdf-size-slider::-moz-range-thumb{
+  width:18px;
+  height:18px;
+  background:#fff;
+  border:2px solid #333;
+  border-radius:50%;
+  cursor:pointer;
+}
+.labelmine-body .sdf-size-slider:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(59,130,246,0.18);
+}
+/* Number Input */
 .labelmine-body .sdf-size-field{
   position:relative;
   height:100%;
@@ -289,17 +322,18 @@ header.nav {
   align-items:center;
 }
 .labelmine-body #sdf-size{
-  width:60px;
-  height:80%;
-  padding:0 26px 0 12px;
+  width:48px;
+  height:32px;
+  padding:0 6px;
   border:1px solid rgba(15,23,42,0.18);
-  border-radius:10px;
+  border-radius:8px;
   background:rgba(255,255,255,0.94);
   color:var(--text);
   font-size:14px;
   font-weight:500;
   line-height:1;
   outline:none;
+  text-align:center;
   -moz-appearance:textfield;
   appearance:textfield;
   transition:border-color .16s ease, box-shadow .16s ease;
@@ -310,42 +344,6 @@ header.nav {
 }
 .labelmine-body #sdf-size::-webkit-outer-spin-button,
 .labelmine-body #sdf-size::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
-.labelmine-body .sdf-size-controls{
-  position:absolute;
-  right:6px;
-  top:6px;
-  bottom:6px;
-  width:16px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  padding-left:4px;
-  border-left:1px solid rgba(15,23,42,0.12);
-}
-.labelmine-body .sdf-size-btn{
-  width:100%;
-  flex:1 1 0;
-  display:grid;
-  place-items:center;
-  border:0;
-  background:transparent;
-  color:#4b5563;
-  cursor:pointer;
-  padding:0;
-  transition:background .16s ease, color .16s ease;
-}
-.labelmine-body .sdf-size-btn:hover{
-  background:rgba(15,23,42,0.08);
-  color:#1f2937;
-}
-.labelmine-body .sdf-size-btn:active{
-  background:rgba(15,23,42,0.14);
-}
-.labelmine-body .sdf-size-btn:focus-visible{
-  outline:none;
-  box-shadow:0 0 0 2px rgba(59,130,246,0.26);
-}
-.labelmine-body .sdf-size-btn svg{ width:12px; height:12px; display:block; pointer-events:none; }
 .labelmine-body .sdf-size-unit{
   font-size:14px;
   font-weight:500;
