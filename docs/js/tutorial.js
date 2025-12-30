@@ -50,6 +50,7 @@
 
   const STORAGE_KEY = 'aud:tutorial-done';
   let currentStep = 0;
+  let overlay = null;
   let highlight = null;
   let tooltip = null;
   let isActive = false;
@@ -61,6 +62,13 @@
 
     // For production: only run for first-time users
     // return !localStorage.getItem(STORAGE_KEY);
+  }
+
+  // Create overlay to block all page interactions
+  function createOverlay() {
+    overlay = document.createElement('div');
+    overlay.className = 'tutorial-overlay';
+    document.body.appendChild(overlay);
   }
 
   // Create highlight box element
@@ -239,7 +247,8 @@
   function endTutorial() {
     isActive = false;
 
-    // Remove highlight and tooltip
+    // Remove overlay, highlight and tooltip
+    if (overlay) overlay.remove();
     if (highlight) highlight.remove();
     tooltip.classList.remove('active');
 
@@ -273,6 +282,7 @@
     isActive = true;
     currentStep = 0;
 
+    createOverlay();
     createHighlight();
     createTooltip();
 
