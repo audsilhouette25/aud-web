@@ -977,8 +977,7 @@ progress#m-rate-bar::-webkit-progress-value{
   transition: background .15s ease, color .15s ease;
 }
 .tutorial-tooltip .tutorial-close:hover{
-  background: rgba(0,0,0,.06);
-  color: #555;
+  color: #333;
 }
 
 /* Tutorial footer */
