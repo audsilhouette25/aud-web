@@ -16,11 +16,11 @@
       },
       {
         selector: '.menu a[href="./gallery.html"]',
-        text: 'Browse all aud:'
+        text: 'Overview of all aud:. If you\'ve collected one, you\'ll see its full appearance here!'
       },
       {
         selector: '.menu a[href="./custom.html"]',
-        text: 'Customize your aud: container'
+        text: 'Customize your aud: container. If you\'ve collected Jibbitz, press Collect to add them to your collection!'
       },
       {
         selector: '.menu a[href="./game.html"]',
