@@ -902,7 +902,7 @@ progress#m-rate-bar::-webkit-progress-value{
 .tutorial-highlight{
   position: fixed;
   z-index: 9999;
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 9999px rgba(0,0,0,.6);
   pointer-events: none;
 }
@@ -923,7 +923,7 @@ progress#m-rate-bar::-webkit-progress-value{
   max-width: 320px;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px);
+  transform: translateY(-8px);
   transition: opacity .25s ease, transform .25s ease, visibility .25s ease;
 }
 .tutorial-tooltip.active{
