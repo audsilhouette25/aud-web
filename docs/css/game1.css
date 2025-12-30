@@ -127,7 +127,7 @@ header.nav {
 .title { margin: 0; color: #111; letter-spacing: -2px; font-weight: 700; }
 @media (min-width: 1200px){ .title { font-size: 72px; line-height: 1.2; } }
 @media (max-width: 1199px){ .title { font-size: 62px; line-height: 1.1; } }
-.subtitle { margin-top: 5px; color: #767676; font-size: 24px; font-weight: 400; }
+.subtitle { margin-top: 5px; color: #767676; font-size: 24px; font-weight: 400; line-height: 1.5; }
 
 /* =====================================================================
    2.1) Title Hover Swap — aud:(#111111) → audor(e)(#C75C1D)

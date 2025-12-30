@@ -15,7 +15,7 @@
   --nav-h:64px; --radius:12px; --radius-lg:16px; --radius-xx:9999px;
 
   /* SimpleDraw Toolbar */
-  --TB-H:48px; --TB-ITEM:40px; --TB-PAD-V:4px; --TB-PAD-H:15px;
+  --TB-H:52px; --TB-ITEM:44px; --TB-PAD-V:4px; --TB-PAD-H:15px;
 
   /* Others */
   --edgeR:12px;                /* 내부 버튼(Reset/Save) 우측 인셋 */
@@ -141,7 +141,7 @@ header.nav {
 ===================================================================== */
 .labelmine-body .hero{ max-width:960px; margin:0 auto; text-align:center; padding-top:60px; }
 .labelmine-body .title{ margin:8px 0 0; font-weight:600; color:#111; letter-spacing:-.04em; text-transform:uppercase; line-height:1.1; font-size:40px; }
-.labelmine-body .subtitle{ margin-top:5px; font-size:24px; color:#767676; font-weight:400; }
+.labelmine-body .subtitle{ margin-top:5px; font-size:24px; color:#767676; font-weight:400; line-height:1.5; }
 .labelmine-body .stack{ max-width:960px; margin:0 auto; text-align:center; padding-top:30px; display:flex; flex-direction:column; align-items:center; gap:10px; }
 
 /* =====================================================================
@@ -183,8 +183,8 @@ header.nav {
 /* Import / Save Buttons */
 .labelmine-body #sdf-import-btn,
 .labelmine-body .sdf-import-btn{
-  position:absolute; left:12px; top:12px; z-index:40; width:40px; height:40px;
-  display:grid; place-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:20px;
+  position:absolute; left:12px; top:12px; z-index:40; width:44px; height:44px;
+  display:grid; place-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:22px;
   box-shadow:0 4px 10px rgba(0,0,0,0.1); cursor:pointer;
 }
 .labelmine-body .sdf-import-btn svg{ width:calc(var(--TB-ITEM,40px)*0.6); height:calc(var(--TB-ITEM,40px)*0.6); display:block; }
@@ -207,8 +207,8 @@ header.nav {
   height: var(--TB-H);
 
   padding-block: var(--TB-PAD-V);
-  padding-inline-start: 3px;
-  padding-inline-end: 3px;
+  padding-inline-start: 6px;
+  padding-inline-end: 6px;
 
   border: 1px solid #e5e7eb;
   border-radius: 9999px;
@@ -227,7 +227,7 @@ header.nav {
 }
 .labelmine-body .sdf-handle{ width:var(--TB-H); height:var(--TB-H); display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center; cursor:grab; flex:0 0 auto; user-select:none; border:0; background:transparent; }
 .labelmine-body .sdf-dot{ width:4px; height:4px; border-radius:50%; background:#d1d5db; display:block; }
-.labelmine-body .sdf-tools{ display:flex; align-items:center; gap:6px; height:calc(var(--TB-H) - var(--TB-PAD-V) * 2); overflow:hidden; }
+.labelmine-body .sdf-tools{ display:flex; align-items:center; gap:8px; height:calc(var(--TB-H) - var(--TB-PAD-V) * 2); overflow:hidden; }
 .labelmine-body .sdf-divider{ width:1px; height:24px; background:#e5e7eb; margin:0 4px; }
 .labelmine-body .sdf-circle-btn{
   width:var(--TB-ITEM);
@@ -361,7 +361,7 @@ header.nav {
   padding:12px; z-index:5600; display:flex; flex-direction:column; gap:10px;
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .sdf-color-btn{
-  width:40px; height:40px; display:grid; place-items:center; cursor:pointer;
+  width:44px; height:44px; display:grid; place-items:center; cursor:pointer;
   border:1px solid #e5e7eb; border-radius:9999px; background:#fff;
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .sdf-color-btn:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(39,89,153,.18); }
@@ -456,7 +456,7 @@ header.nav {
 .sdf-modal-backdrop .im-head-close{
   position:fixed !important; top:calc(16px + env(safe-area-inset-top,0px)) !important;
   right:calc(16px + env(safe-area-inset-right,0px)) !important; z-index:var(--lm-x-z) !important;
-  width:36px; height:36px; display:grid; place-items:center;
+  width:44px; height:44px; display:grid; place-items:center;
   background:#fff; border:1px solid #e5e7eb; border-radius:9999px;
   cursor:pointer; pointer-events:auto; box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
@@ -493,7 +493,7 @@ header.nav {
 .labelmine-body .gh-thumb{ width:100%; height:180px; object-fit:cover; border-radius:10px; display:block; user-select:none; }
 .labelmine-body .gh-deleteBtn,
 .labelmine-body .gh-downloadBtn{
-  position:absolute; top:10px; width:35px; height:35px; border:1px solid #e5e7eb; border-radius:var(--radius-xx); background:#fff;
+  position:absolute; top:10px; width:44px; height:44px; border:1px solid #e5e7eb; border-radius:var(--radius-xx); background:#fff;
   display:grid; place-items:center; box-shadow:0 3px 3px rgba(0,0,0,0.05); cursor:pointer;
   transition:opacity 140ms ease; opacity:0; pointer-events:none;
 }
@@ -501,7 +501,7 @@ header.nav {
 .labelmine-body .gh-downloadBtn{ right:10px; }
 .labelmine-body .gh-dateBadge{
   position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  padding:6px 10px; background:#fff; font-size:11px; letter-spacing:.02em; color:#6b7280;
+  padding:6px 10px; background:#fff; font-size:12px; letter-spacing:.02em; color:#6b7280;
   transition:opacity 140ms ease; pointer-events:none; opacity:0;
 }
 .labelmine-body .gh-card:hover .gh-deleteBtn,
@@ -672,7 +672,7 @@ header.nav {
   box-sizing:border-box; min-width:0; border-left:1px solid var(--split-border); padding:12px;
   overflow:auto; display:grid; grid-auto-rows:max-content; gap:10px; background:#fff; -webkit-overflow-scrolling:touch;
 }
-:is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ display:flex; align-items:center; gap:4px; }
+:is(.labelmine-body, body:has(.labelmine-body)) .im-acct{ display:flex; align-items:center; gap:8px; }
 
 /* ★ 아바타 규칙 통합 + 정규화 */
 :is(.labelmine-body, body:has(.labelmine-body)) .im-acct-avatar{
@@ -697,7 +697,7 @@ header.nav {
 :is(.labelmine-body, body:has(.labelmine-body)) .im-cap-meta{ display:flex; align-items:center; justify-content:space-between; color:#9aa0a6; font-size:12px; }
 :is(.labelmine-body, body:has(.labelmine-body)) .im-attach{ display:flex; align-items:center; gap:8px; }
 :is(.labelmine-body, body:has(.labelmine-body)) .feedc__attach{
-  display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; border:1px solid #e5e7eb; border-radius:10px; cursor:pointer; background:#fff; color:#333; font-size:13px; font-weight:500;
+  display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 12px; border:1px solid #e5e7eb; border-radius:10px; cursor:pointer; background:#fff; color:#333; font-size:13px; font-weight:500;
 }
 :is(.labelmine-body, body:has(.labelmine-body)) .feedc__attach:hover{ background:#fafafa; }
 :is(.labelmine-body, body:has(.labelmine-body)) .feedc__attach:active{ background:#f5f5f5; }
@@ -818,7 +818,7 @@ header.nav {
 
 /* 공통 버튼 */
 .crop-btn{
-  width:40px; height:40px; border-radius:9999px;
+  width:44px; height:44px; border-radius:9999px;
   display:grid; place-items:center; cursor:pointer;
   color:#fff; background:#3b3b3b;
   border:1px solid #e5e7eb;

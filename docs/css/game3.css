@@ -151,6 +151,7 @@ header.nav {
   font-size: 18px;
   color: var(--muted);
   font-weight: 400;
+  line-height: 1.5;
 }
 
 /* =====================================================================
