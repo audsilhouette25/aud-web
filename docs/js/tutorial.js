@@ -193,7 +193,7 @@
     const nextBtn = tooltip.querySelector('.tutorial-next');
 
     backBtn.disabled = currentStep === 0;
-    nextBtn.textContent = currentStep === STEPS.length - 1 ? 'Done' : 'Next';
+    nextBtn.textContent = 'Next';
 
     // Position and show tooltip
     tooltip.classList.remove('active');
