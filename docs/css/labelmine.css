@@ -307,10 +307,11 @@ header.nav {
   flex-direction:column;
   align-items:center;
   gap:2px;
+  height:32px;
 }
 .labelmine-body .sdf-size-btn{
   width:24px;
-  height:18px;
+  height:15px;
   display:grid;
   place-items:center;
   border:1px solid #e5e7eb;
