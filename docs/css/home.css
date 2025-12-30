@@ -24,6 +24,14 @@ body{
   text-rendering:optimizeLegibility;
   min-width:400px;          /* 474↓에서는 이 값 때문에 가로 스크롤 */
   overflow-x:auto;
+  line-height:1.5;
+}
+
+/* 접근성: 키보드 포커스 링 */
+:where(a, button, [role="button"], input, select, textarea):focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* =========================================================
@@ -31,10 +39,10 @@ body{
    ========================================================= */
 header.nav{ position:sticky; top:0; z-index:100; height:var(--nav-h); background:var(--home-bg); }
 .nav-inner{ height:100%; display:flex; align-items:center; justify-content:space-between; padding:0 27px; }
-.menu{ list-style:none; display:flex; gap:20px; }
-.menu a{ color:#fff; text-decoration:none; font-weight:500; font-size:15px; letter-spacing:-.2px; opacity:.95; transition:opacity .2s; }
+.menu{ list-style:none; display:flex; gap:6px; }
+.menu a{ color:#fff; text-decoration:none; font-weight:500; font-size:15px; letter-spacing:-.2px; opacity:.95; transition:opacity .2s; padding:14px 8px; }
 .menu a:hover{ opacity:1; }
-.logo-cta{ display:inline-flex; align-items:center; justify-content:center; width:27px; height:27px; overflow:hidden; position:relative; }
+.logo-cta{ display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; overflow:hidden; position:relative; }
 .logo-cta img{ width:27px; height:27px; object-fit:contain; display:block; }
 .logo-cta::after{ content:"MY"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:12px; font-weight:600; color:#2596be; opacity:0; transition:opacity .2s ease; pointer-events:none; white-space:nowrap; }
 .logo-cta:hover::after{ opacity:1; }

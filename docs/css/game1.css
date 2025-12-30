@@ -36,6 +36,14 @@ body {
   color: var(--text);
   background: #F5F5F5;
   min-width: 400px;
+  line-height: 1.5;
+}
+
+/* 접근성: 키보드 포커스 링 */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* =====================================================================
@@ -56,7 +64,7 @@ header.nav {
 
 .menu {
   display: flex;
-  gap: 20px;
+  gap: 6px;
   list-style: none;
 }
 
@@ -68,6 +76,7 @@ header.nav {
   font-weight: 500;
   opacity:.9;
   transition:opacity .2s,color .2s;
+  padding: 14px 8px;
 }
 
 .menu a:hover {
@@ -84,8 +93,8 @@ header.nav {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 27px;
-  height: 27px;
+  width: 44px;
+  height: 44px;
   position: relative;
 }
 
