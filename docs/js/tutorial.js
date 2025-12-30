@@ -116,6 +116,8 @@
       left = rect.right + TOOLTIP_GAP;
       top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
 
+      // Arrow at vertical center (50%)
+      tooltip.style.setProperty('--arrow-top', '50%');
       tooltip.style.top = `${top}px`;
       tooltip.style.left = `${left}px`;
       tooltip.setAttribute('data-pos', 'right');
@@ -127,6 +129,10 @@
       const offsetX = step.offsetX || 0;
       left += offsetX;
 
+      // Arrow at horizontal center of target
+      const targetCenterX = rect.left + rect.width / 2;
+      const arrowLeft = targetCenterX - left;
+      tooltip.style.setProperty('--arrow-left', `${arrowLeft}px`);
       tooltip.style.top = `${top}px`;
       tooltip.style.left = `${left}px`;
       tooltip.setAttribute('data-pos', 'bottom');
