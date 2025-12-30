@@ -1217,7 +1217,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       const btnColor   = document.getElementById("sdf-color-btn");
       const chipColor  = document.getElementById("sdf-color-chip");
       const inputSize  = document.getElementById("sdf-size");
-      const sliderSize = document.getElementById("sdf-size-slider");
+      const btnSizeDec = document.getElementById("sdf-size-dec");
+      const btnSizeInc = document.getElementById("sdf-size-inc");
       let sctx = null;
 
       if (btnSave && !btnSave.type) btnSave.type = "button";           // 암묵적 submit 방지
@@ -1236,15 +1237,13 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       const SIZE_MAX = 120;
       let size = clamp(+inputSize?.value || 12, SIZE_MIN, SIZE_MAX);
       if (inputSize) inputSize.value = String(size);
-      if (sliderSize) sliderSize.value = String(size);
-      function setStrokeSize(next, { fromInput = false, fromSlider = false, focusInput = false } = {}){
+      function setStrokeSize(next, { fromInput = false, focusInput = false } = {}){
         const numeric = Number(next);
         const base = Number.isFinite(numeric) ? numeric : size;
         const clamped = clamp(Math.round(base), SIZE_MIN, SIZE_MAX);
-        if (clamped !== size || fromInput || fromSlider){
+        if (clamped !== size || fromInput){
           size = clamped;
           if (inputSize && inputSize.value !== String(clamped)) inputSize.value = String(clamped);
-          if (sliderSize && sliderSize.value !== String(clamped)) sliderSize.value = String(clamped);
           updateCursor();
         }
         if (focusInput && inputSize){
@@ -1424,8 +1423,8 @@ const btnReset   = document.getElementById("sdf-reset-btn");
       btnEraser?.addEventListener("click", ()=> setMode("eraser"));
       inputSize?.addEventListener("input", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
       inputSize?.addEventListener("change", ()=>{ setStrokeSize(+inputSize.value || size, { fromInput:true }); });
-      sliderSize?.addEventListener("input", ()=>{ setStrokeSize(+sliderSize.value || size, { fromSlider:true }); });
-      sliderSize?.addEventListener("change", ()=>{ setStrokeSize(+sliderSize.value || size, { fromSlider:true }); });
+      btnSizeDec?.addEventListener("click", ()=>{ setStrokeSize(size - 1); });
+      btnSizeInc?.addEventListener("click", ()=>{ setStrokeSize(size + 1); });
 
       btnColor?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); pickerOpen ? closeColorPicker() : openColorPicker(); });
 
@@ -1482,8 +1481,10 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         Object.assign(screen.style, { width: `${cssW}px`, height: `${DEFAULTS.heightPx}px` });
         screen.width  = Math.floor(cssW * dpr); screen.height = Math.floor(DEFAULTS.heightPx * dpr);
         sctx = screen.getContext("2d", { alpha: true, desynchronized: true }); // why: UI can draw white but saved image stays transparent
+        sctx.imageSmoothingEnabled = true;
+        sctx.imageSmoothingQuality = "high";
         sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        if (!offscreen){ offscreen = document.createElement("canvas"); offscreen.width = Math.floor(offSize.w * OFF_DPR); offscreen.height = Math.floor(offSize.h * OFF_DPR); offscreen.getContext("2d").setTransform(OFF_DPR, 0, 0, OFF_DPR, 0, 0); }
+        if (!offscreen){ offscreen = document.createElement("canvas"); offscreen.width = Math.floor(offSize.w * OFF_DPR); offscreen.height = Math.floor(offSize.h * OFF_DPR); const octx = offscreen.getContext("2d"); octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = "high"; octx.setTransform(OFF_DPR, 0, 0, OFF_DPR, 0, 0); }
         repaint(); updateCursor(); if (chipColor) chipColor.style.background = color;
         injectToolbarIcons();
       }

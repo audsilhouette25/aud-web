@@ -14,6 +14,8 @@
   <link rel="icon" href="/favicon.ico" />
 </head>
 <body>
+  <a href="#lastLabel" class="skip-link">Skip to main content</a>
+
   <!-- 전 페이지를 단일 스코프로 감싼다 -->
   <main class="labelmine-body">
     <!-- NAV -->
@@ -83,7 +85,18 @@
                     <span id="sdf-color-chip" class="sdf-color-chip"></span>
                   </button>
                   <div class="sdf-size-wrap" role="group" aria-label="pen size">
-                    <input id="sdf-size-slider" type="range" min="1" max="120" value="12" class="sdf-size-slider" aria-label="pen size slider" />
+                    <div class="sdf-size-btns">
+                      <button id="sdf-size-dec" type="button" class="sdf-size-btn" aria-label="Decrease stroke size">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                      <button id="sdf-size-inc" type="button" class="sdf-size-btn" aria-label="Increase stroke size">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
                     <div class="sdf-size-field">
                       <input id="sdf-size" type="number" min="1" max="120" value="12" aria-label="pen size" />
                     </div>

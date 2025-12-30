@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="./css/game3.css" />
 </head>
 <body>
+  <a href="#mainCanvas" class="skip-link">Skip to main content</a>
+
   <header class="nav">
     <div class="nav-inner">
       <ul class="menu">
@@ -37,7 +39,7 @@
     <div class="game-container">
       <!-- 캔버스 영역 -->
       <div class="canvas-wrapper">
-        <canvas id="mainCanvas"></canvas>
+        <canvas id="mainCanvas" aria-hidden="true"></canvas>
         <div id="scanLine" class="scan-line"></div>
         <div id="statusMsg" class="status-msg">Ready</div>
       </div>

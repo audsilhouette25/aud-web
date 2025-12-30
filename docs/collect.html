@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="./css/collect.css">
 </head>
 <body>
+  <a href="#collect-title" class="skip-link">Skip to main content</a>
+
   <!-- ===== Navigation ===== -->
   <header class="nav">
     <div class="nav-inner">
@@ -78,7 +80,7 @@
       <div class="stack">
         <button id="recBtn" class="btn btn-record">Record</button>
         <div id="errorBox" class="error" hidden></div>
-        <canvas id="waveCanvas" class="wave"></canvas>
+        <canvas id="waveCanvas" class="wave" aria-hidden="true"></canvas>
         <div class="result-wrap">
           <a id="resultLink" href="#" hidden>
             <button id="resultBtn" class="result-btn" type="button">Open</button>

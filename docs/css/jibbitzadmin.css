@@ -34,6 +34,26 @@ body {
   border-radius: 8px;
 }
 
+/* 접근성: Skip Navigation Link */
+.skip-link{
+  position:absolute;
+  top:-100px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#111;
+  color:#fff;
+  padding:12px 24px;
+  border-radius:8px;
+  font-weight:600;
+  font-size:14px;
+  text-decoration:none;
+  z-index:9999;
+  transition:top .2s ease;
+}
+.skip-link:focus{
+  top:12px;
+}
+
 /* =====================================================================
    1) Navigation
 ===================================================================== */
