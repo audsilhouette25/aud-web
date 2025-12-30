@@ -75,11 +75,19 @@
   function createTooltip() {
     tooltip = document.createElement('div');
     tooltip.className = 'tutorial-tooltip';
+
+    // Build progress dots
+    let dotsHTML = '';
+    for (let i = 0; i < STEPS.length; i++) {
+      dotsHTML += `<button class="tutorial-dot" data-step="${i}" aria-label="Step ${i + 1}"></button>`;
+    }
+
     tooltip.innerHTML = `
+      <button class="tutorial-close" aria-label="Skip tutorial">Skip</button>
       <div class="tutorial-content"></div>
       <div class="tutorial-footer">
-        <button class="tutorial-skip">Skip</button>
-        <span class="tutorial-step"></span>
+        <button class="tutorial-back">Back</button>
+        <div class="tutorial-dots">${dotsHTML}</div>
         <button class="tutorial-next">Next</button>
       </div>
     `;
@@ -89,12 +97,42 @@
       nextStep();
     });
 
-    tooltip.querySelector('.tutorial-skip').addEventListener('click', (e) => {
+    tooltip.querySelector('.tutorial-back').addEventListener('click', (e) => {
+      e.stopPropagation();
+      prevStep();
+    });
+
+    tooltip.querySelector('.tutorial-close').addEventListener('click', (e) => {
       e.stopPropagation();
       endTutorial();
     });
 
+    // Dot click handlers
+    tooltip.querySelectorAll('.tutorial-dot').forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const step = parseInt(dot.dataset.step, 10);
+        goToStep(step);
+      });
+    });
+
     document.body.appendChild(tooltip);
+  }
+
+  // Go to specific step
+  function goToStep(step) {
+    if (step >= 0 && step < STEPS.length) {
+      currentStep = step;
+      showStep();
+    }
+  }
+
+  // Go to previous step
+  function prevStep() {
+    if (currentStep > 0) {
+      currentStep--;
+      showStep();
+    }
   }
 
   // Position tooltip below target element with fixed gap
@@ -144,9 +182,18 @@
 
     // Update tooltip content
     tooltip.querySelector('.tutorial-content').textContent = step.text;
-    tooltip.querySelector('.tutorial-step').textContent = `${currentStep + 1} / ${STEPS.length}`;
-    tooltip.querySelector('.tutorial-next').textContent =
-      currentStep === STEPS.length - 1 ? 'Done' : 'Next';
+
+    // Update progress dots
+    tooltip.querySelectorAll('.tutorial-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentStep);
+    });
+
+    // Update button states
+    const backBtn = tooltip.querySelector('.tutorial-back');
+    const nextBtn = tooltip.querySelector('.tutorial-next');
+
+    backBtn.disabled = currentStep === 0;
+    nextBtn.textContent = currentStep === STEPS.length - 1 ? 'Done' : 'Next';
 
     // Position and show tooltip
     tooltip.classList.remove('active');
@@ -203,10 +250,9 @@
     } else if (e.key === 'Escape') {
       e.preventDefault();
       endTutorial();
-    } else if (e.key === 'ArrowLeft' && currentStep > 0) {
+    } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      currentStep--;
-      showStep();
+      prevStep();
     }
   }
 
