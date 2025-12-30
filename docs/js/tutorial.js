@@ -67,7 +67,6 @@
   function createHighlight() {
     highlight = document.createElement('div');
     highlight.className = 'tutorial-highlight';
-    highlight.addEventListener('click', nextStep);
     document.body.appendChild(highlight);
   }
 
