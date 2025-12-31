@@ -36,6 +36,7 @@
     <div class="hero">
       <h1 class="title">Feed</h1>
       <p class="subtitle">Share and collect moments</p>
+      <button id="open-howto-btn" class="btn-how">How to Play?</button>
     </div>
 
     <!-- ===== Feed (카드 클릭 → JS 모달) ===== -->
@@ -63,6 +64,38 @@
         </div>
       </div>
     </section>
+
+    <!-- How to Play 모달 -->
+    <div id="howto-modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h2 class="howto-title">How to Play</h2>
+        <div class="howto-steps">
+          <div class="h-step">
+            <span class="h-num">01</span>
+            <div class="h-info">
+              <strong>Draw & Save</strong>
+              <p>Tap your registered module to draw a waveform and save it to the gallery.</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">02</span>
+            <div class="h-info">
+              <strong>Post Your Favorite</strong>
+              <p>Choose your favorite waveform from the gallery and post it to share.</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">03</span>
+            <div class="h-info">
+              <strong>Vote & Like</strong>
+              <p>Browse other people's posts, vote for your favorites, and give likes.</p>
+            </div>
+          </div>
+        </div>
+        <button id="close-howto-btn" class="btn-primary" style="margin-top: 32px; width: 100%;">Got it!</button>
+      </div>
+    </div>
   </section>
 <!-- 소켓 (선택) -->
 

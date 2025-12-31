@@ -3875,4 +3875,30 @@
     window.addEventListener("store:ns-changed", ()=>{/* no-op: 키가 ns별이라 충돌 없음 */});
   })();
 
+  /* =========================================================
+   * HOW TO PLAY MODAL
+   * ========================================================= */
+  (() => {
+    const howtoModal = $("#howto-modal");
+    if (!howtoModal) return;
+
+    function openHowto() {
+      howtoModal.classList.add("is-open");
+      howtoModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeHowto() {
+      howtoModal.classList.remove("is-open");
+      howtoModal.setAttribute("aria-hidden", "true");
+    }
+
+    const openBtn = $("#open-howto-btn");
+    const closeBtn = $("#close-howto-btn");
+    const backdrop = howtoModal.querySelector(".modal-backdrop");
+
+    if (openBtn) openBtn.addEventListener("click", openHowto);
+    if (closeBtn) closeBtn.addEventListener("click", closeHowto);
+    if (backdrop) backdrop.addEventListener("click", closeHowto);
+  })();
+
 })();
