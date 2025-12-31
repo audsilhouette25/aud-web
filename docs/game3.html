@@ -34,6 +34,7 @@
     <div class="hero">
       <h1 class="title">WAVEFORM MATCH</h1>
       <p class="subtitle">Watch the silent waveform and guess which sound it represents</p>
+      <button id="openHowtoBtn" class="btn-how">How to Play?</button>
     </div>
 
     <div class="game-container">
@@ -66,6 +67,38 @@
           <button id="playAgainBtn" class="btn-primary">Play Again</button>
           <button id="backToGamesBtn" class="btn-ghost">Back to Games</button>
         </div>
+      </div>
+    </div>
+
+    <!-- How to Play 모달 -->
+    <div id="howtoModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h2 class="howto-title">How to Play</h2>
+        <div class="howto-steps">
+          <div class="h-step">
+            <span class="h-num">01</span>
+            <div class="h-info">
+              <strong>Observe</strong>
+              <p>Watch the silent waveform being drawn on the canvas carefully.</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">02</span>
+            <div class="h-info">
+              <strong>Infer</strong>
+              <p>Imagine the texture and volume of the sound behind the visual silhouette.</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">03</span>
+            <div class="h-info">
+              <strong>Match</strong>
+              <p>Pick the correct sound label that matches the drawn waveform pattern.</p>
+            </div>
+          </div>
+        </div>
+        <button id="closeHowtoBtn" class="btn-primary" style="margin-top: 32px; width: 100%;">Got it!</button>
       </div>
     </div>
   </section>

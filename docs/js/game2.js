@@ -32,6 +32,7 @@
   let setupArea, gameArea, stackBoard, sourceItems;
   let replayText, checkBtn, playAudioBtn;
   let resultModal, resultIcon, resultTitle, resultMessage;
+  let howtoModal;
 
   // ====== 초기화 ======
   function init() {
@@ -46,6 +47,7 @@
     resultIcon = document.getElementById('result-icon');
     resultTitle = document.getElementById('result-title');
     resultMessage = document.getElementById('result-message');
+    howtoModal = document.getElementById('howto-modal');
 
     // 이벤트 바인딩
     document.getElementById('start-btn')?.addEventListener('click', startGame);
@@ -58,6 +60,11 @@
     });
     document.getElementById('close-modal-btn')?.addEventListener('click', closeModal);
     resultModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeModal);
+
+    // How to Play 모달
+    document.getElementById('open-howto-btn')?.addEventListener('click', openHowto);
+    document.getElementById('close-howto-btn')?.addEventListener('click', closeHowto);
+    howtoModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeHowto);
 
     // 오디오 미리 로드 시도
     preloadAudio();
@@ -332,6 +339,17 @@
   function closeModal() {
     resultModal.classList.remove('is-open');
     resultModal.setAttribute('aria-hidden', 'true');
+  }
+
+  // ====== How to Play 모달 ======
+  function openHowto() {
+    howtoModal.classList.add('is-open');
+    howtoModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeHowto() {
+    howtoModal.classList.remove('is-open');
+    howtoModal.setAttribute('aria-hidden', 'true');
   }
 
   // ====== 게임 리셋 ======

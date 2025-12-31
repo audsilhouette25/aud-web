@@ -34,6 +34,7 @@
   let canvas, ctx, scanLine, statusMsg;
   let playBtn, choiceArea, choiceButtons;
   let resultArea, resultIcon, resultTitle, resultDesc;
+  let howtoModal;
 
   // ====== 배열 셔플 (Fisher-Yates) ======
   function shuffle(arr) {
@@ -58,6 +59,7 @@
     resultIcon = document.getElementById('resultIcon');
     resultTitle = document.getElementById('resultTitle');
     resultDesc = document.getElementById('resultDesc');
+    howtoModal = document.getElementById('howtoModal');
 
     // 캔버스 크기 설정
     resizeCanvas();
@@ -69,6 +71,26 @@
     document.getElementById('backToGamesBtn')?.addEventListener('click', () => {
       location.href = './game.html';
     });
+
+    // How to Play 모달
+    document.getElementById('openHowtoBtn')?.addEventListener('click', openHowto);
+    document.getElementById('closeHowtoBtn')?.addEventListener('click', closeHowto);
+    howtoModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeHowto);
+  }
+
+  // ====== How to Play 모달 ======
+  function openHowto() {
+    if (howtoModal) {
+      howtoModal.classList.add('is-open');
+      howtoModal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function closeHowto() {
+    if (howtoModal) {
+      howtoModal.classList.remove('is-open');
+      howtoModal.setAttribute('aria-hidden', 'true');
+    }
   }
 
   // ====== 캔버스 크기 설정 ======

@@ -41,54 +41,55 @@
     </div>
   </section>
 
-  <!-- ===== 2) Body: 캐러셀 + 레코딩 스택 ===== -->
-  <section class="collect-body" aria-label="Collect interactions">
-    <div class="container">
-
-      <!-- View my collection -->
-      <div class="view-collection">
-        <a href="./gallery.html" class="link-collection">View my collection &gt;</a>
-      </div>
-
-      <!-- How it works Carousel (원본 유지) -->
-      <div class="how-carousel" aria-label="How it works">
-        <div class="how-track" id="howTrack">
-          <div class="how-cell">
-            <article class="how-card">
-              <p class="how-cap">record the sound<br>through microphone</p>
-            </article>
+  <!-- ===== How it Works Section ===== -->
+  <section class="how-it-works">
+    <div class="how-section">
+      <div class="steps-wrapper">
+        <div class="step-item">
+          <div class="step-visual">
+            <span class="step-num">01</span>
+            <div class="step-line"></div>
           </div>
-          <div class="how-cell">
-            <article class="how-card">
-              <p class="how-cap">our system will<br>classify the sound</p>
-            </article>
-          </div>
-          <div class="how-cell">
-            <article class="how-card">
-              <p class="how-cap">add new AUD<br>to your collection</p>
-            </article>
+          <div class="step-info">
+            <h3>Recording</h3>
+            <p>받침대에 AUD를 올려놓고,레코드 버튼을 누르세요.</p>
           </div>
         </div>
-        <div class="how-dots" id="howDots">
-          <button class="how-dot is-active" aria-label="Slide 1"></button>
-          <button class="how-dot" aria-label="Slide 2"></button>
-          <button class="how-dot" aria-label="Slide 3"></button>
+
+        <div class="step-item">
+          <div class="step-visual">
+            <span class="step-num">02</span>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-info">
+            <h3>Listening Silhouette</h3>
+            <p>실시간으로 그려지는 소리를 감상합니다.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-visual">
+            <span class="step-num">03</span>
+          </div>
+          <div class="step-info">
+            <h3>Complete Collection</h3>
+            <p>갤러리에 소리의 실루엣을 저장하세요.</p>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Record stack -->
-      <div class="stack">
-        <button id="recBtn" class="btn btn-record">Record</button>
-        <div id="errorBox" class="error" hidden></div>
-        <canvas id="waveCanvas" class="wave" aria-hidden="true"></canvas>
-        <div class="result-wrap">
-          <a id="resultLink" href="#" hidden>
-            <button id="resultBtn" class="result-btn" type="button">Open</button>
-          </a>
-          <button id="resultNone" class="result-btn" type="button" disabled hidden>None</button>
-        </div>
+    <!-- Record stack -->
+    <div class="stack">
+      <button id="recBtn" class="btn btn-record">Record</button>
+      <div id="errorBox" class="error" hidden></div>
+      <canvas id="waveCanvas" class="wave"></canvas>
+      <div class="result-wrap">
+        <a id="resultLink" href="#" hidden>
+          <button id="resultBtn" class="result-btn" type="button">Open</button>
+        </a>
+        <button id="resultNone" class="result-btn" type="button" disabled hidden>None</button>
       </div>
-
     </div>
   </section>
 

@@ -172,6 +172,22 @@ header.nav {
   line-height: 1.5;
 }
 
+.btn-how {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: opacity .2s;
+}
+
+.btn-how:hover {
+  opacity: 0.8;
+}
+
 /* =====================================================================
    3) Game Container
 ===================================================================== */
@@ -512,6 +528,48 @@ header.nav {
   display: flex;
   justify-content: center;
   gap: 12px;
+}
+
+/* How to Play 모달 전용 스타일 */
+.howto-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--text);
+}
+
+.howto-steps {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.h-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.h-num {
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 18px;
+  min-width: 32px;
+}
+
+.h-info strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.h-info p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 /* =====================================================================

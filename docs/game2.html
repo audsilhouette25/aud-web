@@ -35,6 +35,7 @@
     <div class="hero">
       <h1 class="title">ASMR Sequence</h1>
       <p class="subtitle">Listen to the sounds and arrange them in the correct order</p>
+      <button id="open-howto-btn" class="btn-how">How to Play?</button>
     </div>
 
     <!-- 설정 영역 -->
@@ -72,6 +73,38 @@
       <div class="action-area">
         <button id="check-answer-btn" class="btn-primary" disabled>Check Answer</button>
         <button id="reset-game-btn" class="btn-ghost">Reset</button>
+      </div>
+    </div>
+
+    <!-- How to Play 모달 -->
+    <div id="howto-modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h2 class="howto-title">How to Play</h2>
+        <div class="howto-steps">
+          <div class="h-step">
+            <span class="h-num">01</span>
+            <div class="h-info">
+              <strong>Listen</strong>
+              <p>A sequence of ASMR sounds will play in random order (duplicates allowed).</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">02</span>
+            <div class="h-info">
+              <strong>Memorize</strong>
+              <p>Remember which sound was played in each position of the sequence.</p>
+            </div>
+          </div>
+          <div class="h-step">
+            <span class="h-num">03</span>
+            <div class="h-info">
+              <strong>Drag & Drop</strong>
+              <p>Drag the ASMR cards from the bottom and drop them into the empty slots.</p>
+            </div>
+          </div>
+        </div>
+        <button id="close-howto-btn" class="btn-primary" style="margin-top: 32px; width: 100%;">Got it!</button>
       </div>
     </div>
 
