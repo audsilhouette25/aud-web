@@ -314,7 +314,6 @@ header.nav {
   font-size: 13px;
   font-weight: 800;
   color: var(--accent);
-  background: #fff;
   z-index: 2;
 }
 
