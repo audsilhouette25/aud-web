@@ -789,7 +789,7 @@ progress#m-rate-bar::-webkit-progress-value{
     flex-direction: column;
     justify-content: flex-start;      /* ⬅ space-between 제거 */
     gap: 18px;                        /* 라인 사이 간격 */
-    padding-block: 35px;              /* 위/아래 패딩 */
+    padding-block: 50px;              /* 위/아래 패딩 */
     min-height: 240px;                /* 너무 납작 방지(옵션) */
   }
   .quick > .panel:first-child .kpi{
