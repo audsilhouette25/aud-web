@@ -432,8 +432,10 @@
     }
 
     // isAdmin 값을 sessionStorage에 저장 (gotoNext에서 사용)
+    // 다양한 admin 필드 형식을 모두 확인
     try {
-      sessionStorage.setItem('auth:isAdmin', user?.isAdmin ? '1' : '0');
+      const userIsAdmin = !!(user?.isAdmin || user?.admin || user?.role === 'admin');
+      sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
     } catch {}
 
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
@@ -1010,6 +1012,11 @@
    *  12) INIT
    * ============================================================= */
   async function init(){
+    // 로그인 페이지 진입 시 이전 세션의 admin 플래그 제거 (새 로그인 시 올바른 값으로 설정됨)
+    try {
+      sessionStorage.removeItem('auth:isAdmin');
+    } catch {}
+
     try {
       if (!FORCE_LOGIN && window.auth.isAuthed()) { log("already authed → gotoNext()"); gotoNext(); return; }
     } catch {}
