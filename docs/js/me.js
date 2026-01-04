@@ -2512,39 +2512,70 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   })();
 
   /* ─────────────────────────────────────────────────────────────────────────────
-   * Collection links: admin → labeladmin/jibbitzadmin
+   * Collection links: admin → labeladmin/jibbitzadmin (WCAG AA compliant)
    * ──────────────────────────────────────────────────────────────────────────── */
   (() => {
     function isAdmin() {
       return sessionStorage.getItem('auth:isAdmin') === '1';
     }
 
+    function makeKpiClickable(kpiElement, getLinkFn, ariaLabel) {
+      if (!kpiElement) return;
+
+      // 접근성: role, tabindex, aria-label 추가
+      kpiElement.setAttribute('role', 'link');
+      kpiElement.setAttribute('tabindex', '0');
+      kpiElement.setAttribute('aria-label', ariaLabel);
+      kpiElement.style.cursor = 'pointer';
+
+      const navigate = () => {
+        const target = getLinkFn();
+        try { window.auth?.markNavigate?.(); } catch {}
+        location.href = target;
+      };
+
+      // 마우스 클릭
+      kpiElement.addEventListener('click', navigate);
+
+      // 키보드 접근성 (Enter, Space)
+      kpiElement.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate();
+        }
+      });
+
+      // 포커스 스타일 개선
+      kpiElement.addEventListener('focus', () => {
+        kpiElement.style.outline = '2px solid #0B72FF';
+        kpiElement.style.outlineOffset = '2px';
+      });
+      kpiElement.addEventListener('blur', () => {
+        kpiElement.style.outline = '';
+        kpiElement.style.outlineOffset = '';
+      });
+    }
+
     // aud: 클릭
     const kLabels = document.getElementById('k-labels');
     if (kLabels) {
       const kpi = kLabels.closest('.kpi');
-      if (kpi) {
-        kpi.style.cursor = 'pointer';
-        kpi.addEventListener('click', () => {
-          const target = isAdmin() ? './labeladmin.html' : './labelmine.html';
-          try { window.auth?.markNavigate?.(); } catch {}
-          location.href = target;
-        });
-      }
+      makeKpiClickable(
+        kpi,
+        () => isAdmin() ? './labeladmin.html' : './labelmine.html',
+        'View your aud: collection'
+      );
     }
 
     // Jibbitz 클릭
     const kJibs = document.getElementById('k-jibs');
     if (kJibs) {
       const kpi = kJibs.closest('.kpi');
-      if (kpi) {
-        kpi.style.cursor = 'pointer';
-        kpi.addEventListener('click', () => {
-          const target = isAdmin() ? './jibbitzadmin.html' : './jibbitz.html';
-          try { window.auth?.markNavigate?.(); } catch {}
-          location.href = target;
-        });
-      }
+      makeKpiClickable(
+        kpi,
+        () => isAdmin() ? './jibbitzadmin.html' : './jibbitz.html',
+        'View your Jibbitz collection'
+      );
     }
   })();
 
