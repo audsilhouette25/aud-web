@@ -548,11 +548,14 @@ canvas {
   color: #111;
   font-weight: 600;
   text-decoration: none;
-  transition: color 0.2s ease;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .signup-link:hover {
   color: #000;
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .signup-link:focus {
