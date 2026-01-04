@@ -630,6 +630,25 @@ header.nav {
   letter-spacing: -0.2px;
 }
 
+.signup-link {
+  color: #FF884D;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.2s ease, color 0.2s ease;
+}
+
+.signup-link:hover {
+  color: #FF6B2C;
+  border-bottom-color: #FF6B2C;
+}
+
+.signup-link:focus-visible {
+  outline: 2px solid #FF884D;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .btn-primary--full {
   margin-top: 32px;
   width: 100%;
