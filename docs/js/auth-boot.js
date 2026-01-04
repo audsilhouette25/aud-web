@@ -470,17 +470,19 @@
         try { localStorage.setItem("auth:token", j.token); } catch {}
       }
 
-      // admin 여부 확인 및 저장
-      try {
-        const userIsAdmin = !!(j?.isAdmin || j?.admin || j?.user?.isAdmin || j?.user?.admin || j?.role === 'admin');
-        sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
-      } catch {}
-
       state.csrf = null;
       setAuthedFlag();
       registerAuthedTab();
       await refreshMe();
       try { await getCSRF(true); } catch {}
+
+      // admin 여부 확인을 위해 /auth/me 호출 (refreshMe 후에 호출)
+      try {
+        const meRes = await apiFetch("/auth/me", { credentials: "include", cache: "no-store" });
+        const meData = await meRes.json();
+        const userIsAdmin = !!(meData?.user?.isAdmin || meData?.user?.admin || meData?.user?.role === 'admin');
+        sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
+      } catch {}
 
       try {
         localStorage.setItem(USERNS_KEY, normEmail);
