@@ -2512,6 +2512,43 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
   })();
 
   /* ─────────────────────────────────────────────────────────────────────────────
+   * Collection links: admin → labeladmin/jibbitzadmin
+   * ──────────────────────────────────────────────────────────────────────────── */
+  (() => {
+    function isAdmin() {
+      return sessionStorage.getItem('auth:isAdmin') === '1';
+    }
+
+    // aud: 클릭
+    const kLabels = document.getElementById('k-labels');
+    if (kLabels) {
+      const kpi = kLabels.closest('.kpi');
+      if (kpi) {
+        kpi.style.cursor = 'pointer';
+        kpi.addEventListener('click', () => {
+          const target = isAdmin() ? './labeladmin.html' : './labelmine.html';
+          try { window.auth?.markNavigate?.(); } catch {}
+          location.href = target;
+        });
+      }
+    }
+
+    // Jibbitz 클릭
+    const kJibs = document.getElementById('k-jibs');
+    if (kJibs) {
+      const kpi = kJibs.closest('.kpi');
+      if (kpi) {
+        kpi.style.cursor = 'pointer';
+        kpi.addEventListener('click', () => {
+          const target = isAdmin() ? './jibbitzadmin.html' : './jibbitz.html';
+          try { window.auth?.markNavigate?.(); } catch {}
+          location.href = target;
+        });
+      }
+    }
+  })();
+
+  /* ─────────────────────────────────────────────────────────────────────────────
    * Tutorial: My Page onboarding
    * ──────────────────────────────────────────────────────────────────────────── */
   (() => {

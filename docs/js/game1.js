@@ -727,24 +727,13 @@
     return q ? `./${base}?${q}` : `./${base}`;
   }
 
-  // admin이면 labeladmin.html?ns=, 아니면 labelmine.html?label=
+  // 모든 계정에서 labelmine.html로 이동
   function toLabelHref(label){
-    const flag   = (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
-    const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
-    const isAdmin = (flag === true) || cached;
-    const base  = isAdmin ? 'labeladmin.html' : 'labelmine.html';
+    const base  = 'labelmine.html';
 
     const qs = new URLSearchParams();
 
-    // 관리자는 어떤 계정 컨텍스트에서 관리하는지 전달(있을 때만)
-    if (isAdmin) {
-      try {
-        const ns = (typeof getNS === 'function' ? getNS() : 'default');
-        if (ns) qs.set('ns', ns);
-      } catch {}
-    }
-
-    // 어떤 페이지든 라벨은 명시적으로 넘겨줌
+    // 라벨 파라미터 전달
     if (label) qs.set('label', String(label));
 
     const q = qs.toString();
