@@ -1346,14 +1346,12 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
   color: #111;
   font-weight: 600;
   text-decoration: none;
-  padding: 2px 4px;
-  border-radius: 3px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
 .signup-link:hover {
   color: #000;
-  background-color: rgba(0, 0, 0, 0.05);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .signup-link:focus {
