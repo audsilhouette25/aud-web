@@ -78,10 +78,10 @@
     } catch { return false; }
   }
 
-  // ====== 비디오 생성 공통 함수 (lazy loading + 성능 최적화) ======
+  // ====== 비디오 생성 공통 함수 (lazy loading + 포스터 이미지로 깜빡임 방지) ======
   let observer = null; // 싱글톤 observer 재사용
 
-  function createVideo(src, speed = 1) {
+  function createVideo(src, speed = 1, posterSrc = "") {
     const video = document.createElement("video");
     video.muted = true;
     video.loop = true;
@@ -93,6 +93,11 @@
     video.dataset.src = src; // 실제 src는 나중에 설정
     video.dataset.speed = speed;
     video.dataset.loaded = "false"; // 로드 상태 추적
+
+    // 포스터 이미지 설정 (비디오 로드 전 깜빡임 방지)
+    if (posterSrc) {
+      video.poster = posterSrc;
+    }
 
     // IntersectionObserver로 화면에 보일 때만 로드
     if ("IntersectionObserver" in window) {
@@ -155,7 +160,9 @@
     const src = icon ? (effectiveOn ? icon.orange : icon.black) : "";
 
     if (src && src.endsWith(".mp4")) {
-      wrap.appendChild(createVideo(src, 0.6));
+      // 포스터 이미지: 비디오와 같은 이름의 PNG 파일 사용
+      const posterSrc = src.replace('.mp4', '.png');
+      wrap.appendChild(createVideo(src, 0.6, posterSrc));
     }
 
     el.appendChild(wrap);
