@@ -300,34 +300,6 @@
     } catch {}
   })();
 
-  // 401 handler → markNavigate() + redirect to login
-  (function hookAuth401RedirectOnce() {
-    try {
-      if (!window.auth || typeof window.auth.apiFetch !== "function" || window.auth.__mine401Hooked) return;
-      const orig = window.auth.apiFetch;
-      window.auth.apiFetch = async (...args) => {
-        const res = await orig(...args);
-        if (res && res.status === 401) {
-          let expired = false;
-          try {
-            const check = await fetch("/auth/me", { credentials: "include", cache: "no-store" });
-            if (!check || check.status !== 200) expired = true;
-          } catch {}
-          if (expired) {
-            try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
-            try {
-              const ret = encodeURIComponent(location.href);
-              window.auth?.markNavigate?.();
-              location.replace(`${safeHref('login.html')}?next=${ret}`);
-            } catch {}
-          }
-        }
-        return res;
-      };
-      window.auth.__mine401Hooked = true;
-    } catch {}
-  })();
-
   // expose markNavigate if not present
   try {
     window.auth = window.auth || {};
@@ -3044,11 +3016,8 @@
         if (ids.length) subscribeItems(ids);
       } catch {}
       } else {
-        clearAuthedFlag(); // 서버 판단을 신뢰: stale flag 제거
-        const ret = encodeURIComponent(location.href);
-        try { window.auth?.markNavigate?.(); } catch {}
-        location.replace(`${safeHref('login.html')}?next=${ret}`);
-        return;
+        // Allow unauthenticated access to game1 (Feed page)
+        clearAuthedFlag();
       }
 
     try { ensureHeartCSS(); upgradeHeartIconIn(document); } catch {}
