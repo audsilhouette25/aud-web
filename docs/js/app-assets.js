@@ -26,7 +26,7 @@
       img:        `${BASE}${lb}.png`,
       imgBlack:   `${BASE}${lb}black.png`,     // e.g. thumpblack.png
       video:      `${BASE}${lb}video.mp4`,     // e.g. thumpvideo.mp4
-      videoBlack: `${BASE}black${lb}.mp4`,
+      videoBlack: `${BASE}${lb}black.mp4`,     // e.g. thumpblack.mp4
       audio:      `${BASE}${lb}.mp3`,          // e.g. thump.mp3
     };
   }
