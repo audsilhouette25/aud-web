@@ -329,5 +329,20 @@
 
   onReady(() => {
     waitForAssets(init);
+
+    // Show/hide signup message based on auth state
+    const updateSignupMessage = () => {
+      const signupMsg = document.getElementById('signup-message');
+      if (!signupMsg) return;
+
+      const isAuthed = (window.auth && typeof window.auth.isAuthed === 'function')
+        ? window.auth.isAuthed()
+        : sessionStorage.getItem('auth:flag') === '1';
+
+      signupMsg.style.display = isAuthed ? 'none' : 'block';
+    };
+
+    updateSignupMessage();
+    window.addEventListener('auth:state', updateSignupMessage);
   });
 })();

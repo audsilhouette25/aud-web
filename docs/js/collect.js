@@ -586,6 +586,30 @@
     get map(){ return loadNfcMap(); }
   };
 
+  /* ─────────────────────────────
+   *  Signup message visibility
+   * ───────────────────────────── */
+  function updateSignupMessage() {
+    const signupMsg = document.getElementById('signup-message');
+    if (!signupMsg) return;
+
+    const isAuthed = (window.auth && typeof window.auth.isAuthed === 'function')
+      ? window.auth.isAuthed()
+      : sessionStorage.getItem('auth:flag') === '1';
+
+    signupMsg.style.display = isAuthed ? 'none' : 'block';
+  }
+
+  // Update on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateSignupMessage, { once: true });
+  } else {
+    updateSignupMessage();
+  }
+
+  // Update when auth state changes
+  window.addEventListener('auth:state', updateSignupMessage);
+
 })();
 
 // [HOTFIX A] wiretap: 모든 소켓 이벤트/메시지 로깅

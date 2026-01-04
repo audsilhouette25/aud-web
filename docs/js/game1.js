@@ -3859,4 +3859,30 @@
     if (backdrop) backdrop.addEventListener("click", closeHowto);
   })();
 
+  /* =========================================================
+   * SIGNUP MESSAGE (show when logged out)
+   * ========================================================= */
+  (() => {
+    function updateSignupMessage() {
+      const signupMsg = $("#signup-message");
+      if (!signupMsg) return;
+
+      const isAuthed = (window.auth && typeof window.auth.isAuthed === 'function')
+        ? window.auth.isAuthed()
+        : sessionStorage.getItem('auth:flag') === '1';
+
+      signupMsg.style.display = isAuthed ? 'none' : 'block';
+    }
+
+    // Update on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateSignupMessage, { once: true });
+    } else {
+      updateSignupMessage();
+    }
+
+    // Update when auth state changes
+    window.addEventListener('auth:state', updateSignupMessage);
+  })();
+
 })();
