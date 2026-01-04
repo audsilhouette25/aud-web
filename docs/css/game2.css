@@ -637,6 +637,7 @@ header.nav {
   text-decoration-color: rgba(17, 17, 17, 0.3);
   text-underline-offset: 3px;
   text-decoration-thickness: 1.5px;
+  text-decoration-skip-ink: auto;
   transition: text-decoration-color 0.2s ease, color 0.2s ease;
 }
 
