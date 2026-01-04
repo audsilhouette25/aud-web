@@ -1343,20 +1343,32 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 }
 
 .signup-link {
-  color: #FF884D;
+  color: #E56A2C;
   font-weight: 600;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-bottom-color 0.2s ease, color 0.2s ease;
+  text-decoration: underline;
+  text-decoration-color: rgba(229, 106, 44, 0.4);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  transition: text-decoration-color 0.2s ease, color 0.2s ease;
 }
 
 .signup-link:hover {
-  color: #FF6B2C;
-  border-bottom-color: #FF6B2C;
+  color: #C45520;
+  text-decoration-color: #C45520;
+}
+
+.signup-link:focus {
+  outline: 3px solid #E56A2C;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.signup-link:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .signup-link:focus-visible {
-  outline: 2px solid #FF884D;
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline: 3px solid #E56A2C;
+  outline-offset: 3px;
+  border-radius: 2px;
 }
