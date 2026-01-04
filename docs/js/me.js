@@ -2533,7 +2533,13 @@ async function fetchAllMyItems(maxPages = 20, pageSize = 60) {
 
     setTimeout(() => {
       if (typeof window.AUDTutorial?.start === 'function') {
+        // Start tutorial automatically only for new users
         window.AUDTutorial.start(steps, TUTORIAL_KEY);
+
+        // Always create help button for re-accessing tutorial
+        if (typeof window.AUDTutorial?.createHelpButton === 'function') {
+          window.AUDTutorial.createHelpButton();
+        }
       }
     }, 600);
   })();

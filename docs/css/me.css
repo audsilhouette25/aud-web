@@ -1065,3 +1065,34 @@ progress#m-rate-bar::-webkit-progress-value{
 .tutorial-tooltip .tutorial-next:hover{
   filter: brightness(0.95);
 }
+
+/* Tutorial help button (floating bottom-right) */
+.tutorial-help-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 999;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tutorial-help-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.tutorial-help-btn:active {
+  transform: scale(0.95);
+}

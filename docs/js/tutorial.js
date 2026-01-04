@@ -228,16 +228,16 @@
    * Start tutorial with given steps
    * @param {Array} stepConfig - Array of {selector, text, offsetX?}
    * @param {string} key - localStorage key for completion tracking
+   * @param {boolean} force - Force start even if already completed
    */
-  function startTutorial(stepConfig, key) {
+  function startTutorial(stepConfig, key, force = false) {
     if (!stepConfig || stepConfig.length === 0) return;
 
     steps = stepConfig;
     storageKey = key || '';
 
-    // For development: always run
-    // For production: check localStorage
-    // if (storageKey && localStorage.getItem(storageKey)) return;
+    // Check if already completed (unless forced)
+    if (!force && storageKey && localStorage.getItem(storageKey)) return;
 
     isActive = true;
     currentStep = 0;
@@ -255,12 +255,29 @@
     window.addEventListener('resize', handleScroll);
   }
 
+  /**
+   * Create floating help button
+   */
+  function createHelpButton() {
+    const btn = document.createElement('button');
+    btn.className = 'tutorial-help-btn';
+    btn.setAttribute('aria-label', 'Show tutorial');
+    btn.innerHTML = '?';
+    btn.addEventListener('click', () => {
+      if (steps.length > 0) {
+        startTutorial(steps, storageKey, true);
+      }
+    });
+    document.body.appendChild(btn);
+  }
+
   window.AUDTutorial = {
     start: startTutorial,
     end: endTutorial,
     reset: (key) => {
       if (key) localStorage.removeItem(key);
       location.reload();
-    }
+    },
+    createHelpButton: createHelpButton
   };
 })();
