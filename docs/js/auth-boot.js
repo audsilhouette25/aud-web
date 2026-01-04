@@ -513,8 +513,15 @@
 
     const loginRes = await login(normEmail, password);
     if (redirect && loginRes?.ok) {
-      // admin 여부 확인하여 적절한 페이지로 리디렉션
-      const isAdmin = sessionStorage.getItem('auth:isAdmin') === '1';
+      // admin 여부 확인을 위해 /auth/me 호출
+      let isAdmin = false;
+      try {
+        const meRes = await apiFetch("/auth/me", { credentials: "include", cache: "no-store" });
+        const meData = await meRes.json();
+        isAdmin = !!(meData?.user?.isAdmin || meData?.user?.admin || meData?.user?.role === 'admin');
+        sessionStorage.setItem('auth:isAdmin', isAdmin ? '1' : '0');
+      } catch {}
+
       const defaultPath = isAdmin ? "/adminme.html" : "/me.html";
       const to = next || new URLSearchParams(location.search).get("next") || defaultPath;
       try { markNavigate(); } catch {}
