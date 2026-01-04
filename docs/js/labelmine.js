@@ -686,8 +686,7 @@ function syncAll(){
 ensureReady(() => whenStoreReady(async () => {
   const me = await (window.auth?.getUser?.().catch(() => null));
   if (!me) {
-    const ret = encodeURIComponent(location.href);
-    location.replace(`${pageHref('login.html')}?next=${ret}`);
+    location.replace(pageHref('login.html'));
     return;
   }
   syncAll();
@@ -1202,8 +1201,7 @@ btnSave?.addEventListener("click", async (e) => {
   try { window.__SDF_SAVING_TS = performance.now(); } catch {}
   const me = await (window.auth?.getUser?.().catch(() => null));
   if (!me) {
-    const ret = encodeURIComponent(location.href);
-    location.replace(`${pageHref('login.html')}?next=${ret}`);
+    location.replace(pageHref('login.html'));
     return;
   }
   try { onSaveToGallery(); } catch {}
@@ -1447,8 +1445,7 @@ const btnReset   = document.getElementById("sdf-reset-btn");
         }
       const me = await (window.auth?.getUser?.().catch(() => null));
       if (!me) {
-        const ret = encodeURIComponent(location.href);
-        location.replace(`${pageHref('login.html')}?next=${ret}`);
+        location.replace(pageHref('login.html'));
         return;
       }onSaveToGallery();
       });
@@ -2397,8 +2394,7 @@ function goMineAfterShare(label = getLabel()) {
     try{
       const me = await (window.auth?.getUser?.().catch(()=>null));
       if (!me){
-        const ret = encodeURIComponent(location.href);
-        location.replace(`${pageHref('login.html')}?next=${ret}`);
+        location.replace(pageHref('login.html'));
         return false;
       }
       return true;
@@ -3701,6 +3697,5 @@ function goMineAfterShare(label = getLabel()) {
 
 // 만료(401) 즉시 전환
 window.addEventListener("auth:logout", ()=>{
-  const ret = encodeURIComponent(location.href);
-  location.replace(`${pageHref('login.html')}?next=${ret}`);
+  location.replace(pageHref('login.html'));
 });

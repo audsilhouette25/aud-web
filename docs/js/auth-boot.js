@@ -564,17 +564,9 @@
     try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed: false, user: null, ns: "default" } })); } catch {}
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
 
-    // 로그인 페이지로 이동
+    // 로그인 페이지로 이동 (next 파라미터 없이 - 로그인 후 관리자 권한에 따라 자동 결정)
     markNavigate();
-    // me.html이나 adminme.html에서 로그아웃하면 next 파라미터 제거 (권한이 바뀔 수 있으므로)
-    const currentPath = location.pathname;
-    const shouldSkipNext = /\/(me|adminme)\.html$/i.test(currentPath);
-    if (shouldSkipNext) {
-      location.href = `./login.html?reset=1`;
-    } else {
-      const next = encodeURIComponent(location.pathname + location.search);
-      location.href = `./login.html?reset=1&next=${next}`;
-    }
+    location.href = `./login.html?reset=1`;
   }
 
   /* =========================
@@ -604,9 +596,9 @@
       if (state.ready && state.authed) { await getCSRF().catch(() => null); return true; }
       if (!state.ready) await refreshMe();
       if (state.authed) { await getCSRF().catch(() => null); return true; }
-      const next = encodeURIComponent(location.pathname + location.search);
+      // 인증되지 않은 경우 로그인 페이지로 리다이렉트 (next 파라미터 없이)
       markNavigate();
-      location.href = "./login.html?next=" + next;
+      location.href = "./login.html";
       return false;
     },
     login,

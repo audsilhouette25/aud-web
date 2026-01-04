@@ -211,31 +211,8 @@
   }
 
   function resolveNextUrl(){
-    const u = new URL(location.href);
-    const n = u.searchParams.get("next") || "";
+    // next 파라미터 완전 무시 - 무조건 관리자 권한에 따라서만 결정
     const admin = isAdmin();
-
-    // allow: same-origin & /.../(me|adminme|home|collect|gallery|labelmine|game).html
-    try {
-      const t = new URL(n, location.href);       // relative or absolute both OK
-      if (t.origin === location.origin) {
-        const p = t.pathname;
-        // next 파라미터가 me.html 또는 adminme.html인 경우, 관리자 권한에 맞게 오버라이드
-        if (/\/me\.html$/i.test(p)) {
-          console.log("[LOGIN DEBUG] next=me.html detected, checking admin status:", admin);
-          return admin ? ADMIN_PATH : ME_PATH;
-        }
-        if (/\/adminme\.html$/i.test(p)) {
-          console.log("[LOGIN DEBUG] next=adminme.html detected, checking admin status:", admin);
-          return admin ? ADMIN_PATH : ME_PATH;
-        }
-        // 다른 허용된 페이지는 그대로 사용
-        if (/\/(home|collect|gallery|labelmine|game)\.html$/i.test(p)) {
-          return p + t.search + t.hash;          // keep subpath (/aud-web/...)
-        }
-      }
-    } catch {}
-    // admin이면 adminme.html, 아니면 me.html
     const nextUrl = admin ? ADMIN_PATH : ME_PATH;
     console.log("[LOGIN DEBUG] resolveNextUrl - isAdmin:", admin, "-> redirecting to:", nextUrl);
     return nextUrl;
