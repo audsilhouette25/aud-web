@@ -493,6 +493,7 @@
         console.log("[LOGIN DEBUG] Calling window.auth.login...");
         const r = await window.auth.login(email, password); // { ok, error|code? }
         console.log("[LOGIN DEBUG] window.auth.login response:", r);
+        console.log("[LOGIN DEBUG] window.auth.user after login:", window.auth?.user);
         if (!r || r.ok !== true) {
           const t = translateError(r?.error || r?.code || r?.message);
           console.log("[LOGIN DEBUG] Login failed via window.auth:", r?.error || r?.code);
