@@ -1071,18 +1071,18 @@ progress#m-rate-bar::-webkit-progress-value{
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 56px;
-  height: 56px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  font-size: 28px;
-  font-weight: 700;
+  background: #e9e9ec;
+  color: #666;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 18px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   z-index: 999;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1090,7 +1090,8 @@ progress#m-rate-bar::-webkit-progress-value{
 
 .tutorial-help-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  background: #dedee2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .tutorial-help-btn:active {
