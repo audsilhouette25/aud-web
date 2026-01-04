@@ -11,8 +11,8 @@ const MAP = {
   miro:   { category: "play", stars: 3 },
   whee:   { category: "asmr", stars: 1 },
   thump:  { category: "asmr", stars: 1 },
-  track:  { category: "play", stars: 2 },
-  echo:   { category: "asmr", stars: 2 },
+  woosh:  { category: "play", stars: 2 },
+  wobbl:  { category: "asmr", stars: 2 },
   portal: { category: "play", stars: 2 },
 };
 const LABELS = (window.APP_CONFIG && window.APP_CONFIG.LABELS) || window.ALL_LABELS;

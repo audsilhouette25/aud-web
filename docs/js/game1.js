@@ -2214,7 +2214,7 @@
   // VOTE (robust + no 404)
   // =======================
   const POLL = (() => {
-    const OPTIONS = Object.keys(ICONS); // ['thump','miro','whee','track','echo','portal']
+    const OPTIONS = Object.keys(ICONS); // ['thump','miro','whee','woosh','wobbl','portal']
     const countsById = new Map(); // itemId -> {label:number}
     const myById     = new Map(); // itemId -> 'label' | null
 
@@ -3709,7 +3709,7 @@
   (() => {
     const $ = (s, r=document) => r.querySelector(s);
     const INSIGHTS_TTL = 10 * 60 * 1000; // 10분
-    const OPTIONS = ["thump","miro","whee","track","echo","portal"];
+    const OPTIONS = ["thump","miro","whee","woosh","wobbl","portal"];
     const getNS = (window.getNS) ? window.getNS : () => {
       try { return (localStorage.getItem("auth:userns") || "default").trim().toLowerCase(); }
       catch { return "default"; }
