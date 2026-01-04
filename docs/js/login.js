@@ -203,21 +203,21 @@
   /* =============================================================
    *  3) SAFE NEXT URL RESOLUTION
    * ============================================================= */
-  // admin 여부 확인 (sessionStorage에 캐시됨)
+  // 관리자 여부 확인
   function isAdmin() {
-    const adminFlag = sessionStorage.getItem('auth:isAdmin');
-    console.log("[LOGIN DEBUG] isAdmin() check - auth:isAdmin flag:", adminFlag);
-    return adminFlag === '1';
+    return sessionStorage.getItem('auth:isAdmin') === '1';
   }
 
-  function resolveNextUrl(){
-    // next 파라미터 완전 무시 - 무조건 관리자 권한에 따라서만 결정
-    const admin = isAdmin();
-    const nextUrl = admin ? ADMIN_PATH : ME_PATH;
-    console.log("[LOGIN DEBUG] resolveNextUrl - isAdmin:", admin, "-> redirecting to:", nextUrl);
-    return nextUrl;
+  // 로그인 후 리다이렉트 경로 결정 (관리자 여부에 따라)
+  function getRedirectPath() {
+    return isAdmin() ? ADMIN_PATH : ME_PATH;
   }
-  function gotoNext(){ markNavigate(); location.assign(resolveNextUrl()); }
+
+  // 로그인 후 리다이렉트 실행
+  function redirectAfterLogin() {
+    markNavigate();
+    location.assign(getRedirectPath());
+  }
 
   /* =============================================================
    *  4) UI HELPERS (busy states, field errors)
@@ -424,13 +424,10 @@
       }
     }
 
-    // isAdmin 값을 sessionStorage에 저장 (gotoNext에서 사용)
-    // 다양한 admin 필드 형식을 모두 확인
+    // 관리자 여부 저장
     try {
       const userIsAdmin = !!(user?.isAdmin || user?.admin || user?.role === 'admin');
-      console.log("[LOGIN DEBUG] onLoginSuccess - setting admin:", userIsAdmin, "from user:", user);
       sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
-      console.log("[LOGIN DEBUG] sessionStorage auth:isAdmin set to:", sessionStorage.getItem('auth:isAdmin'));
     } catch {}
 
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
@@ -466,9 +463,7 @@
       window.dispatchEvent(new CustomEvent("user:updated", { detail }));
     } catch {}
 
-    console.log("[LOGIN DEBUG] About to call gotoNext()");
-    console.log("[LOGIN DEBUG] Current admin flag:", sessionStorage.getItem('auth:isAdmin'));
-    gotoNext();
+    redirectAfterLogin();
   }
 
   /* =============================================================
@@ -476,17 +471,11 @@
    * ============================================================= */
   async function doLogin(email, password){
     log("doLogin via", window.auth?.login ? "window.auth" : "fallback");
-    console.log("[LOGIN DEBUG] Starting login for:", email);
-    console.log("[LOGIN DEBUG] Using method:", window.auth?.login ? "window.auth" : "fallback");
     try {
       if (window.auth?.login) {
-        console.log("[LOGIN DEBUG] Calling window.auth.login...");
         const r = await window.auth.login(email, password); // { ok, error|code? }
-        console.log("[LOGIN DEBUG] window.auth.login response:", r);
-        console.log("[LOGIN DEBUG] window.auth.user after login:", window.auth?.user);
         if (!r || r.ok !== true) {
           const t = translateError(r?.error || r?.code || r?.message);
-          console.log("[LOGIN DEBUG] Login failed via window.auth:", r?.error || r?.code);
           return { ok:false, msg:t.msg, field:t.field, code:r?.error || r?.code };
         }
 
@@ -497,12 +486,10 @@
             ? window.auth.apiFetch("/auth/me", { credentials:"include", cache:"no-store" })
             : fetch(toAPI("/auth/me"), { credentials:"include", cache:"no-store" })
           ).then(r => (r.json ? r.json() : r));
-          console.log("[LOGIN DEBUG] /auth/me response:", me);
           if (me?.authenticated && me?.user?.id != null) uid = me.user.id;
           if (me?.user?.email) eml = me.user.email;
           // admin 여부 확인 및 저장
           userIsAdmin = !!(me?.user?.isAdmin || me?.user?.admin || me?.user?.role === 'admin');
-          console.log("[LOGIN DEBUG] Detected admin status:", userIsAdmin, "from user:", me?.user);
           try { sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0'); } catch {}
           try { await window.__flushStoreSnapshot?.({ server:true }); } catch {}
           try {
@@ -519,25 +506,18 @@
       }
 
       // Fallback: POST /auth/login
-      console.log("[LOGIN DEBUG] Using fallback POST /auth/login");
       const r = await postJSON("/auth/login", { email, password });
-      console.log("[LOGIN DEBUG] Response status:", r.status, r.statusText);
       const out = await r.json().catch(() => ({}));
-      console.log("[LOGIN DEBUG] Response body:", out);
       if (!r.ok || out?.ok === false) {
         const t = translateError(out?.error || out?.code);
-        console.log("[LOGIN DEBUG] Login failed:", out?.error || out?.code);
         return { ok:false, msg:t.msg, field:t.field, code:out?.error || out?.code };
       }
       // admin 여부 확인 및 저장
       const fallbackIsAdmin = !!(out?.isAdmin || out?.admin || out?.user?.isAdmin || out?.user?.admin || out?.role === 'admin');
-      console.log("[LOGIN DEBUG] Fallback admin detection:", fallbackIsAdmin, "from response:", out);
       try { sessionStorage.setItem('auth:isAdmin', fallbackIsAdmin ? '1' : '0'); } catch {}
-      console.log("[LOGIN DEBUG] Login successful, calling onLoginSuccess");
       onLoginSuccess({ id: out.id, email, token: out.token, isAdmin: fallbackIsAdmin });
       return { ok:true };
     } catch (e) {
-      console.error("[LOGIN DEBUG] Exception caught:", e);
       const t = translateError(e?.code || e?.message);
       return { ok:false, msg:t.msg, field:t.field };
     }
@@ -1013,28 +993,23 @@
    *  12) INIT
    * ============================================================= */
   async function init(){
-    // 이미 인증된 경우: /auth/me를 호출하여 최신 isAdmin 값을 가져온 후 리다이렉트
+    // 이미 인증된 경우: 최신 관리자 상태 확인 후 리다이렉트
     try {
       if (!FORCE_LOGIN && window.auth.isAuthed()) {
-        log("already authed → fetching /auth/me to get latest admin status");
         try {
           const meRes = await fetch(toAPI("/auth/me"), { credentials: "include", cache: "no-store" });
           const meData = await meRes.json();
-          const userIsAdmin = !!(meData?.user?.isAdmin || meData?.user?.admin || meData?.user?.role === 'admin' || meData?.isAdmin);
+          const userIsAdmin = !!(meData?.user?.isAdmin || meData?.isAdmin);
           sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
-          console.log("[LOGIN] Already authed - admin status:", userIsAdmin);
-        } catch (e) {
-          console.error("[LOGIN] Failed to fetch /auth/me:", e);
-          // 실패 시 안전하게 기본값(일반 사용자) 설정
+        } catch {
           sessionStorage.setItem('auth:isAdmin', '0');
         }
-        log("already authed → gotoNext()");
-        gotoNext();
+        redirectAfterLogin();
         return;
       }
     } catch {}
 
-    // 로그인 페이지 진입 시 이전 세션의 admin 플래그 제거 (새 로그인 시 올바른 값으로 설정됨)
+    // 로그인 페이지 진입 시 이전 관리자 플래그 초기화
     try {
       sessionStorage.removeItem('auth:isAdmin');
     } catch {}

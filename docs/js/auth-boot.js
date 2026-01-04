@@ -535,10 +535,10 @@
   async function logout(e) {
     e?.preventDefault?.();
 
-    // 서버에 로그아웃 요청
+    // 서버 로그아웃 요청
     try { await apiFetch("/auth/logout", { method: "POST" }); } catch {}
 
-    // sessionStorage 정리 (auth:isAdmin 명시적으로 제거)
+    // sessionStorage 정리
     try {
       sessionStorage.removeItem('auth:isAdmin');
       const rm = [];
@@ -549,7 +549,7 @@
       rm.forEach(k => sessionStorage.removeItem(k));
     } catch {}
 
-    // ★ 핵심: localStorage에서 auth 관련 항목 삭제 (다른 탭에서 storage 이벤트로 감지)
+    // localStorage 정리 (다른 탭 동기화용)
     clearAuthedFlag();
     try { localStorage.removeItem("auth:token"); } catch {}
     try { localStorage.removeItem(USERNS_KEY); } catch {}
@@ -561,10 +561,11 @@
     state.user = null;
     notify();
 
+    // 이벤트 발송
     try { window.dispatchEvent(new CustomEvent("auth:state", { detail: { authed: false, user: null, ns: "default" } })); } catch {}
     try { window.dispatchEvent(new Event("auth:logout")); } catch {}
 
-    // 로그인 페이지로 이동 (next 파라미터 없이 - 로그인 후 관리자 권한에 따라 자동 결정)
+    // 로그인 페이지로 리다이렉트
     markNavigate();
     location.href = `./login.html?reset=1`;
   }
