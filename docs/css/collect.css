@@ -408,13 +408,14 @@ header.nav {
    4) Signup Message
 ===================================================================== */
 .signup-message {
-  margin-top: 20px;
+  margin-top: 24px;
   padding: 0;
   background: none;
   border: none;
   text-align: center;
-  color: #666;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.5;
+  color: #555;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.2px;
 }
