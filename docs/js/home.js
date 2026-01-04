@@ -31,8 +31,8 @@
     // 매핑
     var wordToLabelMap = {
       PLAY: "miro",
-      LINGER: "echo",
-      THRILL: "track",
+      LINGER: "woosh",
+      THRILL: "wobbl",
       RELEASE: "thump",
       RUSH: "whee",
       WANDER: "portal"
