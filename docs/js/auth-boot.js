@@ -566,8 +566,15 @@
 
     // 로그인 페이지로 이동
     markNavigate();
-    const next = encodeURIComponent(location.pathname + location.search);
-    location.href = `./login.html?reset=1&next=${next}`;
+    // me.html이나 adminme.html에서 로그아웃하면 next 파라미터 제거 (권한이 바뀔 수 있으므로)
+    const currentPath = location.pathname;
+    const shouldSkipNext = /\/(me|adminme)\.html$/i.test(currentPath);
+    if (shouldSkipNext) {
+      location.href = `./login.html?reset=1`;
+    } else {
+      const next = encodeURIComponent(location.pathname + location.search);
+      location.href = `./login.html?reset=1&next=${next}`;
+    }
   }
 
   /* =========================
