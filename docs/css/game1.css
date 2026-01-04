@@ -305,7 +305,6 @@ header.nav {
    5) Media Scaling (grid tiles)
 ===================================================================== */
 .label-tile .tile__content :is(video,img){ width: 190%; height: 190%; object-fit: contain; display: block; }
-.jib-tile   .tile__content :is(video,img){ width: 250%; height: 250%; object-fit: contain; display: block; }
 
 /* =====================================================================
    6) Unregistered Overlay
@@ -338,7 +337,6 @@ header.nav {
 }
 .avatar-canvas .layer :is(video,img){ width: 100%; height: 100%; object-fit: contain; }
 .avatar-canvas .layer-label :is(video,img){ width: 72%; height: 72%; }
-.avatar-canvas .layer-jib{ width: 100%; height: 100%; }
 
 /* Actions */
 .avatar-actions{ display: flex; gap: 8px; }

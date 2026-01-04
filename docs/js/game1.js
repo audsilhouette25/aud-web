@@ -27,17 +27,13 @@
 
   // sessionStorage keys (page-local state)
   const REG_KEY = "collectedLabels";
-  const JIB_KEY = "jib:collected";
 
   // legacy logical events (allow override via window.*)
   const COLLECTED_EVT     = "collectedLabels:changed";
-  const JIB_COLLECTED_EVT = "jib:collection-changed";
   const EVT_LABEL = (window.LABEL_COLLECTED_EVT || COLLECTED_EVT);
-  const EVT_JIB   = (window.JIB_COLLECTED_EVT   || JIB_COLLECTED_EVT);
 
   // cross-tab sync keys (allow override via window.*)
   const LABEL_SYNC_KEY = (window.LABEL_SYNC_KEY || "label:sync");
-  const JIB_SYNC_KEY   = (window.JIB_SYNC_KEY   || "jib:sync");
 
   // quick DOM helpers
   const $     = (sel, root=document) => root.querySelector(sel);
@@ -230,17 +226,15 @@
   let __bcFeed = null;
 
   /* =========================================================
-  * 1) ICONS / JIBS (app-assets.js 기반 SSOT, no fallback)
+  * 1) ICONS (app-assets.js 기반 SSOT, no fallback)
   * ========================================================= */
   let ICONS = {};
-  let JIBS  = {};
   let __assetsReady = false;
 
   function initAssetsForMineStrict() {
     if (!(window.ASSETS && typeof window.ASSETS.mapForMine === "function")) return false;
-    const { ICONS: _ICONS, JIBS: _JIBS } = window.ASSETS.mapForMine();
+    const { ICONS: _ICONS } = window.ASSETS.mapForMine();
     ICONS = _ICONS || {};
-    JIBS  = _JIBS  || {};
     __assetsReady = true;
     return true;
   }
@@ -623,30 +617,10 @@
   try { window.scheduleRender = scheduleRender; } catch {}
 
   /* =========================================================
-   * 5) TABS (labels/jibs) & TILE FACTORIES
+   * 5) TABS (labels only) & TILE FACTORIES
    * ========================================================= */
   function initTabs(){
-    const tabLbl   = $("#tab-labels");
-    const tabJib   = $("#tab-jibs");
-    const panelLbl = $("#panel-labels");
-    const panelJib = $("#panel-jibs");
-
-    // labels 패널만 있으면 탭 없이도 작동
-    if (!panelLbl) return;
-
-    const setActive = (name) => {
-      const labels = (name === "labels");
-      if (tabLbl) tabLbl.setAttribute("aria-selected", String(labels));
-      if (tabJib) tabJib.setAttribute("aria-selected", String(!labels));
-      panelLbl.hidden = !labels;
-      if (panelJib) panelJib.hidden = labels;
-    };
-
-    if (tabLbl) tabLbl.addEventListener("click", () => setActive("labels"));
-    if (tabJib) tabJib.addEventListener("click", () => setActive("jibs"));
-    setActive("labels");
-
-    try { window.setMineTabActive = setActive; } catch {}
+    // labels 패널만 표시 (jib 관련 제거됨)
   }
 
   function makeLabelTile(label) {
@@ -679,53 +653,6 @@
     return btn;
   }
 
-  // 기존 makeJibTile 변경: 고정 이동 → toJibHref 사용
-  function makeJibTile(kind) {
-    const src = JIBS[kind];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tile jib-tile";
-    btn.setAttribute("role", "listitem");
-    btn.setAttribute("aria-label", kind);
-
-    const inner = document.createElement("div");
-    inner.className = "tile__content";
-    if (src) inner.appendChild(createMedia(src, 1));
-    btn.appendChild(inner);
-
-    btn.addEventListener("click", () => {
-      if (window.jib?.setSelected) window.jib.setSelected(kind);
-      else {
-        const ns = (typeof getNS === 'function' ? getNS() : 'default');
-        const key = `jib:selected:${ns}`;
-        const plane = (ns === "default") ? sessionStorage : localStorage;
-        try { plane.setItem(key, kind); window.dispatchEvent(new Event("jib:selected-changed")); } catch {}
-      }
-      window.auth?.markNavigate?.();
-      location.assign(toJibHref(kind)); // ⬅️ 변경 지점
-    });
-
-    return btn;
-  }
-
-  // admin이면 jibbitzadmin.html?jib=&ns=, 아니면 jibbitz.html?jib=
-  function toJibHref(kind){
-    const flag   = (typeof window.__IS_ADMIN === 'boolean' ? window.__IS_ADMIN : null);
-    const cached = (sessionStorage.getItem('auth:isAdmin') === '1');
-    const isAdmin = (flag === true) || cached;
-    const base  = isAdmin ? 'jibbitzadmin.html' : 'jibbitz.html';
-
-    const qs = new URLSearchParams();
-    if (kind) qs.set('jib', String(kind));
-    if (isAdmin) {
-      try {
-        const ns = (typeof getNS === 'function' ? getNS() : 'default');
-        if (ns) qs.set('ns', ns);
-      } catch {}
-    }
-    const q = qs.toString();
-    return q ? `./${base}?${q}` : `./${base}`;
-  }
 
   // 모든 계정에서 labelmine.html로 이동
   function toLabelHref(label){
@@ -758,16 +685,6 @@
       }
     } catch {}
 
-    try {
-      const jibRaw = localStorage.getItem(JIB_SYNC_KEY);
-      if (jibRaw) {
-        const msg = JSON.parse(jibRaw);
-        if (msg?.type === "set" && Array.isArray(msg.arr)) {
-          sessionStorage.setItem(JIB_KEY, JSON.stringify(msg.arr));
-          window.dispatchEvent(new Event(EVT_JIB));
-        }
-      }
-    } catch {}
   }
 
   /* =========================================================
@@ -776,7 +693,6 @@
   function renderTabsOnly() {
     if (!__assetsReady) return;
     const gridLbl = $("#grid-labels");
-    const gridJib = $("#grid-jibs");
 
     // labels 그리드만 있어도 작동
     if (!gridLbl) return;
@@ -791,16 +707,6 @@
       if (!ICONS[lb]) return;
       gridLbl.appendChild(makeLabelTile(lb));
     });
-
-    // jibs 그리드가 있을 때만 렌더
-    if (gridJib) {
-      const jibs = window.jib?.getCollected?.() || [];
-      gridJib.innerHTML = "";
-      jibs.forEach(k => {
-        if (!JIBS[k]) return;
-        gridJib.appendChild(makeJibTile(k));
-      });
-    }
   }
 
   function renderAll() {
@@ -813,15 +719,14 @@
     const regs = window.store?.getCollected?.()
       ? window.store.getCollected()
       : [];
-    const jibs = window.jib?.getCollected?.() || [];
 
-    if ((regs?.length || 0) + (jibs?.length || 0) === 0) {
+    if ((regs?.length || 0) === 0) {
       const cta = document.createElement("button");
       Object.assign(cta.style, {
         padding: "14px 28px", borderRadius: "9999px", background: "#2A5F5F",
         color: "#fff", fontSize: "16px", fontWeight: 500, border: "none", cursor: "pointer"
       });
-      cta.textContent = "Let’s find aud: !";
+      cta.textContent = "Let's find aud: !";
       cta.onclick = () => { window.auth?.markNavigate?.(); location.assign("./gallery.html"); };
 
       root.style.display = "flex";
@@ -833,7 +738,6 @@
 
     root.removeAttribute("style");
     regs.forEach(lb => { if (ICONS[lb]) root.appendChild(makeLabelTile(lb)); });
-    jibs.forEach(k  => { if (JIBS[k])  root.appendChild(makeJibTile(k));  });
     requestAnimationFrame(() => { sizeFeedGridCell(); });
   }
   try { window.mineRenderAll = renderAll; } catch {}
@@ -2832,7 +2736,6 @@
     if (bindEvents.__bound) return; bindEvents.__bound = true;
 
     window.addEventListener(EVT_LABEL, scheduleRender);
-    window.addEventListener(EVT_JIB,   scheduleRender);
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") scheduleRender();
@@ -2840,17 +2743,12 @@
 
     window.addEventListener("storage", (e) => {
       if (!e || !e.key || !e.newValue) return;
-      if (e.key.includes("label:sync") || e.key.includes("jib:sync")) {
+      if (e.key.includes("label:sync")) {
         try {
           const msg = JSON.parse(e.newValue);
           if (msg?.type === "set" && Array.isArray(msg.arr)) {
-            if (e.key.includes("label:sync")) {
-              sessionStorage.setItem(REG_KEY, JSON.stringify(msg.arr));
-              window.dispatchEvent(new Event(EVT_LABEL));
-            } else {
-              sessionStorage.setItem(JIB_KEY, JSON.stringify(msg.arr));
-              window.dispatchEvent(new Event(EVT_JIB));
-            }
+            sessionStorage.setItem(REG_KEY, JSON.stringify(msg.arr));
+            window.dispatchEvent(new Event(EVT_LABEL));
             scheduleRender();
           }
         } catch {}
@@ -3573,7 +3471,6 @@
   try {
     const __NS = (typeof getNS === "function" ? getNS() : "default");
     const __K_LABEL = LABEL_SYNC_KEY;
-    const __K_JIB   = JIB_SYNC_KEY;
     const __bc = new BroadcastChannel(`aud:sync:${__NS}`);
     __bcFeed = __bc;
     __bc.addEventListener("message", (e) => {
@@ -3588,21 +3485,6 @@
           window.dispatchEvent(new Event(EVT_LABEL));
         }
         try { (window.mineRenderAll?.() || window.scheduleRender?.()); } catch {}
-      }
-
-      if (m.kind === __K_JIB && m.payload) {
-        if (m.payload.type === "set" && Array.isArray(m.payload.arr)) {
-          if (window.jib?.clear && window.jib?.add) {
-            window.jib.clear();
-            for (const k of m.payload.arr) window.jib.add(k);
-          } else {
-            sessionStorage.setItem(JIB_KEY, JSON.stringify(m.payload.arr));
-            window.dispatchEvent(new Event(EVT_JIB));
-          }
-          try { (window.mineRenderAll?.() || window.scheduleRender?.()); } catch {}
-        } else if (m.payload.type === "select") {
-          if (window.jib?.setSelected) window.jib.setSelected(m.payload.k ?? null);
-        }
       }
 
       if (m.kind === FEED_EVENT_KIND && m.payload) {
