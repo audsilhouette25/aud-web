@@ -1025,13 +1025,30 @@
    *  12) INIT
    * ============================================================= */
   async function init(){
+    // 이미 인증된 경우: /auth/me를 호출하여 최신 isAdmin 값을 가져온 후 리다이렉트
+    try {
+      if (!FORCE_LOGIN && window.auth.isAuthed()) {
+        log("already authed → fetching /auth/me to get latest admin status");
+        try {
+          const meRes = await fetch(toAPI("/auth/me"), { credentials: "include", cache: "no-store" });
+          const meData = await meRes.json();
+          const userIsAdmin = !!(meData?.user?.isAdmin || meData?.user?.admin || meData?.user?.role === 'admin' || meData?.isAdmin);
+          sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
+          console.log("[LOGIN] Already authed - admin status:", userIsAdmin);
+        } catch (e) {
+          console.error("[LOGIN] Failed to fetch /auth/me:", e);
+          // 실패 시 안전하게 기본값(일반 사용자) 설정
+          sessionStorage.setItem('auth:isAdmin', '0');
+        }
+        log("already authed → gotoNext()");
+        gotoNext();
+        return;
+      }
+    } catch {}
+
     // 로그인 페이지 진입 시 이전 세션의 admin 플래그 제거 (새 로그인 시 올바른 값으로 설정됨)
     try {
       sessionStorage.removeItem('auth:isAdmin');
-    } catch {}
-
-    try {
-      if (!FORCE_LOGIN && window.auth.isAuthed()) { log("already authed → gotoNext()"); gotoNext(); return; }
     } catch {}
 
     mountErrorPlaceholders();
