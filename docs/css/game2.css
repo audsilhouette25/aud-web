@@ -631,22 +631,22 @@ header.nav {
 }
 
 .signup-link {
-  color: #E56A2C;
+  color: #111;
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: rgba(229, 106, 44, 0.4);
+  text-decoration-color: rgba(17, 17, 17, 0.3);
   text-underline-offset: 3px;
   text-decoration-thickness: 1.5px;
   transition: text-decoration-color 0.2s ease, color 0.2s ease;
 }
 
 .signup-link:hover {
-  color: #C45520;
-  text-decoration-color: #C45520;
+  color: #000;
+  text-decoration-color: #000;
 }
 
 .signup-link:focus {
-  outline: 3px solid #E56A2C;
+  outline: 3px solid #333;
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -656,7 +656,7 @@ header.nav {
 }
 
 .signup-link:focus-visible {
-  outline: 3px solid #E56A2C;
+  outline: 3px solid #333;
   outline-offset: 3px;
   border-radius: 2px;
 }
