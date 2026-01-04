@@ -478,6 +478,8 @@
       window.dispatchEvent(new CustomEvent("user:updated", { detail }));
     } catch {}
 
+    console.log("[LOGIN DEBUG] About to call gotoNext()");
+    console.log("[LOGIN DEBUG] Current admin flag:", sessionStorage.getItem('auth:isAdmin'));
     gotoNext();
   }
 
