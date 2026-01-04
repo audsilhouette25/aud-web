@@ -375,6 +375,12 @@
         registerAuthedTab();
         try { await getCSRF(); } catch {}
 
+        // admin 여부 확인 및 저장
+        try {
+          const userIsAdmin = !!(j?.user?.isAdmin || j?.user?.admin || j?.user?.role === 'admin');
+          sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
+        } catch {}
+
         try {
           const nsPersist = String(j?.ns || j?.user?.email || "").trim().toLowerCase();
           if (nsPersist) {
@@ -459,6 +465,12 @@
       if (j?.token) {
         try { localStorage.setItem("auth:token", j.token); } catch {}
       }
+
+      // admin 여부 확인 및 저장
+      try {
+        const userIsAdmin = !!(j?.isAdmin || j?.admin || j?.user?.isAdmin || j?.user?.admin || j?.role === 'admin');
+        sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
+      } catch {}
 
       state.csrf = null;
       setAuthedFlag();
