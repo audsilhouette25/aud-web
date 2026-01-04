@@ -1,7 +1,7 @@
 // /public/js/app-config.js
 // 단일 소스: 여기만 수정하면 전체 반영됨.
 (function initAppConfig(){
-  const DEFAULT_LABELS = ["thump","miro","whee","track","echo","portal"];
+  const DEFAULT_LABELS = ["thump","miro","whee","woosh","wobbl","portal"];
   const DEFAULT_JIBBITZ = ["bloom","tail","cap","keyring","duck","twinkle","xmas","bunny"];
   const DEFAULT_ADMIN_EMAILS = ["audsilhouette25@gmail.com"];
 

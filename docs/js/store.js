@@ -8,7 +8,7 @@
 const isEmailNS = (s) => /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(s||"").trim());
 const ALL_LABELS = (window.APP_CONFIG && Array.isArray(window.APP_CONFIG.LABELS))
   ? window.APP_CONFIG.LABELS
-  : (window.ALL_LABELS || ["thump","miro","whee","track","echo","portal"]); // 최후 fallback
+  : (window.ALL_LABELS || ["thump","miro","whee","woosh","wobbl","portal"]); // 최후 fallback
 const isLabel = (x) => typeof x === "string" && ALL_LABELS.includes(x);
 
 

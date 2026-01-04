@@ -1696,7 +1696,7 @@
   /* ─────────────────────────────────────────────────────────────────────────────
    * 4) Profile rendering & quick counts
    * ──────────────────────────────────────────────────────────────────────────── */
-  const OPTIONS = ["thump", "miro", "whee", "track", "echo", "portal"]; // valid label set
+  const OPTIONS = ["thump", "miro", "whee", "woosh", "wobbl", "portal"]; // valid label set
 
   const arrify = (x, kind) => {
     const a = coerceList(x, kind);

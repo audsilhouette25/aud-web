@@ -3,7 +3,7 @@
   'use strict';
 
   // ====== 설정 (APP_CONFIG/ASSETS 사용) ======
-  const LABELS = (window.APP_CONFIG?.LABELS) || ["thump", "miro", "whee", "track", "echo", "portal"];
+  const LABELS = (window.APP_CONFIG?.LABELS) || ["thump", "miro", "whee", "woosh", "wobbl", "portal"];
 
   // ASSETS API 대기 함수
   function waitForAssets(fn) {

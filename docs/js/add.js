@@ -266,7 +266,7 @@ ensureReady(() => {
   function isAuthed(){
     try { return !!(window.auth?.isAuthed?.()); } catch { return false; }
   }
-  function isLabel(x){ return ["thump","miro","whee","track","echo","portal"].includes(String(x)); }
+  function isLabel(x){ return ["thump","miro","whee","woosh","wobbl","portal"].includes(String(x)); }
 
   window.addEventListener("storage", (e)=>{
     if (!e || e.key !== "aud:selectedLabel:mirror" || !e.newValue) return;
