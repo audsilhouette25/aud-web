@@ -1345,17 +1345,12 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 .signup-link {
   color: #111;
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: rgba(17, 17, 17, 0.3);
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1.5px;
-  text-decoration-skip-ink: auto;
-  transition: text-decoration-color 0.2s ease, color 0.2s ease;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .signup-link:hover {
   color: #000;
-  text-decoration-color: #000;
 }
 
 .signup-link:focus {
