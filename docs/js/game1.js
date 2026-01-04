@@ -2995,19 +2995,21 @@
 
       // 초기 피드 로드 + 무한 스크롤 시작
       ensureMineFilterUI();
-      await loadMore();
       await reconcileDeleteButtons();
       applyMineFilter();
-      initInfiniteScroll();
       ensureSocket();
-      try {
-        const ids = FEED.items.map(x => String(x.id)).filter(Boolean);
-        if (ids.length) subscribeItems(ids);
-      } catch {}
-      } else {
-        // Allow unauthenticated access to game1 (Feed page)
-        clearAuthedFlag();
-      }
+    } else {
+      // Allow unauthenticated access to game1 (Feed page)
+      clearAuthedFlag();
+    }
+
+    // 피드는 로그인 여부와 관계없이 항상 표시
+    await loadMore();
+    initInfiniteScroll();
+    try {
+      const ids = FEED.items.map(x => String(x.id)).filter(Boolean);
+      if (ids.length) subscribeItems(ids);
+    } catch {}
 
     try { ensureHeartCSS(); upgradeHeartIconIn(document); } catch {}
     bindTitleToMe();

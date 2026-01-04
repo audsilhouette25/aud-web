@@ -403,3 +403,18 @@ header.nav {
   cursor: pointer;
 }
 .how-dot.is-active { background: #fff; }
+
+/* =====================================================================
+   4) Signup Message
+===================================================================== */
+.signup-message {
+  margin-top: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
