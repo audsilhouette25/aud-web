@@ -205,7 +205,9 @@
    * ============================================================= */
   // admin 여부 확인 (sessionStorage에 캐시됨)
   function isAdmin() {
-    return sessionStorage.getItem('auth:isAdmin') === '1';
+    const adminFlag = sessionStorage.getItem('auth:isAdmin');
+    console.log("[LOGIN DEBUG] isAdmin() check - auth:isAdmin flag:", adminFlag);
+    return adminFlag === '1';
   }
 
   function resolveNextUrl(){
@@ -222,7 +224,10 @@
       }
     } catch {}
     // admin이면 adminme.html, 아니면 me.html
-    return isAdmin() ? ADMIN_PATH : ME_PATH;
+    const admin = isAdmin();
+    const nextUrl = admin ? ADMIN_PATH : ME_PATH;
+    console.log("[LOGIN DEBUG] resolveNextUrl - isAdmin:", admin, "-> redirecting to:", nextUrl);
+    return nextUrl;
   }
   function gotoNext(){ markNavigate(); location.assign(resolveNextUrl()); }
 
@@ -435,7 +440,9 @@
     // 다양한 admin 필드 형식을 모두 확인
     try {
       const userIsAdmin = !!(user?.isAdmin || user?.admin || user?.role === 'admin');
+      console.log("[LOGIN DEBUG] onLoginSuccess - setting admin:", userIsAdmin, "from user:", user);
       sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0');
+      console.log("[LOGIN DEBUG] sessionStorage auth:isAdmin set to:", sessionStorage.getItem('auth:isAdmin'));
     } catch {}
 
     try { localStorage.setItem("auth:userns", emailNs); } catch {}
@@ -499,10 +506,12 @@
             ? window.auth.apiFetch("/auth/me", { credentials:"include", cache:"no-store" })
             : fetch(toAPI("/auth/me"), { credentials:"include", cache:"no-store" })
           ).then(r => (r.json ? r.json() : r));
+          console.log("[LOGIN DEBUG] /auth/me response:", me);
           if (me?.authenticated && me?.user?.id != null) uid = me.user.id;
           if (me?.user?.email) eml = me.user.email;
           // admin 여부 확인 및 저장
           userIsAdmin = !!(me?.user?.isAdmin || me?.user?.admin || me?.user?.role === 'admin');
+          console.log("[LOGIN DEBUG] Detected admin status:", userIsAdmin, "from user:", me?.user);
           try { sessionStorage.setItem('auth:isAdmin', userIsAdmin ? '1' : '0'); } catch {}
           try { await window.__flushStoreSnapshot?.({ server:true }); } catch {}
           try {
@@ -531,6 +540,7 @@
       }
       // admin 여부 확인 및 저장
       const fallbackIsAdmin = !!(out?.isAdmin || out?.admin || out?.user?.isAdmin || out?.user?.admin || out?.role === 'admin');
+      console.log("[LOGIN DEBUG] Fallback admin detection:", fallbackIsAdmin, "from response:", out);
       try { sessionStorage.setItem('auth:isAdmin', fallbackIsAdmin ? '1' : '0'); } catch {}
       console.log("[LOGIN DEBUG] Login successful, calling onLoginSuccess");
       onLoginSuccess({ id: out.id, email, token: out.token, isAdmin: fallbackIsAdmin });
