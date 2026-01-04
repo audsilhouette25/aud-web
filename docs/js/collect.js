@@ -128,14 +128,21 @@
         }
         asSet.add(uid);
 
-        // 이미 다른 라벨로 배정되어 있으면 경고
+        // 이미 다른 라벨로 배정되어 있으면 처리
         if (map[uid] && map[uid] !== label) {
-          console.warn("[nfc] UID already mapped to different label:", { uid, existing: map[uid], incoming: label });
-          continue; // 안전하게 덮어쓰지 않음
+          // 마이그레이션: 옛날 라벨(echo/track)을 새 라벨(wobbl/woosh)로 자동 교체
+          const oldToNew = { 'echo': 'wobbl', 'track': 'woosh' };
+          if (oldToNew[map[uid]] === label) {
+            console.info("[nfc] Migrating old label:", { uid, old: map[uid], new: label });
+            map[uid] = label; // 자동 마이그레이션
+          } else {
+            console.warn("[nfc] UID already mapped to different label:", { uid, existing: map[uid], incoming: label });
+            continue; // 다른 경우는 안전하게 덮어쓰지 않음
+          }
+        } else {
+          // 없거나 동일하면 배정
+          if (!map[uid]) map[uid] = label;
         }
-
-        // 없거나 동일하면 배정
-        if (!map[uid]) map[uid] = label;
       }
     }
 
