@@ -397,6 +397,8 @@
       } else {
         clearAuthedFlag();
         regUpdate(TAB_AUTHED_KEY, reg => (delete reg[getTabId()], reg));
+        // 로그아웃 상태면 admin 플래그도 제거
+        try { sessionStorage.removeItem('auth:isAdmin'); } catch {}
       }
     } finally {
       state.ready = true;
@@ -421,6 +423,7 @@
       const nowCleared = !ev.newValue || ev.newValue !== "1";
       if (wasSet && nowCleared) {
         try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        try { sessionStorage.removeItem('auth:isAdmin'); } catch {}
         try { localStorage.removeItem("auth:token"); } catch {}
         state.authed = false;
         state.user = null;
@@ -437,6 +440,7 @@
       const noToken = !ev.newValue;
       if (hadToken && noToken) {
         try { sessionStorage.removeItem(AUTH_FLAG_KEY); } catch {}
+        try { sessionStorage.removeItem('auth:isAdmin'); } catch {}
         try { localStorage.removeItem(AUTH_FLAG_KEY); } catch {}
         state.authed = false;
         state.user = null;
@@ -525,8 +529,9 @@
     // 서버에 로그아웃 요청
     try { await apiFetch("/auth/logout", { method: "POST" }); } catch {}
 
-    // sessionStorage 정리
+    // sessionStorage 정리 (auth:isAdmin 명시적으로 제거)
     try {
+      sessionStorage.removeItem('auth:isAdmin');
       const rm = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const k = sessionStorage.key(i);
