@@ -2859,7 +2859,7 @@
           await __safeBeaconLogout();
           try { window.auth?.markNavigate?.(); } catch {}
           const loginURL = new URL("./login.html", document.baseURI);
-          loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
+          // adminme.html에서 로그아웃하므로 next 파라미터 제외 (권한에 따라 me/adminme 자동 선택)
           location.assign(loginURL.href);
         }
       } finally {
@@ -2907,7 +2907,7 @@
       await __safeBeaconLogout();
       try { window.auth?.markNavigate?.(); } catch {}
       const loginURL = new URL("./login.html", document.baseURI);
-      loginURL.searchParams.set("next", new URL("./me.html", document.baseURI).href);
+      // adminme.html에서 탈퇴하므로 next 파라미터 제외 (권한에 따라 me/adminme 자동 선택)
       location.assign(loginURL.href);
     }, { capture: false });
 
