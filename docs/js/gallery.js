@@ -78,7 +78,9 @@
     } catch { return false; }
   }
 
-  // ====== 비디오 생성 공통 함수 (lazy loading) ======
+  // ====== 비디오 생성 공통 함수 (lazy loading + 성능 최적화) ======
+  let observer = null; // 싱글톤 observer 재사용
+
   function createVideo(src, speed = 1) {
     const video = document.createElement("video");
     video.muted = true;
@@ -90,29 +92,36 @@
     video.style.objectFit = "contain";
     video.dataset.src = src; // 실제 src는 나중에 설정
     video.dataset.speed = speed;
+    video.dataset.loaded = "false"; // 로드 상태 추적
 
     // IntersectionObserver로 화면에 보일 때만 로드
     if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver(entries => {
-        for (const ent of entries) {
-          const v = ent.target;
-          if (ent.isIntersecting) {
-            // 아직 로드 안됐으면 로드
-            if (!v.querySelector("source")) {
-              const source = document.createElement("source");
-              source.src = v.dataset.src;
-              source.type = "video/mp4";
-              v.appendChild(source);
-              v.playbackRate = parseFloat(v.dataset.speed) || 1;
-              v.load();
+      // 싱글톤 observer 생성 (모든 비디오에 재사용)
+      if (!observer) {
+        observer = new IntersectionObserver(entries => {
+          for (const ent of entries) {
+            const v = ent.target;
+            if (ent.isIntersecting) {
+              // 아직 로드 안됐으면 로드
+              if (v.dataset.loaded === "false") {
+                v.dataset.loaded = "true";
+                const source = document.createElement("source");
+                source.src = v.dataset.src;
+                source.type = "video/mp4";
+                v.appendChild(source);
+                v.playbackRate = parseFloat(v.dataset.speed) || 1;
+                v.load();
+              }
+              // 재생
+              v.play().catch(()=>{});
+            } else {
+              // 화면 밖으로 나가면 일시정지 (메모리 절약)
+              v.pause();
             }
-            v.play().catch(()=>{});
-          } else {
-            v.pause();
           }
-        }
-      }, { threshold: 0.1, rootMargin: "50px" }); // 50px 전에 미리 로드 시작
-      io.observe(video);
+        }, { threshold: 0.1, rootMargin: "100px" }); // 100px 전에 미리 로드 시작 (더 부드러운 경험)
+      }
+      observer.observe(video);
     } else {
       // fallback: IntersectionObserver 없으면 바로 로드
       const source = document.createElement("source");
