@@ -25,7 +25,7 @@
     LABEL_MAP[lb] = {
       img:        `${BASE}${lb}.png`,
       imgBlack:   `${BASE}${lb}black.png`,     // e.g. thumpblack.png
-      video:      `${BASE}${lb}video.mp4`,     // e.g. thumpvideo.mp4
+      video:      `${BASE}${lb}.mp4`,          // e.g. thump.mp4
       videoBlack: `${BASE}${lb}black.mp4`,     // e.g. thumpblack.mp4
       audio:      `${BASE}${lb}.mp3`,          // e.g. thump.mp3
     };
@@ -35,7 +35,7 @@
   for (const jb of JIBS) {
     JIB_MAP[jb] = {
       img:   `${BASE}${jb}.png`,
-      video: `${BASE}${jb}video.mp4`,
+      video: `${BASE}${jb}.mp4`,               // e.g. bloom.mp4
     };
   }
 
