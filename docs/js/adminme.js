@@ -3043,12 +3043,12 @@
 
     function linkForLabel(label){
       const registered = isLabelRegistered(label);
-      const url = new URL(registered ? "./label.html" : "./aud.html", document.baseURI);
+      const url = new URL(registered ? "./labeladmin.html" : "./aud.html", document.baseURI);
       url.searchParams.set("label", label);
       return url.toString();
     }
     function linkForJib(kind){
-      const url = new URL("./jibbitz.html", document.baseURI);
+      const url = new URL("./jibbitzadmin.html", document.baseURI);
       url.searchParams.set("jib", kind);
       return url.toString();
     }
