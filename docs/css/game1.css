@@ -1343,7 +1343,7 @@ img.avatar.avatar--lg{ width: var(--avatar-lg); height: var(--avatar-lg); }
 }
 
 .signup-link {
-  color: #111;
+  color: #333;
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s ease, text-shadow 0.2s ease;
